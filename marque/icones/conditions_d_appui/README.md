@@ -25,4 +25,6 @@ Symboles :
 - **Translation et rotation libres** : aucun appui.
 - **Déformée** (flambement) : trait pointillé, comme dans le tableau A.4.
 
-Aperçu : `apercu.png`. Pas encore utilisées dans l'application : style à valider d'abord.
+Aperçu : `apercu.png`. Style validé (PR #92). Affichage : onglet Compression parallèle, une rangée par axe
+(b et d) avec un bouton (K_e) sous chaque icône, plus « Autre » (K_e entré) ; fonction
+`icones_des_degres_de_retenue()` de `moteur/commun/figures.py`.

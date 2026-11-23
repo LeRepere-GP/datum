@@ -588,3 +588,21 @@ def icone_de_l_article(
     """
     nom = _ICONES.get(article)
     return icone(nom, principale, accent) if nom else None
+
+
+def icones_des_degres_de_retenue(
+    principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+) -> list[str]:
+    """
+    Icônes des degrés de retenue aux extrémités du tableau A.4 (CSA O86:19, annexe A, p. 303-304),
+    dans l'ordre de la norme (issue #90) : marque/icones/conditions_d_appui/<n>_ke_<K_e>.svg.
+
+    Args:
+        principale (str, optional): Couleur de l'élément et des appuis. Default to celle de la marque.
+        accent (str, optional): Couleur d'accent. Default to celle de la marque.
+
+    Returns:
+        list[str]: SVG des 7 icônes, une par ligne du tableau A.4.
+    """
+    fichiers = sorted((DOSSIER_ICONES / "conditions_d_appui").glob("*_ke_*.svg"))
+    return [icone(f"conditions_d_appui/{f.stem}", principale, accent) for f in fichiers]

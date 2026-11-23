@@ -164,6 +164,19 @@ def K_C(
 
 
 # VÉRIFICATION
+def _donnee_K_e(symbole: str, axe: str, K_e: float, degre_de_retenue: str | None) -> Donnee:
+    """
+    Donnée K_e d'un axe pour la note de calcul (6.5.5.1 ; tableau A.4, annexe A informative ; issue #90) :
+    le degré de retenue choisi complète la description ; None : K_e entré par l'utilisateur.
+    """
+    description = f"Coefficient de longueur effective, flambage selon {axe}"
+    if degre_de_retenue is None:
+        return Donnee(symbole, description, K_e, source="Entré par l'utilisateur")
+    if degre_de_retenue:
+        description += f" ({degre_de_retenue[0].lower()}{degre_de_retenue[1:]})"
+    return Donnee(symbole, description, K_e, source="Tableau A.4")
+
+
 @enregistrer(EDITION, "6.5.5", "Résistance à la compression parallèle au fil")
 def verifier_compression_parallele_au_fil(
     b: float,
@@ -183,6 +196,8 @@ def verifier_compression_parallele_au_fil(
     P_f: float | None = None,
     source_resistances: str = "Tableaux 6.4 à 6.9",
     source_K_D: str = "Tableau 5.1",
+    degre_de_retenue_selon_b: str | None = "",
+    degre_de_retenue_selon_d: str | None = "",
 ) -> Resultat:
     """
     6.5.5.2 Résistance pondérée à la compression parallèle au fil d'un élément simple, selon les
@@ -205,6 +220,11 @@ def verifier_compression_parallele_au_fil(
             calcul (voir art_6_3.tableau_des_resistances()). Default to "Tableaux 6.4 à 6.9".
         source_K_D (str, optional): Source de K_D pour la note de calcul : « Tableau 5.1 », ou
             « 5.3.2.2 » si K_D est calculé à partir des charges. Default to "Tableau 5.1".
+        degre_de_retenue_selon_b, degre_de_retenue_selon_d (str | None, optional): Degré de retenue
+            aux extrémités choisi au tableau A.4 pour K_e(b) et K_e(d), pour la note de calcul
+            (issue #90) : texte exact du tableau, ajouté à la description (source « Tableau A.4 ») ;
+            None : K_e entré par l'utilisateur (source « Entré par l'utilisateur »). Default to ""
+            (source « Tableau A.4 », sans degré de retenue).
 
     Returns:
         Resultat: Trace du calcul. P_r de chaque axe en N ; vérification en kN.
@@ -221,10 +241,8 @@ def verifier_compression_parallele_au_fil(
                "longueur"),
         Donnee("L_{(d)}", "Entraxe des appuis latéraux, flambage selon d", L_selon_d, "mm",
                "longueur"),
-        Donnee("K_{e(b)}", "Coefficient de longueur effective, flambage selon b", K_e_selon_b,
-               source="Tableau A.4"),
-        Donnee("K_{e(d)}", "Coefficient de longueur effective, flambage selon d", K_e_selon_d,
-               source="Tableau A.4"),
+        _donnee_K_e("K_{e(b)}", "b", K_e_selon_b, degre_de_retenue_selon_b),
+        _donnee_K_e("K_{e(d)}", "d", K_e_selon_d, degre_de_retenue_selon_d),
         Donnee("f_c", "Résistance prévue en compression parallèle au fil", f_c, "MPa", "contrainte",
                source_resistances),
         Donnee("E_{05}", "Module d'élasticité pour les éléments en compression", E_05, "MPa",

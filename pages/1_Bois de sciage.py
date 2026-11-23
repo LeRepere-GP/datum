@@ -5,7 +5,12 @@ import streamlit as st
 import acces
 import config
 import datetime
-from moteur.commun.figures import figure, figure_avant_le_calcul, icone_de_l_article
+from moteur.commun.figures import (
+    figure,
+    figure_avant_le_calcul,
+    icone_de_l_article,
+    icones_des_degres_de_retenue,
+)
 from moteur.commun.note_de_calcul import (
     EnTete,
     nom_du_pdf,
@@ -22,6 +27,9 @@ from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances
     art_6_5_4_resistance_au_cisaillement as art_6_5_4,
     art_6_5_5_resistance_a_la_compression_parallele_au_fil as art_6_5_5,
     art_6_5_6_resistance_a_la_compression_perpendiculaire_au_fil as art_6_5_6,
+)
+from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.art_A_6_bois_de_sciage import (  # noqa: E501
+    art_A_6_5_5_1_coefficient_de_longueur_effective as art_A_6_5_5_1,
 )
 import sawn_lumber
 import general_design
@@ -494,6 +502,56 @@ def afficher_titre_de_l_onglet(titre: str, *articles: str) -> None:
         st.markdown(f"**{titre}**")
 
 
+def _choisir(cle: str, valeur: int | None) -> None:
+    st.session_state[cle] = valeur
+
+
+def choisir_les_degres_de_retenue() -> dict[str, str | None]:
+    """
+    Choix du degré de retenue aux extrémités pour le flambage selon b et selon d (tableau A.4, annexe A
+    informative, p. 303-304 ; issue #90) : une rangée des 7 icônes du tableau, avec un bouton sous
+    chacune (son K_e), et « Autre » pour entrer K_e. Streamlit n'accepte pas d'image dans une liste.
+    Par défaut : translation fixe et rotation libre aux deux extrémités (K_e = 1.00).
+
+    Returns:
+        dict[str, str | None]: Degré de retenue choisi pour chaque axe ("b", "d"), texte exact du
+            tableau A.4 ; None pour « Autre » (K_e entré par l'utilisateur).
+    """
+    degres = art_A_6_5_5_1.degres_de_retenue()
+    apparence = config.apparence_du_compte(st.session_state.get("compte", ""))
+    icones = icones_des_degres_de_retenue(apparence.principale, apparence.accent)
+    par_defaut = degres.index("Translation fixe et rotation libre aux deux extrémités")
+    choix = {}
+    for axe, nom in (("b", "largeur"), ("d", "hauteur")):
+        cle = f"cpa_degre_selon_{axe}"
+        st.session_state.setdefault(cle, par_defaut)
+        st.markdown(f"Conditions d'appui, flambage selon la {nom} ${axe}$ (tableau A.4)", width=650)
+        colonnes = st.columns(len(degres) + 1, width=650, vertical_alignment="bottom")
+        for i, (colonne, degre, svg) in enumerate(zip(colonnes, degres, icones)):
+            with colonne:
+                st.image(svg, width=56)
+                st.button(
+                    f"{art_A_6_5_5_1.K_e(degre):.2f}",
+                    key=f"{cle}_{i}",
+                    help=degre,
+                    type="primary" if st.session_state[cle] == i else "secondary",
+                    on_click=_choisir,
+                    args=(cle, i),
+                    width="stretch",
+                )
+        colonnes[-1].button(
+            "Autre",
+            key=f"{cle}_autre",
+            help="Entrer $K_e$",
+            type="primary" if st.session_state[cle] is None else "secondary",
+            on_click=_choisir,
+            args=(cle, None),
+            width="stretch",
+        )
+        choix[axe] = None if st.session_state[cle] is None else degres[st.session_state[cle]]
+    return choix
+
+
 # Onglets offerts au compte connecté (acces.py, ACCES_GROUPE_LANTIER.md ; issue #56)
 ONGLETS_POSSIBLES = {
     "flexion": "Moment de flexion",
@@ -779,6 +837,12 @@ if "compression_parallele" in ONGLETS:
                 e05 = compute_resistance[6]
                 axes = None
 
+                # Degré de retenue aux extrémités pour chaque axe (tableau A.4, annexe A informative ;
+                # issue #90, retour #16) : une rangée d'icônes, avec un bouton (K_e) sous chacune, et
+                # « Autre » pour entrer K_e. Par défaut : translation fixe et rotation libre aux deux
+                # extrémités (K_e = 1.00). Aucun avertissement avec « Autre » : choix de l'ingénieur.
+                degres = choisir_les_degres_de_retenue()
+
                 col1, col2 = st.columns(2, width=550)
                 with col1:
                     length = st.number_input(
@@ -790,38 +854,45 @@ if "compression_parallele" in ONGLETS:
                         help="Longueur réelle de l'élément, utilisée pour $K_{Zc}$ (6.5.5.2.4)",
                         icon=":material/straighten:",
                     )
-                    # Entraxe des appuis latéraux et K_e de chaque axe (6.5.5.1 : L_e = K_e L ; K_e en
-                    # chiffre, valeurs recommandées au tableau A.4, annexe A informative)
+                    # Entraxe des appuis latéraux et K_e de chaque axe (6.5.5.1 : L_e = K_e L)
                     entraxes = {}
                     for axe, nom, icone in (
                         ("b", "largeur", ":material/fit_page_width:"),
                         ("d", "hauteur", ":material/fit_page_height:"),
                     ):
                         colonne_l, colonne_k = st.columns([2, 1])
-                        entraxes[axe] = (
-                            colonne_l.number_input(
-                                f"Entraxe des appuis latéraux, flambage selon ${axe}$, "
-                                f"$L_{{({axe})}}$ (mm)",
-                                min_value=1,
-                                value=None,
-                                step=100,
-                                placeholder="Requis",
-                                key=f"cpa_L_selon_{axe}",
-                                help=f"""Entraxe des appuis latéraux pour le flambage selon la
-                                {nom} ${axe}$ (6.5.5.1)""",
-                                icon=icone,
-                            ),
-                            colonne_k.number_input(
+                        L_selon_axe = colonne_l.number_input(
+                            f"Entraxe des appuis latéraux, flambage selon ${axe}$, "
+                            f"$L_{{({axe})}}$ (mm)",
+                            min_value=1,
+                            value=None,
+                            step=100,
+                            placeholder="Requis",
+                            key=f"cpa_L_selon_{axe}",
+                            help=f"""Entraxe des appuis latéraux pour le flambage selon la
+                            {nom} ${axe}$ (6.5.5.1)""",
+                            icon=icone,
+                        )
+                        if degres[axe] is None:  # « Autre » : K_e entré par l'utilisateur
+                            K_e_selon_axe = colonne_k.number_input(
                                 f"$K_{{e({axe})}}$",
                                 min_value=0.10,
                                 value=1.00,
                                 step=0.05,
                                 format="%.2f",
                                 key=f"cpa_K_e_selon_{axe}",
-                                help="""Coefficient de longueur effective, $L_e = K_e L$ (6.5.5.1) ;
-                                valeurs recommandées selon les conditions d'appui : tableau A.4""",
-                            ),
-                        )
+                                help="Coefficient de longueur effective, $L_e = K_e L$ (6.5.5.1)",
+                            )
+                        else:
+                            K_e_selon_axe = art_A_6_5_5_1.K_e(degres[axe])
+                            colonne_k.number_input(
+                                f"$K_{{e({axe})}}$",
+                                value=K_e_selon_axe,
+                                format="%.2f",
+                                disabled=True,
+                                help=f"Tableau A.4 : {degres[axe]}",
+                            )
+                        entraxes[axe] = (L_selon_axe, K_e_selon_axe)
                     # Pas de L_b ni de L_d : L_b est la longueur d'appui dans la norme (6.5.6)
                     (L_selon_b, K_e_selon_b), (L_selon_d, K_e_selon_d) = entraxes["b"], entraxes["d"]
                     le_b = art_6_5_5.L_e(K_e_selon_b, L_selon_b) if L_selon_b is not None else None
@@ -878,6 +949,9 @@ if "compression_parallele" in ONGLETS:
                                     b=width, d=depth, L=length,
                                     L_selon_b=L_selon_b, L_selon_d=L_selon_d,
                                     K_e_selon_b=K_e_selon_b, K_e_selon_d=K_e_selon_d,
+                                    # Degré de retenue du tableau A.4 (None : K_e entré ; issue #90)
+                                    degre_de_retenue_selon_b=degres["b"],
+                                    degre_de_retenue_selon_d=degres["d"],
                                     f_c=compute_resistance[2], E_05=e05,
                                     K_D=kd, K_H=kh, K_Sc=ksc, K_T=kt, K_SE=kse, P_f=pf,
                                     source_resistances=SOURCE, source_K_D=SOURCE_KD,

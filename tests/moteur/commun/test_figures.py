@@ -314,3 +314,23 @@ def test_article_sans_icone():
 def test_icone_absente():
     with pytest.raises(FileNotFoundError):
         icone("n_existe_pas")
+
+
+def test_icones_des_degres_de_retenue():
+    """
+    Issue #90 : une icône par ligne du tableau A.4, dans l'ordre de la norme ; le K_e du nom du fichier
+    (ex. « 3_ke_1_00.svg ») est celui du tableau, aux couleurs du compte.
+    """
+    from moteur.commun.figures import icones_des_degres_de_retenue
+    from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.art_A_6_bois_de_sciage import (  # noqa: E501
+        art_A_6_5_5_1_coefficient_de_longueur_effective as art_A,
+    )
+
+    fichiers = sorted((DOSSIER_ICONES / "conditions_d_appui").glob("*_ke_*.svg"))
+    assert [f.stem.split("_")[0] for f in fichiers] == ["1", "2", "3", "4", "5", "6", "7"]
+    assert [float(f.stem.split("_ke_")[1].replace("_", ".")) for f in fichiers] == [
+        K_e for _, K_e in art_A.TABLEAU_A_4
+    ]
+    icones = icones_des_degres_de_retenue(principale="#112233")
+    assert len(icones) == len(art_A.TABLEAU_A_4) == 7
+    assert all("#112233" in i and "#233614" not in i for i in icones)

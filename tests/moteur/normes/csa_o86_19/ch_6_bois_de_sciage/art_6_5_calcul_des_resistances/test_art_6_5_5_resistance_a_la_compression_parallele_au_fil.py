@@ -109,6 +109,32 @@ def test_verification_K_e():
     assert r.etape("P_r").valeur == pytest.approx(30155, rel=1e-4)
 
 
+def test_source_de_K_e():
+    """
+    Issue #90 : le degré de retenue choisi au tableau A.4 complète la description de K_e (source
+    « Tableau A.4 ») ; None : K_e entré par l'utilisateur.
+    """
+    def donnee(r, symbole):
+        return [d for d in r.donnees if d.symbole == symbole][0]
+
+    r = _verifier()  # par défaut : tableau A.4, sans degré de retenue
+    assert donnee(r, "K_{e(b)}").source == donnee(r, "K_{e(d)}").source == "Tableau A.4"
+    assert donnee(r, "K_{e(b)}").description == "Coefficient de longueur effective, flambage selon b"
+    r = _verifier(
+        K_e_selon_d=0.60,
+        degre_de_retenue_selon_b="Translation fixe et rotation libre aux deux extrémités",
+        degre_de_retenue_selon_d=None,
+    )
+    assert donnee(r, "K_{e(b)}").source == "Tableau A.4"
+    assert donnee(r, "K_{e(b)}").description == (
+        "Coefficient de longueur effective, flambage selon b "
+        "(translation fixe et rotation libre aux deux extrémités)"
+    )
+    assert donnee(r, "K_{e(d)}").source == "Entré par l'utilisateur"
+    assert donnee(r, "K_{e(d)}").description == "Coefficient de longueur effective, flambage selon d"
+    assert donnee(r, "K_{e(d)}").valeur == 0.60
+
+
 def test_verification_trace():
     r = _verifier()
     assert r.norme == "CSA O86:19" and r.article == "6.5.5" and r.figure == "colonne"
