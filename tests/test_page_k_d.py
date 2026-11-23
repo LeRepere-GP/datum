@@ -135,7 +135,7 @@ def test_figures_avant_les_valeurs():
     assert any("Mf" in t for t in textes)  # 6.5.3
     assert any("Vf" in t and "dn" not in t for t in textes)  # 6.5.4.3
     assert any("dn" in t and "e" in t for t in textes)  # 6.5.4.4, figure 6.1
-    assert "PfLbd" in textes  # 6.5.5 : P_f, L, b, d
+    assert any("Pf" in t and "Ke(b)" in t and "L(d)" in t for t in textes)  # 6.5.5 (6.5.5.1)
     assert any("Lb" in t and "Rf" in t for t in textes)  # 6.5.6.2
     assert any("Lb1" in t and "Lb2" in t for t in textes)  # 6.5.6.3
     assert len(textes) == _images(at._tree)  # seulement des figures SVG, plus d'image PNG
@@ -164,3 +164,18 @@ def test_largeur_d_appui_preremplie():
     champ().set_value(50.0).run()  # mm
     [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0).run()  # mm
     assert champ().value == 50.0
+
+
+def test_compression_parallele_entraxes_et_k_e():
+    """La page demande L et K_e pour chaque axe (6.5.5.1) ; la figure de 6.5.5 s'affiche."""
+    at = _connecte("admin", "mot-admin")
+    [n for n in at.number_input if n.label.startswith("Longueur de l'élément")][0].set_value(3000)  # mm
+    [n for n in at.number_input if n.key == "cpa_L_selon_b"][0].set_value(1500)  # mm
+    [n for n in at.number_input if n.key == "cpa_L_selon_d"][0].set_value(3000)  # mm
+    [n for n in at.number_input if n.key == "cpa_K_e_selon_b"][0].set_value(0.80)
+    at.run()
+    assert not at.exception
+    assert any("Ke(b)" in t and "L(d)" in t for t in _figures_svg(at._tree))
+    # 2x6 (38 mm) : L_e(b) = K_e(b) L_(b) = 0.80 x 1500 mm = 1200 mm ; C_c = 1200 mm / 38 mm = 31.58
+    [n for n in at.number_input if n.label.startswith("$Pf")][0].set_value(5.0).run()  # kN
+    assert any("C_c = 31.58" in m.value for m in at.markdown)

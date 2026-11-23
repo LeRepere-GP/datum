@@ -177,7 +177,7 @@ def _donnees_communes(
     """Ajoute les données et les étapes F_cp et K_Zcp communes aux deux vérifications."""
     for donnee in (
         Donnee("b", "Largeur d'appui", b, "mm", "dimension"),
-        Donnee("b_{élément}", "Largeur de l'élément", largeur_element, "mm", "dimension"),
+        Donnee("", "Largeur de l'élément", largeur_element, "mm", "dimension"),
         Donnee("d", "Hauteur de l'élément", d, "mm", "dimension"),
         Donnee("f_{cp}", "Résistance prévue en compression perpendiculaire au fil", f_cp, "MPa",
                "contrainte", source_resistances),
@@ -196,7 +196,7 @@ def _donnees_communes(
     ))
     k_zcp = r.ajouter_etape(Etape(
         "6.5.6.4", "Coefficient de dimensions pour l'appui", "K_{Zcp}",
-        r"K_{Zcp} : \text{tableau 6.15, } b_{élément} / d",
+        r"K_{Zcp} : \text{tableau 6.15, largeur / hauteur}",
         rf"{cs(largeur_element)} / {cs(d)} = {cs(largeur_element / d)}",
         K_Zcp(largeur_element, d),
     ))
@@ -250,7 +250,7 @@ def verifier_compression_perpendiculaire_au_fil(
         r, b, largeur_element, d, f_cp, K_D, K_Scp, K_T, source_resistances, source_K_D
     )
     if plis > 1:
-        r.ajouter_donnee(Donnee("n", "Nombre de plis", plis))
+        r.ajouter_donnee(Donnee("", "Nombre de plis", plis))
     r.ajouter_donnee(Donnee("L_b", "Longueur d'appui", L_b, "mm", "dimension"))
 
     k_b = r.ajouter_etape(Etape(
@@ -324,7 +324,7 @@ def verifier_compression_perpendiculaire_pres_d_un_appui(
         r, b, largeur_element, d, f_cp, K_D, K_Scp, K_T, source_resistances, source_K_D
     )
     if plis > 1:
-        r.ajouter_donnee(Donnee("n", "Nombre de plis", plis))
+        r.ajouter_donnee(Donnee("", "Nombre de plis", plis))
     # Symboles de 6.5.6.3.2 : L_b1 = longueur d'appui la plus petite, L_b2 = la plus grande. À longueurs
     # égales, L_b1 est celle de la charge (sur le dessus), comme à la figure 6.2.
     if L_b_charge <= L_b_appui:

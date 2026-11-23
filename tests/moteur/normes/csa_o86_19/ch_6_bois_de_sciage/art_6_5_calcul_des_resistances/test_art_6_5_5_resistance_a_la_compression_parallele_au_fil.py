@@ -73,15 +73,15 @@ def test_P_r():
 
 
 def _verifier(**kwargs):
-    valeurs = dict(b=38, d=140, L=3000, L_b=1500, L_d=3000, f_c=11.5, E_05=6500)  # mm, MPa
+    valeurs = dict(b=38, d=140, L=3000, L_selon_b=1500, L_selon_d=3000, f_c=11.5, E_05=6500)  # mm, MPa
     valeurs.update(kwargs)
     return art.verifier_compression_parallele_au_fil(**valeurs)
 
 
 def test_verification_2x6():
     r = _verifier(P_f=10.0)
-    assert r.etape("P_{r,b}").valeur == pytest.approx(12620, rel=1e-3)  # axe faible gouverne
-    assert r.etape("P_{r,d}").valeur == pytest.approx(36206, rel=1e-3)
+    assert r.etape("P_{r(b)}").valeur == pytest.approx(12620, rel=1e-3)  # axe faible gouverne
+    assert r.etape("P_{r(d)}").valeur == pytest.approx(36206, rel=1e-3)
     assert r.etape("P_r").valeur == pytest.approx(12620, rel=1e-3)
     assert r.verification.ratio == pytest.approx(10 / 12.620, rel=1e-3)  # 10 kN / 12,62 kN = 79.24 %
     assert r.verification.respecte and r.verification.unite == "kN"
@@ -103,9 +103,9 @@ def test_verification_K_e():
     # K_e = 0,65 selon b : L_e = 0,65 x 1500 mm = 975 mm ; C_C = 975 mm / 38 mm = 25,658 ;
     # K_C = [1 + 11,5 MPa x 1,3 x 25,658^3 / 227 500 MPa]^-1 = 0,47393 ;
     # P_r,b = 0,8 x 11,5 MPa x 5320 mm² x 1,3 x 0,47393 = 30 155 N (< P_r,d = 36 206 N)
-    r = _verifier(K_e_b=0.65)
-    assert r.etape("L_{e,b}").valeur == pytest.approx(975)
-    assert r.etape("K_{C,b}").valeur == pytest.approx(0.47393, rel=1e-4)
+    r = _verifier(K_e_selon_b=0.65)
+    assert r.etape("L_{e(b)}").valeur == pytest.approx(975)
+    assert r.etape("K_{C(b)}").valeur == pytest.approx(0.47393, rel=1e-4)
     assert r.etape("P_r").valeur == pytest.approx(30155, rel=1e-4)
 
 
@@ -118,7 +118,7 @@ def test_verification_trace():
 
 def test_verification_elancement_trop_grand():
     with pytest.raises(ValueError):
-        _verifier(L_b=3000)  # 3000 mm / 38 mm = 78,9 > 50
+        _verifier(L_selon_b=3000)  # 3000 mm / 38 mm = 78,9 > 50
 
 
 def test_registre():
