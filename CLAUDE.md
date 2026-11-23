@@ -167,6 +167,11 @@ Chaque changement de calcul doit être vérifié dans **plusieurs scénarios** a
 - la page Streamlit est testée (pas d'exception, bon affichage) avec `streamlit.testing.v1.AppTest`
   en partant d'`Accueil.py` (point d'entrée, ouvre directement la page Bois de sciage). La connexion est exigée (`acces.py`) : dans les
   tests, définir `at.secrets["mots_de_passe"]` et se connecter (voir `tests/test_acces.py`).
+- **Rendu sur cellulaire** : tout changement d'interface est vérifié aussi sur un écran de cellulaire
+  (ex. Playwright avec `devices['iPhone 13']`), en plus de l'ordinateur : rien de coupé, pas de
+  défilement horizontal, éléments alignés (ex. une icône centrée au-dessus de son bouton). Éviter
+  `st.columns` pour une rangée de plusieurs petits éléments (les colonnes s'empilent sur un cellulaire) :
+  préférer `st.container(horizontal=True, wrap=True)`, qui passe à la ligne.
 - **Secrets** (mots de passe, jetons) : dans les secrets de Streamlit Cloud ou dans
   `.streamlit/secrets.toml` en local (ignoré par git). Jamais dans le code, une issue ou un commentaire.
 
