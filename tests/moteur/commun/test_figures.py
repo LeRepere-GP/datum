@@ -2,7 +2,7 @@
 
 import re
 
-from moteur.commun.figures import figure
+from moteur.commun.figures import figure, figure_avant_le_calcul
 from moteur.commun.resultat import Resultat
 from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances import (
     art_6_5_6_resistance_a_la_compression_perpendiculaire_au_fil as art_6_5_6,
@@ -210,3 +210,52 @@ def test_toutes_les_figures_ont_la_meme_largeur():
     for r in resultats:
         largeur = float(_re.search(r"viewBox='[-\d.]+ [-\d.]+ ([\d.]+)", figure(r)).group(1))
         assert 330 <= largeur <= 390
+
+
+# --- Figures avant le calcul (retours #9, #13 et #14 : afficher la figure avant d'entrer les valeurs)
+
+def test_figure_avant_le_calcul_de_chaque_verification():
+    """Chaque vérification a sa figure sans données : mêmes symboles qu'après le calcul."""
+    symboles = {
+        "6.5.3": ("Mf", "b", "d"),
+        "6.5.4.3": ("Vf", "b", "d"),
+        "6.5.4.4": ("dn", "e", "Vf", "b", "d"),
+        "6.5.5": ("Pf", "L(b)", "Ke(b)", "L(d)", "Ke(d)", "b", "d"),
+        "6.5.6.2": ("Lb", "Rf", "b", "d"),
+        "6.5.6.3": ("Lb1", "Lb2", "Pf", "b", "d"),
+    }
+    for article, attendus in symboles.items():
+        svg = figure_avant_le_calcul(article)
+        assert svg.startswith("<svg"), article
+        texte = _texte(svg)
+        for symbole in attendus:
+            assert symbole in texte, (article, symbole)
+        assert _sans_chiffres(texte, "Lb1", "Lb2"), article
+
+
+def test_figure_avant_le_calcul_plis():
+    # 1 pli par défaut, 3 plis : 3 pièces vues en bout, chacune avec un X
+    assert figure_avant_le_calcul("6.5.3").count("stroke-width='2.5'/><path") == 1
+    assert figure_avant_le_calcul("6.5.3", plis=3).count("stroke-width='2.5'/><path") == 3
+
+
+def test_figure_avant_le_calcul_appui_pleine_largeur():
+    # Sans b ni b_élément : l'appui a la largeur de la section (40 unités), pas plus étroit (28)
+    svg = figure_avant_le_calcul("6.5.6.2")
+    assert "width='28'" not in svg
+
+
+def test_figure_avant_le_calcul_l_b1_sur_le_dessus():
+    """Sans longueurs d'appui : L_b1 sur le dessus (charge), comme la figure 6.2 (p. 71)."""
+    svg = figure_avant_le_calcul("6.5.6.3")
+    assert svg.index(">L<tspan dy='4' font-size='75%'>b1<") < svg.index(">L<tspan dy='4' font-size='75%'>b2<")
+
+
+def test_figure_avant_le_calcul_couleurs_du_compte():
+    svg = figure_avant_le_calcul("6.5.3", principale="#123456", accent="#ABCDEF")
+    assert "#123456" in svg and "#ABCDEF" in svg
+
+
+def test_figure_avant_le_calcul_article_sans_figure():
+    assert figure_avant_le_calcul("6.5.8") is None
+    assert figure_avant_le_calcul("") is None

@@ -11,7 +11,7 @@ Aucune logique de calcul ici : les valeurs viennent telles quelles de la trace.
 
 from html import escape
 
-from moteur.commun.resultat import Resultat
+from moteur.commun.resultat import Donnee, Resultat
 
 COULEUR_PRINCIPALE = "#233614"  # élément et appuis (couleurs de la marque, marque/couleurs.md)
 COULEUR_ACCENT = "#9E5A00"  # charges et cotes
@@ -252,8 +252,12 @@ def compression_pres_d_un_appui(
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
     # 6.5.6.3.2 : L_b1 est la plus petite longueur d'appui, L_b2 la plus grande ; la trace indique
     # laquelle est celle de la charge (sur le dessus)
-    description_1 = next((d.description for d in resultat.donnees if d.symbole == "L_{b1}"), "")
-    L_b_charge, L_b_appui = ("L_b1", "L_b2") if "(charge)" in description_1 else ("L_b2", "L_b1")
+    # Sans longueurs d'appui (figure affichée avant le calcul) : L_b1 sur le dessus, comme la figure 6.2
+    description_1 = next((d.description for d in resultat.donnees if d.symbole == "L_{b1}"), None)
+    if description_1 is None or "(charge)" in description_1:
+        L_b_charge, L_b_appui = "L_b1", "L_b2"
+    else:
+        L_b_charge, L_b_appui = "L_b2", "L_b1"
 
     # Élévation : élément (y 82 à 128) coupé à gauche, appui sous l'extrémité droite (x 214 à 260),
     # élément appuyé sur le dessus (x 170 à 206) près de l'appui
@@ -497,3 +501,27 @@ def figure(
     """
     dessiner = _FIGURES.get(resultat.article)
     return dessiner(resultat, principale, accent) if dessiner else None
+
+
+def figure_avant_le_calcul(
+    article: str, plis: int = 1, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+) -> str | None:
+    """
+    Figure schématique d'une vérification pas encore faite (retours des utilisateurs : afficher la
+    figure avant d'entrer les valeurs). Les figures ne montrent que des symboles : seul le nombre de
+    plis est nécessaire. La largeur d'appui b est dessinée égale à la largeur de l'élément.
+
+    Args:
+        article (str): Article de la vérification (ex. "6.5.6.2").
+        plis (int, optional): Nombre de plis de l'élément. Default to 1.
+        principale (str, optional): Couleur de l'élément et des appuis. Default to celle de la marque.
+        accent (str, optional): Couleur des charges et des cotes. Default to celle de la marque.
+
+    Returns:
+        str | None: SVG de la figure, ou None si la vérification n'a pas encore de figure.
+    """
+    resultat = Resultat(
+        norme="", article=article, titre="",
+        donnees=[Donnee("", "Nombre de plis", plis)],  # pas de symbole dans la norme
+    )
+    return figure(resultat, principale, accent)

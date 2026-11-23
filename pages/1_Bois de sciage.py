@@ -5,7 +5,7 @@ import streamlit as st
 import acces
 import config
 import datetime
-from moteur.commun.figures import figure
+from moteur.commun.figures import figure, figure_avant_le_calcul
 from moteur.commun.note_de_calcul import (
     EnTete,
     nom_du_pdf,
@@ -464,11 +464,20 @@ SOURCE = tableau_des_resistances(CATEGORY)  # tableau des résistances prévues 
 
 
 def afficher_figures(*noms: str, largeur: int = 440) -> None:
-    """Figures schématiques des vérifications faites (issue #62), dans les couleurs du compte."""
+    """
+    Figures schématiques des vérifications (issue #62), dans les couleurs du compte. La figure est
+    affichée dès l'ouverture de l'onglet, avant d'entrer les valeurs (retours #9, #13 et #14) : elle
+    ne montre que des symboles. L'article est entre parenthèses à la fin du nom (ex. « (6.5.3) »).
+    """
     apparence = config.apparence_du_compte(st.session_state.get("compte", ""))
     for nom in noms:
         if nom in NOTE:
-            st.image(figure(NOTE[nom], apparence.principale, apparence.accent), width=largeur)
+            svg = figure(NOTE[nom], apparence.principale, apparence.accent)
+        else:
+            article = nom.rsplit("(", 1)[-1].rstrip(")")
+            svg = figure_avant_le_calcul(article, built_up, apparence.principale, apparence.accent)
+        if svg:
+            st.image(svg, width=largeur)
 
 
 # Onglets offerts au compte connecté (acces.py, ACCES_GROUPE_LANTIER.md ; issue #56)
@@ -536,7 +545,7 @@ if "flexion" in ONGLETS:
                 BLOCK = st.toggle(
                     "Entremises",
                     help=f"""Présence d'entretoises ou d'entremises dont l'espacement ne dépasse pas
-                    huit fois la hauteur de la section de l'élément -> $ 8 \\cdot d = {8*depth} $
+                    huit fois la hauteur de la section de l'élément -> $8 \\cdot d = {8 * depth:.0f}$
                     mm c/c""",
                 )
                 TEN_EDGE = st.toggle(
@@ -632,7 +641,7 @@ if "cisaillement" in ONGLETS:
                     max_value=int(0.25 * depth),
                     value=None,
                     placeholder="Optionnel",
-                    help=f"Ne doit pas dépasser $ 0,25 \\cdot d = {0.25*depth} $ mm",
+                    help=f"Ne doit pas dépasser $0.25 \\cdot d = {0.25 * depth:.1f}$ mm (6.5.4.4.2)",
                     icon=":material/height:",
                 )
                 notch_length = st.number_input(
@@ -642,7 +651,6 @@ if "cisaillement" in ONGLETS:
                     placeholder="Optionnel",
                     icon=":material/arrow_range:",
                 )
-                st.image("images/notch_2_NoBckgrd.png")
 
             with col2:
                 vf = st.number_input(
@@ -942,14 +950,17 @@ if "compression_perpendiculaire" in ONGLETS:
 
             col1, col2 = st.columns(2, width=550)
             with col1:
+                # Préremplie avec la largeur de l'élément, mise à jour quand l'élément change (retour #15)
+                if st.session_state.get("cp_largeur_element") != member_width:
+                    st.session_state["cp_largeur_element"] = member_width
+                    st.session_state["cp_bearing_width"] = float(member_width)
                 bearing_width_input = st.number_input(
                     "Largeur d'appui, $b$ (mm)",
                     min_value=1.0,
-                    value=None,
                     step=1.0,
                     placeholder=f"Largeur de l'élément = {member_width} mm",
                     key="cp_bearing_width",
-                    help="Optionnel : si vide, la largeur de l'élément est utilisée",
+                    help="Par défaut, la largeur de l'élément. Si vide, la largeur de l'élément est utilisée.",
                     icon=":material/fit_page_width:",
                 )
                 bearing_width = member_width

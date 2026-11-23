@@ -326,6 +326,9 @@ la charge P_f, la longueur L et la section b × d.
   trace (`Resultat`) et retourne le SVG dans les couleurs du compte (None si la vérification n'a pas
   encore de figure). Les cotes donnent les **symboles** des variables du calcul, **sans valeurs** :
   les valeurs sont dans le tableau des données (issue #62).
+- Dans l'interface, la figure est affichée **dès l'ouverture de l'onglet**, avant d'entrer les valeurs :
+  `figure_avant_le_calcul(article, plis, principale, accent)` la dessine sans trace (seul le nombre de
+  plis est nécessaire). Une fois la vérification faite, la figure tirée de la trace la remplace.
 - Petites icônes des types de calcul (sans texte) : `marque/icones/`.
 - Convention de dessin : une pièce de bois **vue en bout** (fil d'extrémité) porte un **X** (figure 6.1 de
   la norme) ; vue de côté, un rectangle simple. Les **appuis** sont hachurés (appui quelconque, pas

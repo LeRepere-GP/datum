@@ -62,12 +62,16 @@ def _images(noeud) -> int:
 
 
 def test_figure_de_la_compression_perpendiculaire():
-    """Issue #62 : la figure de 6.5.6.2 s'affiche dans l'onglet une fois L_b entrée."""
+    """
+    Issue #62 et retour #14 : la figure de 6.5.6.2 s'affiche dès l'ouverture de l'onglet, avant
+    d'entrer L_b, puis reste affichée (la même figure, tirée du calcul).
+    """
     at = _connecte("admin", "mot-admin")
+    assert any("Lb" in t and "Rf" in t for t in _figures_svg(at._tree))
     avant = _images(at._tree)
     [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0).run()  # mm
     assert not at.exception
-    assert _images(at._tree) == avant + 1
+    assert _images(at._tree) == avant
 
 
 def test_figure_d_un_element_compose():
@@ -80,14 +84,18 @@ def test_figure_d_un_element_compose():
 
 
 def test_figure_de_la_compression_pres_d_un_appui():
-    """Issue #62 : la figure de 6.5.6.3 s'ajoute une fois les deux longueurs d'appui entrées."""
+    """
+    Issue #62 et retour #14 : la figure de 6.5.6.3 s'affiche avant d'entrer les longueurs d'appui,
+    puis reste affichée une fois les deux longueurs entrées.
+    """
     at = _connecte("admin", "mot-admin")
+    assert any("Lb1" in t and "Lb2" in t for t in _figures_svg(at._tree))
     [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0).run()  # mm
     avant = _images(at._tree)
     [c for c in at.checkbox if c.key == "cp_near_load"][0].check().run()
     [n for n in at.number_input if n.key == "cp_load_length"][0].set_value(38.0).run()  # mm
     assert not at.exception
-    assert _images(at._tree) == avant + 1
+    assert _images(at._tree) == avant
 
 
 def _figures_svg(noeud) -> list[str]:
@@ -113,6 +121,49 @@ def test_figures_de_la_flexion_et_du_cisaillement():
     textes = _figures_svg(at._tree)
     assert any("Mf" in t for t in textes)  # 6.5.3
     assert any("Vf" in t and "dn" not in t for t in textes)  # 6.5.4.3
+
+
+def test_figures_avant_les_valeurs():
+    """
+    Retours #9, #11 et #13 : à l'ouverture, sans valeurs entrées, chaque onglet affiche sa figure :
+    flexion, cisaillement, entaille (d_n, e), compression parallèle, compression perpendiculaire et
+    compression près d'un appui. L'ancienne image de l'entaille (PNG) n'est plus affichée.
+    """
+    at = _connecte("admin", "mot-admin")
+    assert not at.exception
+    textes = _figures_svg(at._tree)
+    assert any("Mf" in t for t in textes)  # 6.5.3
+    assert any("Vf" in t and "dn" not in t for t in textes)  # 6.5.4.3
+    assert any("dn" in t and "e" in t for t in textes)  # 6.5.4.4, figure 6.1
+    assert any("Pf" in t and "Ke(b)" in t and "L(d)" in t for t in textes)  # 6.5.5 (6.5.5.1)
+    assert any("Lb" in t and "Rf" in t for t in textes)  # 6.5.6.2
+    assert any("Lb1" in t and "Lb2" in t for t in textes)  # 6.5.6.3
+    assert len(textes) == _images(at._tree)  # seulement des figures SVG, plus d'image PNG
+
+
+def test_aide_de_la_profondeur_de_l_entaille():
+    """Retour #18 : l'aide de d_n est en LaTeX valide (pas d'espace après « $ »), avec un point."""
+    at = _connecte("admin", "mot-admin")
+    aide = [n for n in at.number_input if n.label.startswith("Profondeur de l'entaille")][0].help
+    # 2x6 : d = 140 mm ; 0.25 x 140 mm = 35.0 mm (1.38 po)
+    assert aide == "Ne doit pas dépasser $0.25 \\cdot d = 35.0$ mm (6.5.4.4.2)"
+
+
+def test_largeur_d_appui_preremplie():
+    """
+    Retour #15 : la largeur d'appui b est préremplie avec la largeur de l'élément, et suit un
+    changement du nombre de plis.
+    """
+    at = _connecte("admin", "mot-admin")
+    champ = lambda: [n for n in at.number_input if n.key == "cp_bearing_width"][0]  # noqa: E731
+    assert champ().value == 38.0  # 2x6 : b = 38 mm (1.50 po)
+    [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(2).run()
+    assert not at.exception
+    assert champ().value == 76.0  # 2 plis x 38 mm = 76 mm (2.99 po)
+    # Une valeur entrée par l'utilisateur est gardée tant que l'élément ne change pas
+    champ().set_value(50.0).run()  # mm
+    [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0).run()  # mm
+    assert champ().value == 50.0
 
 
 def test_compression_parallele_entraxes_et_k_e():
