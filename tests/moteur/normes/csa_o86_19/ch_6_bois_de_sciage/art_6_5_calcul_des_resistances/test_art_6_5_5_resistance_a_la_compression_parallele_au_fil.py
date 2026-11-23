@@ -111,27 +111,19 @@ def test_verification_K_e():
 
 def test_source_de_K_e():
     """
-    Issue #90 : le degré de retenue choisi au tableau A.4 complète la description de K_e (source
-    « Tableau A.4 ») ; None : K_e entré par l'utilisateur.
+    Issue #90 : K_e(b) et K_e(d) ont la description courte « Coefficient de longueur effective » (le
+    symbole donne l'axe) et la source « Tableau A.4 » ou « Entré par l'utilisateur ».
     """
     def donnee(r, symbole):
         return [d for d in r.donnees if d.symbole == symbole][0]
 
-    r = _verifier()  # par défaut : tableau A.4, sans degré de retenue
-    assert donnee(r, "K_{e(b)}").source == donnee(r, "K_{e(d)}").source == "Tableau A.4"
-    assert donnee(r, "K_{e(b)}").description == "Coefficient de longueur effective, flambage selon b"
-    r = _verifier(
-        K_e_selon_d=0.60,
-        degre_de_retenue_selon_b="Translation fixe et rotation libre aux deux extrémités",
-        degre_de_retenue_selon_d=None,
-    )
+    r = _verifier()
+    for symbole in ("K_{e(b)}", "K_{e(d)}"):
+        assert donnee(r, symbole).description == "Coefficient de longueur effective"
+        assert donnee(r, symbole).source == "Tableau A.4"
+    r = _verifier(K_e_selon_d=0.60, source_K_e_selon_d="Entré par l'utilisateur")
     assert donnee(r, "K_{e(b)}").source == "Tableau A.4"
-    assert donnee(r, "K_{e(b)}").description == (
-        "Coefficient de longueur effective, flambage selon b "
-        "(translation fixe et rotation libre aux deux extrémités)"
-    )
     assert donnee(r, "K_{e(d)}").source == "Entré par l'utilisateur"
-    assert donnee(r, "K_{e(d)}").description == "Coefficient de longueur effective, flambage selon d"
     assert donnee(r, "K_{e(d)}").valeur == 0.60
 
 

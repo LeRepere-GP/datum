@@ -526,30 +526,38 @@ def choisir_les_degres_de_retenue() -> dict[str, str | None]:
         cle = f"cpa_degre_selon_{axe}"
         st.session_state.setdefault(cle, par_defaut)
         st.markdown(f"Conditions d'appui, flambage selon la {nom} ${axe}$ (tableau A.4)", width=650)
-        colonnes = st.columns(len(degres) + 1, width=650, vertical_alignment="bottom")
-        for i, (colonne, degre, svg) in enumerate(zip(colonnes, degres, icones)):
-            with colonne:
-                st.image(svg, width=56)
+        # Une case par icône (icône centrée au-dessus de son bouton) ; les cases passent à la ligne sur
+        # un écran étroit (cellulaire), au lieu de s'empiler en colonne comme st.columns
+        with st.container(horizontal=True, wrap=True, gap="small", width=650):
+            for i, (degre, svg) in enumerate(zip(degres, icones)):
+                with st.container(width=68, horizontal_alignment="center", gap="small"):
+                    st.image(svg, width=56)
+                    st.button(
+                        f"{art_A_6_5_5_1.K_e(degre):.2f}",
+                        key=f"{cle}_{i}",
+                        help=degre,
+                        type="primary" if st.session_state[cle] == i else "secondary",
+                        on_click=_choisir,
+                        args=(cle, i),
+                        width="stretch",
+                    )
+            with st.container(width=68, height="stretch", vertical_alignment="bottom"):
                 st.button(
-                    f"{art_A_6_5_5_1.K_e(degre):.2f}",
-                    key=f"{cle}_{i}",
-                    help=degre,
-                    type="primary" if st.session_state[cle] == i else "secondary",
+                    "Autre",
+                    key=f"{cle}_autre",
+                    help="Entrer $K_e$",
+                    type="primary" if st.session_state[cle] is None else "secondary",
                     on_click=_choisir,
-                    args=(cle, i),
+                    args=(cle, None),
                     width="stretch",
                 )
-        colonnes[-1].button(
-            "Autre",
-            key=f"{cle}_autre",
-            help="Entrer $K_e$",
-            type="primary" if st.session_state[cle] is None else "secondary",
-            on_click=_choisir,
-            args=(cle, None),
-            width="stretch",
-        )
         choix[axe] = None if st.session_state[cle] is None else degres[st.session_state[cle]]
     return choix
+
+
+def source_du_K_e(degre_de_retenue: str | None) -> str:
+    """Source de K_e pour la note de calcul (issue #90) : tableau A.4, ou None pour « Autre »."""
+    return "Tableau A.4" if degre_de_retenue is not None else "Entré par l'utilisateur"
 
 
 # Onglets offerts au compte connecté (acces.py, ACCES_GROUPE_LANTIER.md ; issue #56)
@@ -949,9 +957,9 @@ if "compression_parallele" in ONGLETS:
                                     b=width, d=depth, L=length,
                                     L_selon_b=L_selon_b, L_selon_d=L_selon_d,
                                     K_e_selon_b=K_e_selon_b, K_e_selon_d=K_e_selon_d,
-                                    # Degré de retenue du tableau A.4 (None : K_e entré ; issue #90)
-                                    degre_de_retenue_selon_b=degres["b"],
-                                    degre_de_retenue_selon_d=degres["d"],
+                                    # K_e du tableau A.4 ou entré (« Autre ») ; issue #90
+                                    source_K_e_selon_b=source_du_K_e(degres["b"]),
+                                    source_K_e_selon_d=source_du_K_e(degres["d"]),
                                     f_c=compute_resistance[2], E_05=e05,
                                     K_D=kd, K_H=kh, K_Sc=ksc, K_T=kt, K_SE=kse, P_f=pf,
                                     source_resistances=SOURCE, source_K_D=SOURCE_KD,
