@@ -157,17 +157,19 @@ def _verification(v: Verification) -> dict:
 
 def formater_ligne_du_resume(ligne: LigneDuResume) -> dict:
     """
-    Ligne du résumé (issue #85) en texte, avec les deux unités comme ailleurs dans la note. Sert à la
-    page résumé de la note et au tableau « Résumé » de l'interface (mêmes valeurs aux deux endroits).
+    Ligne du résumé (issue #85) en texte. Charges et résistances pondérées en métrique seulement, pour
+    garder le tableau compact (demande de l'utilisateur, PR #93) ; les pages de vérification gardent les
+    deux unités. Sert à la page résumé de la note et au tableau « Résumé » de l'interface (mêmes valeurs
+    aux deux endroits).
     """
     return {
         "element": ligne.element,
         "titre": ligne.titre,
         "article": ligne.article,
         "symbole_charge": ligne.symbole_charge,
-        "charge": formater_resultat(ligne.charge, ligne.unite, ligne.grandeur),
+        "charge": formater_resultat(ligne.charge, ligne.unite),
         "symbole_resistance": ligne.symbole_resistance,
-        "resistance": formater_resultat(ligne.resistance, ligne.unite, ligne.grandeur),
+        "resistance": formater_resultat(ligne.resistance, ligne.unite),
         "ratio": f"{ligne.ratio * 100:.2f} %" if ligne.resistance > 0 else "—",
         "respecte": ligne.respecte,
         "statut": "Conforme" if ligne.respecte else "Non conforme",

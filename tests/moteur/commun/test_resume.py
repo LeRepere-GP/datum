@@ -86,8 +86,9 @@ def test_page_resume_de_la_note():
     assert [l["ratio"] for l in lignes] == ["97.90 %", "122.37 %"]
     assert [l["statut"] for l in lignes] == ["Conforme", "Non conforme"]
     assert [l["gouverne"] for l in lignes] == [False, True]
-    assert lignes[0]["charge"].startswith("4.00 kN·m (")  # deux unités
-    assert lignes[0]["resistance"].startswith("4.09 kN·m (")
+    # Métrique seulement dans le résumé (PR #93) ; 4 085 877 N·mm = 4.09 kN·m (3 chiffres significatifs)
+    assert lignes[0]["charge"] == "4.00 kN·m"
+    assert lignes[0]["resistance"] == "4.09 kN·m"
     assert (lignes[0]["symbole_charge"], lignes[0]["article"]) == ("M_f", "6.5.3")
     pdf = produire_pdf([("2x10", flexion(4.0)), ("2x10", flexion(5.0))], entete)
     assert pdf.startswith(b"%PDF")

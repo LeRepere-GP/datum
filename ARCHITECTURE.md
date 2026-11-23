@@ -306,7 +306,8 @@ Cette trace est la **source unique** pour :
 5. la vérification finale (ratio en %, respecté ou dépassé).
 
 **Page résumé** (issue #85), au début de la note s'il y a 2 vérifications ou plus : une ligne par
-vérification (vérification, article, charge pondérée, résistance pondérée, ratio, statut), la vérification
+vérification (vérification, article, charge pondérée, résistance pondérée, ratio, statut ; charges et
+résistances en métrique seulement, pour garder le tableau compact), la vérification
 qui gouverne (ratio le plus élevé) en gras, et le renvoi à sa page. Les lignes viennent de
 `moteur/commun/resume.py` (aucun nouveau calcul) ; le même tableau est affiché dans l'interface, au-dessus
 de la note de calcul.

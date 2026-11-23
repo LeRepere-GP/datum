@@ -27,3 +27,14 @@ def test_resume_de_deux_verifications():
     assert sum(l.count("**") > 0 for l in lignes) == 1
     assert all("✔ Conforme" in l for l in lignes)
     assert any("Résumé" == s.value for s in at.subheader)
+
+
+def test_resume_en_metrique_seulement():
+    """PR #93 : charges et résistances du résumé en métrique seulement (pas d'impérial entre parenthèses)."""
+    at = _connecte("admin", "mot-admin")
+    [n for n in at.number_input if n.label.startswith("$Vf")][0].set_value(1.0)  # kN
+    at.run()
+    (tableau,) = _resume(at)
+    ligne = tableau.splitlines()[2]
+    assert "= 1.00 kN" in ligne  # V_f = 1.00 kN
+    assert "lb" not in ligne and "(" not in ligne
