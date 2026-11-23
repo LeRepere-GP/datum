@@ -390,13 +390,48 @@ def cisaillement_a_l_entaille(
     )
 
 
+def _poteau(x: float, entraxe: float | None, L: float | None, symbole_entraxe: str, symbole_k_e: str,
+            principale: str, accent: str) -> str:
+    """
+    Une vue du poteau (y 30 à 190) pour le flambage selon un axe : appuis latéraux (hachurés) en tête
+    et, si l'entraxe est plus petit que L, à mi-hauteur ; déformée de flambage entre les appuis ; cote
+    de l'entraxe (L_b ou L_d) et K_e sous la vue.
+    """
+    pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
+    intermediaire = entraxe is not None and L is not None and entraxe < L
+    y_appui = 110 if intermediaire else 30  # haut du tronçon coté
+    svg = (
+        f"<path d='M{x + 12} 4 V28 M{x + 6} 21 L{x + 12} 28 L{x + 18} 21' stroke='{accent}' "
+        f"stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/>"
+        + f"<rect x='{x}' y='30' width='24' height='160' stroke='{principale}' stroke-width='2.5'/>"
+        + _hachures(x - 12, 190, 48, 14, principale)
+        + _hachures(x + 24, 26, 12, 10, principale)  # appui latéral en tête
+    )
+    if intermediaire:
+        svg += _hachures(x + 24, 105, 12, 10, principale)  # appui latéral intermédiaire
+        courbes = f"M{x - 2} 32 Q{x - 14} 71 {x - 2} 108 M{x - 2} 112 Q{x - 14} 151 {x - 2} 188"
+    else:
+        courbes = f"M{x - 2} 32 Q{x - 20} 110 {x - 2} 188"
+    svg += f"<path d='{courbes}' stroke='{principale}' stroke-width='1.2' stroke-dasharray='4 4'/>"
+    # Entraxe des appuis latéraux, à gauche (déformée entre les deux)
+    svg += (
+        f"<path d='M{x - 4} {y_appui} H{x - 32} M{x - 4} 190 H{x - 32}' {pointille}/>"
+        + _cote_verticale(x - 28, y_appui, 190, accent)
+        + _etiquette(x - 34, (y_appui + 190) / 2 + 6, symbole_entraxe, ancre="end")
+        + _etiquette(x + 12, 226, symbole_k_e)
+    )
+    return svg
+
+
 def compression_parallele(
     resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
 ) -> str:
     """
     Figure de 6.5.5 (compression parallèle au fil) : poteau de longueur L sous la charge pondérée P_f
-    (P_f ≤ P_r), avec sa déformée de flambage (pointillé). À droite, la section : b et d (flambage
-    vérifié selon les deux axes, 6.5.5.2.1).
+    (P_f ≤ P_r), vu pour le flambage selon b puis selon d (6.5.5.2.1 : P_r vérifiée pour les deux axes).
+    Chaque vue montre l'entraxe des appuis latéraux (L_b, L_d) et son coefficient de longueur effective
+    (K_e,b, K_e,d ; L_e = K_e L, 6.5.5.1), avec un appui latéral intermédiaire si l'entraxe est plus
+    petit que L. À droite, la section : b et d.
 
     Args:
         resultat (Resultat): Trace de verifier_compression_parallele_au_fil().
@@ -407,23 +442,20 @@ def compression_parallele(
         str: SVG de la figure.
     """
     plis = int(_donnee(resultat, "n") or 1)
+    L, L_b, L_d = (_donnee(resultat, s) for s in ("L", "L_b", "L_d"))
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
     elevation = (
-        f"<path d='M60 4 V28 M54 21 L60 28 L66 21' stroke='{accent}' stroke-width='2.2' "
-          f"stroke-linecap='round' stroke-linejoin='round'/>"
-        + _etiquette(70, 20, "P_f", ancre="start")
-        + f"<rect x='48' y='30' width='24' height='150' stroke='{principale}' stroke-width='2.5'/>"
-        + _hachures(36, 180, 48, 14, principale)
-        + f"<path d='M42 32 Q24 105 42 178' stroke='{principale}' stroke-width='1.2' "
-          f"stroke-dasharray='4 4'/>"
-        # Longueur L
-        + f"<path d='M74 30 H104 M74 180 H104' {pointille}/>"
-        + _cote_verticale(98, 30, 180, accent)
-        + _etiquette(106, 110, "L", ancre="start")
+        _etiquette(56, 20, "P_f", ancre="start")
+        + _poteau(30, L_b, L, "L_b", "K_e,b", principale, accent)
+        + _poteau(150, L_d, L, "L_d", "K_e,d", principale, accent)
+        # Longueur L de l'élément, à droite de la deuxième vue
+        + f"<path d='M188 30 H214 M188 190 H214' {pointille}/>"
+        + _cote_verticale(208, 30, 190, accent)
+        + _etiquette(216, 116, "L", ancre="start")
     )
     return (
-        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='-40 0 360 200' fill='none'>"
-        f"{elevation}{_section_seule(170, 70, plis, principale, accent)}</svg>"
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='-30 0 390 236' fill='none'>"
+        f"{elevation}{_section_seule(250, 80, plis, principale, accent)}</svg>"
     )
 
 

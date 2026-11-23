@@ -113,3 +113,18 @@ def test_figures_de_la_flexion_et_du_cisaillement():
     textes = _figures_svg(at._tree)
     assert any("Mf" in t for t in textes)  # 6.5.3
     assert any("Vf" in t and "dn" not in t for t in textes)  # 6.5.4.3
+
+
+def test_compression_parallele_entraxes_et_k_e():
+    """La page demande L_b, L_d et K_e (6.5.5.1) ; la figure de 6.5.5 s'affiche."""
+    at = _connecte("admin", "mot-admin")
+    [n for n in at.number_input if n.label.startswith("Longueur de l'élément")][0].set_value(3000)  # mm
+    [n for n in at.number_input if n.key == "cpa_L_b"][0].set_value(1500)  # mm
+    [n for n in at.number_input if n.key == "cpa_L_d"][0].set_value(3000)  # mm
+    [n for n in at.number_input if n.key == "cpa_K_e_b"][0].set_value(0.80)
+    at.run()
+    assert not at.exception
+    assert any("Ke,b" in t and "Ld" in t for t in _figures_svg(at._tree))
+    # 2x6 (38 mm) : L_e,b = K_e L_b = 0.80 x 1500 mm = 1200 mm ; C_c = 1200 mm / 38 mm = 31.58
+    [n for n in at.number_input if n.label.startswith("$Pf")][0].set_value(5.0).run()  # kN
+    assert any("C_c = 31.58" in m.value for m in at.markdown)

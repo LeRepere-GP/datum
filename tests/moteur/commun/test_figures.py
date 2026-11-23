@@ -175,10 +175,24 @@ def test_compression_parallele():
     r = art_6_5_5.verifier_compression_parallele_au_fil(
         b=89, d=89, L=3000, L_b=3000, L_d=3000, f_c=11.5, E_05=6500, P_f=10  # mm ; MPa ; kN
     )
-    texte = _texte(figure(r))
-    for symbole in ("Pf", "L", "b", "d"):
+    svg = figure(r)
+    texte = _texte(svg)
+    for symbole in ("Pf", "L", "Lb", "Ld", "Ke,b", "Ke,d", "b", "d"):
         assert symbole in texte
     assert _sans_chiffres(texte)
+    # L_b = L_d = L : pas d'appui latéral intermédiaire (2 appuis latéraux en tête seulement)
+    assert svg.count("y='105'") == 0
+
+
+def test_compression_parallele_appui_lateral_intermediaire():
+    # L_b = 1500 mm < L = 3000 mm : appui latéral intermédiaire dans la vue selon b seulement
+    r = art_6_5_5.verifier_compression_parallele_au_fil(
+        b=38, d=140, L=3000, L_b=1500, L_d=3000, f_c=11.5, E_05=6500, K_e_b=0.8  # mm ; MPa
+    )
+    svg = figure(r)
+    assert svg.count("y='105'") == 1
+    # K_e,b entré en chiffre est dans la trace (6.5.5.1 : L_e = K_e L = 0.8 x 1500 mm = 1200 mm)
+    assert r.etape("L_{e,b}").valeur == 1200
 
 
 def test_toutes_les_figures_ont_la_meme_largeur():
