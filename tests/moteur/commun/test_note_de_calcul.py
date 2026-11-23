@@ -224,3 +224,20 @@ def test_figure_schematique_dans_la_note():
     assert note["resultats"][0]["figure_svg"].startswith("<svg")
     assert "#112233" in note["resultats"][0]["figure_svg"]
     assert produire_pdf([("2x8", r)], EnTete()).startswith(b"%PDF")
+
+
+def test_icone_a_cote_du_titre():
+    """Issue #89 : l'icône de la vérification est dans les données de la note, aux couleurs du compte."""
+    note = donnees_de_la_note(
+        [("2x10", flexion())], EnTete(), Apparence(principale="#112233", accent="#AA5500")
+    )
+    svg = note["resultats"][0]["icone_svg"]
+    assert svg.lstrip().startswith("<svg") and "#112233" in svg and "#AA5500" in svg
+    assert produire_pdf([("2x10", flexion())], ENTETE).startswith(b"%PDF")
+
+
+def test_verification_sans_icone():
+    r = flexion()
+    r.article = "6.5.7"  # compression oblique : pas d'icône
+    assert donnees_de_la_note([("2x10", r)], EnTete())["resultats"][0]["icone_svg"] is None
+    assert produire_pdf([("2x10", r)], ENTETE).startswith(b"%PDF")
