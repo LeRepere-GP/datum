@@ -142,6 +142,14 @@ def configurer_page(titre_page: str) -> None:
             background-color: {eclaircir(apparence.principale, 0.20)};
             border-color: {eclaircir(apparence.principale, 0.50)};
         }}
+        /* Listes déroulantes de la barre latérale (ex. « Norme et édition ») : fond pâle et texte
+           foncé, sinon le texte pâle de la barre latérale est illisible sur le fond pâle (retour #17) */
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] [role="group"],
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] [role="group"] :is(button, input, div, span) {{
+            background-color: #FFFFFF !important; color: #333333 !important;
+            -webkit-text-fill-color: #333333 !important; border-color: #FFFFFF !important;
+        }}
+        [data-testid="stSelectboxVirtualDropdown"] [role="option"] {{ color: #333333 !important; }}
         [data-testid="stBaseButton-primary"] {{
             background-color: {apparence.accent}; border-color: {apparence.accent};
             color: {couleur_du_texte(apparence.accent)};
