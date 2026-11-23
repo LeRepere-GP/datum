@@ -169,12 +169,12 @@ def verifier_compression_parallele_au_fil(
     b: float,
     d: float,
     L: float,
-    L_b: float,
-    L_d: float,
+    L_selon_b: float,
+    L_selon_d: float,
     f_c: float,
     E_05: float,
-    K_e_b: float = 1,
-    K_e_d: float = 1,
+    K_e_selon_b: float = 1,
+    K_e_selon_d: float = 1,
     K_D: float = 1,
     K_H: float = 1,
     K_Sc: float = 1,
@@ -192,12 +192,13 @@ def verifier_compression_parallele_au_fil(
         b (float): Largeur de l'élément, mm.
         d (float): Hauteur de l'élément, mm.
         L (float): Longueur de l'élément, mm (pour K_Zc).
-        L_b (float): Entraxe des appuis latéraux pour le flambage selon b, mm (pour L_e).
-        L_d (float): Entraxe des appuis latéraux pour le flambage selon d, mm (pour L_e).
+        L_selon_b (float): L de 6.5.5.1 pour le flambage selon b : entraxe des appuis latéraux dans ce
+            plan de flambage (note du tableau A.4), mm. Symbole affiché : L_(b).
+        L_selon_d (float): L de 6.5.5.1 pour le flambage selon d, mm. Symbole affiché : L_(d).
         f_c (float): Résistance prévue en compression parallèle au fil, MPa.
         E_05 (float): Module d'élasticité pour les éléments en compression, MPa.
-        K_e_b, K_e_d (float, optional): Coefficients de longueur effective selon b et selon d
-            (tableau A.4). Default to 1.
+        K_e_selon_b, K_e_selon_d (float, optional): K_e de 6.5.5.1 pour le flambage selon b et selon
+            d (valeurs du tableau A.4). Symboles affichés : K_e(b), K_e(d). Default to 1.
         K_D, K_H, K_Sc, K_T, K_SE (float, optional): Coefficients de correction. Default to 1.
         P_f (float | None, optional): Charge de compression axiale pondérée, kN. Default to None.
         source_resistances (str, optional): Tableau des résistances prévues (6.3), pour la note de
@@ -216,10 +217,14 @@ def verifier_compression_parallele_au_fil(
         Donnee("b", "Largeur de l'élément", b, "mm", "dimension"),
         Donnee("d", "Hauteur de l'élément", d, "mm", "dimension"),
         Donnee("L", "Longueur de l'élément", L, "mm", "longueur"),
-        Donnee("L_b", "Entraxe des appuis latéraux (flambage selon b)", L_b, "mm", "longueur"),
-        Donnee("L_d", "Entraxe des appuis latéraux (flambage selon d)", L_d, "mm", "longueur"),
-        Donnee("K_{e,b}", "Coefficient de longueur effective selon b", K_e_b, source="Tableau A.4"),
-        Donnee("K_{e,d}", "Coefficient de longueur effective selon d", K_e_d, source="Tableau A.4"),
+        Donnee("L_{(b)}", "Entraxe des appuis latéraux, flambage selon b", L_selon_b, "mm",
+               "longueur"),
+        Donnee("L_{(d)}", "Entraxe des appuis latéraux, flambage selon d", L_selon_d, "mm",
+               "longueur"),
+        Donnee("K_{e(b)}", "Coefficient de longueur effective, flambage selon b", K_e_selon_b,
+               source="Tableau A.4"),
+        Donnee("K_{e(d)}", "Coefficient de longueur effective, flambage selon d", K_e_selon_d,
+               source="Tableau A.4"),
         Donnee("f_c", "Résistance prévue en compression parallèle au fil", f_c, "MPa", "contrainte",
                source_resistances),
         Donnee("E_{05}", "Module d'élasticité pour les éléments en compression", E_05, "MPa",
@@ -243,40 +248,45 @@ def verifier_compression_parallele_au_fil(
     A = b * d
 
     resistances = []
-    for axe, dimension, K_e, L_appuis in (("b", b, K_e_b, L_b), ("d", d, K_e_d, L_d)):
+    # Symboles de la norme ; l'axe de flambage est entre parenthèses (ex. L_e(b)), sans réutiliser
+    # un symbole réservé (L_b est la longueur d'appui, 6.5.6)
+    for axe, dimension, K_e, L_appuis in (
+        ("b", b, K_e_selon_b, L_selon_b), ("d", d, K_e_selon_d, L_selon_d)
+    ):
         l_e = r.ajouter_etape(Etape(
-            "6.5.5.1", f"Longueur effective selon {axe}", f"L_{{e,{axe}}}",
-            rf"L_{{e,{axe}}} = K_{{e,{axe}}} \, L_{axe}", rf"{cs(K_e)} \times {cs(L_appuis)}",
+            "6.5.5.1", f"Longueur effective, flambage selon {axe}", f"L_{{e({axe})}}",
+            rf"L_{{e({axe})}} = K_{{e({axe})}} \, L_{{({axe})}}", rf"{cs(K_e)} \times {cs(L_appuis)}",
             L_e(K_e, L_appuis), "mm", "longueur",
         ))
         c_c = r.ajouter_etape(Etape(
-            "6.5.5.2.2", f"Élancement selon {axe}", f"C_{{C,{axe}}}",
-            rf"C_C = L_{{e,{axe}}} / {axe} \leq 50", rf"{cs(l_e)} / {cs(dimension)}",
+            "6.5.5.2.2", f"Élancement, flambage selon {axe}", f"C_{{C({axe})}}",
+            rf"C_{{C({axe})}} = L_{{e({axe})}} / {axe} \leq 50", rf"{cs(l_e)} / {cs(dimension)}",
             C_C(l_e, dimension),
         ))
         k_zc = r.ajouter_etape(Etape(
-            "6.5.5.2.4", f"Coefficient de dimensions selon {axe}", f"K_{{Zc,{axe}}}",
-            rf"K_{{Zc}} = 6.3 \, ({axe} \, L)^{{-0.13}} \leq 1.3",
+            "6.5.5.2.4", f"Coefficient de dimensions, flambage selon {axe}", f"K_{{Zc({axe})}}",
+            rf"K_{{Zc({axe})}} = 6.3 \, ({axe} \, L)^{{-0.13}} \leq 1.3",
             rf"6.3 \times ({cs(dimension)} \times {cs(L)})^{{-0.13}}",
             K_Zc(dimension, L),
         ))
         k_c = r.ajouter_etape(Etape(
-            "6.5.5.2.5", f"Coefficient d'élancement selon {axe}", f"K_{{C,{axe}}}",
-            r"K_C = \left[1 + \frac{F_c \, K_{Zc} \, C_C^3}{35 \, E_{05} \, K_{SE} \, K_T}\right]^{-1}",
+            "6.5.5.2.5", f"Coefficient d'élancement, flambage selon {axe}", f"K_{{C({axe})}}",
+            rf"K_{{C({axe})}} = \left[1 + \frac{{F_c \, K_{{Zc({axe})}} \, C_{{C({axe})}}^3}}"
+            r"{35 \, E_{05} \, K_{SE} \, K_T}\right]^{-1}",
             rf"\left[1 + \frac{{{cs(f_c_corrige)} \times {cs(k_zc)} \times {cs(c_c)}^3}}"
             rf"{{35 \times {cs(E_05)} \times {cs(K_SE)} \times {cs(K_T)}}}\right]^{{-1}}",
             K_C(f_c_corrige, k_zc, c_c, E_05, K_SE, K_T),
         ))
         resistances.append(r.ajouter_etape(Etape(
-            "6.5.5.2.4", f"Résistance pondérée selon {axe}", f"P_{{r,{axe}}}",
-            r"P_r = \phi \, F_c \, A \, K_{Zc} \, K_C",
+            "6.5.5.2.4", f"Résistance pondérée, flambage selon {axe}", f"P_{{r({axe})}}",
+            rf"P_{{r({axe})}} = \phi \, F_c \, A \, K_{{Zc({axe})}} \, K_{{C({axe})}}",
             rf"0.8 \times {cs(f_c_corrige)} \times {cs(A)} \times {cs(k_zc)} \times {cs(k_c)}",
             P_r(f_c_corrige, A, k_zc, k_c), "N",
         )))
 
     p_r = r.ajouter_etape(Etape(
         "6.5.5.2.1", "Résistance pondérée (plus petite des deux)", "P_r",
-        r"P_r = \min(P_{r,b} \, ; \, P_{r,d})",
+        r"P_r = \min(P_{r(b)} \, ; \, P_{r(d)})",
         rf"\min({cs(resistances[0])} \, ; \, {cs(resistances[1])})",
         min(resistances), "N",
     ))

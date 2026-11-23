@@ -775,30 +775,32 @@ if "compression_parallele" in ONGLETS:
                         colonne_l, colonne_k = st.columns([2, 1])
                         entraxes[axe] = (
                             colonne_l.number_input(
-                                f"Entraxe des appuis latéraux selon ${axe}$, $L_{axe}$ (mm)",
+                                f"Entraxe des appuis latéraux, flambage selon ${axe}$, "
+                                f"$L_{{({axe})}}$ (mm)",
                                 min_value=1,
                                 value=None,
                                 step=100,
                                 placeholder="Requis",
-                                key=f"cpa_L_{axe}",
+                                key=f"cpa_L_selon_{axe}",
                                 help=f"""Entraxe des appuis latéraux pour le flambage selon la
                                 {nom} ${axe}$ (6.5.5.1)""",
                                 icon=icone,
                             ),
                             colonne_k.number_input(
-                                f"$K_{{e,{axe}}}$",
+                                f"$K_{{e({axe})}}$",
                                 min_value=0.10,
                                 value=1.00,
                                 step=0.05,
                                 format="%.2f",
-                                key=f"cpa_K_e_{axe}",
+                                key=f"cpa_K_e_selon_{axe}",
                                 help="""Coefficient de longueur effective, $L_e = K_e L$ (6.5.5.1) ;
                                 valeurs recommandées selon les conditions d'appui : tableau A.4""",
                             ),
                         )
-                    (L_b, K_e_b), (L_d, K_e_d) = entraxes["b"], entraxes["d"]
-                    le_b = art_6_5_5.L_e(K_e_b, L_b) if L_b is not None else None
-                    le_d = art_6_5_5.L_e(K_e_d, L_d) if L_d is not None else None
+                    # Pas de L_b ni de L_d : L_b est la longueur d'appui dans la norme (6.5.6)
+                    (L_selon_b, K_e_selon_b), (L_selon_d, K_e_selon_d) = entraxes["b"], entraxes["d"]
+                    le_b = art_6_5_5.L_e(K_e_selon_b, L_selon_b) if L_selon_b is not None else None
+                    le_d = art_6_5_5.L_e(K_e_selon_d, L_selon_d) if L_selon_d is not None else None
 
                 with col2:
                     pf = st.number_input(
@@ -812,7 +814,7 @@ if "compression_parallele" in ONGLETS:
                     )
                     if length is None or le_b is None or le_d is None:
                         st.info(
-                            "Spécifiez $L$, $L_b$ et $L_d$ pour calculer $Pr$",
+                            "Spécifiez $L$, $L_{(b)}$ et $L_{(d)}$ pour calculer $Pr$",
                             width=650,
                             icon=":material/info:",
                         )
@@ -848,8 +850,9 @@ if "compression_parallele" in ONGLETS:
                             show_verification(VERIF)
                             NOTE["Compression parallèle au fil (6.5.5)"] = (
                                 art_6_5_5.verifier_compression_parallele_au_fil(
-                                    b=width, d=depth, L=length, L_b=L_b, L_d=L_d,
-                                    K_e_b=K_e_b, K_e_d=K_e_d,
+                                    b=width, d=depth, L=length,
+                                    L_selon_b=L_selon_b, L_selon_d=L_selon_d,
+                                    K_e_selon_b=K_e_selon_b, K_e_selon_d=K_e_selon_d,
                                     f_c=compute_resistance[2], E_05=e05,
                                     K_D=kd, K_H=kh, K_Sc=ksc, K_T=kt, K_SE=kse, P_f=pf,
                                     source_resistances=SOURCE, source_K_D=SOURCE_KD,

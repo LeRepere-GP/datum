@@ -195,7 +195,7 @@ def verifier_cisaillement(
     for donnee in (
         Donnee("b", "Largeur d'un pli", b, "mm", "dimension"),
         Donnee("d", "Hauteur de l'élément", d, "mm", "dimension"),
-        Donnee("n", "Nombre de plis", plis),
+        Donnee("", "Nombre de plis", plis),
         Donnee("d_n", "Profondeur de l'entaille", d_n, "mm", "dimension"),
         Donnee("f_v", "Résistance prévue en cisaillement", f_v, "MPa", "contrainte", source_resistances),
         Donnee("K_D", "Coefficient de durée d'application de la charge", K_D, source=source_K_D),
@@ -271,7 +271,7 @@ def verifier_cisaillement_par_fissuration(
     for donnee in (
         Donnee("b", "Largeur d'un pli", b, "mm", "dimension"),
         Donnee("d", "Hauteur de l'élément", d, "mm", "dimension"),
-        Donnee("n", "Nombre de plis", plis),
+        Donnee("", "Nombre de plis", plis),
         Donnee("d_n", "Profondeur de l'entaille", d_n, "mm", "dimension"),
         Donnee("e", "Longueur de l'entaille", e, "mm", "dimension"),
         Donnee("K_D", "Coefficient de durée d'application de la charge", K_D, source=source_K_D),

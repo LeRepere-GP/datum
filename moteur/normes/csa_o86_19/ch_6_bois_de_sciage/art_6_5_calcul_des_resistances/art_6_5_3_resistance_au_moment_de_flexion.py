@@ -264,7 +264,7 @@ def verifier_flexion(
     for donnee in (
         Donnee("b", "Largeur d'un pli", b, "mm", "dimension"),
         Donnee("d", "Hauteur de l'élément", d, "mm", "dimension"),
-        Donnee("n", "Nombre de plis", plis),
+        Donnee("", "Nombre de plis", plis),
         Donnee("f_b", "Résistance prévue en flexion", f_b, "MPa", "contrainte", source_resistances),
         Donnee("K_D", "Coefficient de durée d'application de la charge", K_D, source=source_K_D),
         Donnee("K_H", "Coefficient de système", K_H, source="Tableau 6.12"),

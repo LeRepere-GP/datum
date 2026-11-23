@@ -45,6 +45,17 @@ def _donnee(resultat: Resultat, symbole: str) -> float | None:
     return None
 
 
+def _sans_symbole(resultat: Resultat, description: str) -> float | None:
+    """
+    Valeur d'une donnée sans symbole dans la norme (ex. « Nombre de plis »), trouvée par sa
+    description, ou None si elle est absente.
+    """
+    for d in resultat.donnees:
+        if d.symbole == "" and d.description == description:
+            return d.valeur
+    return None
+
+
 def _bois_de_bout(x: float, y: float, largeur: float, hauteur: float, couleur: str,
                   epaisseur: float = 2) -> str:
     """
@@ -187,8 +198,8 @@ def compression_perpendiculaire(
         str: SVG de la figure.
     """
     b = _donnee(resultat, "b")
-    b_element = _donnee(resultat, "b_{élément}")
-    plis = int(_donnee(resultat, "n") or 1)
+    b_element = _sans_symbole(resultat, "Largeur de l'élément")
+    plis = int(_sans_symbole(resultat, "Nombre de plis") or 1)
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
 
     # Élévation : élément (y 20 à 66) coupé à droite, appui sous l'extrémité gauche (x 14 à 60)
@@ -236,8 +247,8 @@ def compression_pres_d_un_appui(
         str: SVG de la figure.
     """
     b = _donnee(resultat, "b")
-    b_element = _donnee(resultat, "b_{élément}")
-    plis = int(_donnee(resultat, "n") or 1)
+    b_element = _sans_symbole(resultat, "Largeur de l'élément")
+    plis = int(_sans_symbole(resultat, "Nombre de plis") or 1)
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
     # 6.5.6.3.2 : L_b1 est la plus petite longueur d'appui, L_b2 la plus grande ; la trace indique
     # laquelle est celle de la charge (sur le dessus)
@@ -293,7 +304,7 @@ def flexion(
     Returns:
         str: SVG de la figure.
     """
-    plis = int(_donnee(resultat, "n") or 1)
+    plis = int(_sans_symbole(resultat, "Nombre de plis") or 1)
     elevation = (
         _fleches_reparties(14, 206, 8, 30, accent)
         + f"<rect x='14' y='32' width='192' height='36' stroke='{principale}' stroke-width='2.5'/>"
@@ -325,7 +336,7 @@ def cisaillement(
     Returns:
         str: SVG de la figure.
     """
-    plis = int(_donnee(resultat, "n") or 1)
+    plis = int(_sans_symbole(resultat, "Nombre de plis") or 1)
     elevation = (
         _fleches_reparties(14, 196, 8, 30, accent)
         + f"<path d='M14 32 H206 L201 41 L211 50 L201 59 L206 68 H14 Z' stroke='{principale}' "
@@ -360,7 +371,7 @@ def cisaillement_a_l_entaille(
     Returns:
         str: SVG de la figure.
     """
-    plis = int(_donnee(resultat, "n") or 1)
+    plis = int(_sans_symbole(resultat, "Nombre de plis") or 1)
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
     elevation = (
         _fleches_reparties(14, 196, 8, 30, accent)
@@ -395,7 +406,7 @@ def _poteau(x: float, entraxe: float | None, L: float | None, symbole_entraxe: s
     """
     Une vue du poteau (y 30 à 190) pour le flambage selon un axe : appuis latéraux (hachurés) en tête
     et, si l'entraxe est plus petit que L, à mi-hauteur ; déformée de flambage entre les appuis ; cote
-    de l'entraxe (L_b ou L_d) et K_e sous la vue.
+    de l'entraxe (L_(b) ou L_(d)) et K_e sous la vue.
     """
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
     intermediaire = entraxe is not None and L is not None and entraxe < L
@@ -429,8 +440,8 @@ def compression_parallele(
     """
     Figure de 6.5.5 (compression parallèle au fil) : poteau de longueur L sous la charge pondérée P_f
     (P_f ≤ P_r), vu pour le flambage selon b puis selon d (6.5.5.2.1 : P_r vérifiée pour les deux axes).
-    Chaque vue montre l'entraxe des appuis latéraux (L_b, L_d) et son coefficient de longueur effective
-    (K_e,b, K_e,d ; L_e = K_e L, 6.5.5.1), avec un appui latéral intermédiaire si l'entraxe est plus
+    Chaque vue montre l'entraxe des appuis latéraux L et son coefficient de longueur effective K_e
+    (L_e = K_e L, 6.5.5.1), avec l'axe de flambage entre parenthèses : L_(b), K_e(b), L_(d), K_e(d), avec un appui latéral intermédiaire si l'entraxe est plus
     petit que L. À droite, la section : b et d.
 
     Args:
@@ -441,13 +452,13 @@ def compression_parallele(
     Returns:
         str: SVG de la figure.
     """
-    plis = int(_donnee(resultat, "n") or 1)
-    L, L_b, L_d = (_donnee(resultat, s) for s in ("L", "L_b", "L_d"))
+    plis = int(_sans_symbole(resultat, "Nombre de plis") or 1)
+    L, L_selon_b, L_selon_d = (_donnee(resultat, s) for s in ("L", "L_{(b)}", "L_{(d)}"))
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
     elevation = (
         _etiquette(56, 20, "P_f", ancre="start")
-        + _poteau(30, L_b, L, "L_b", "K_e,b", principale, accent)
-        + _poteau(150, L_d, L, "L_d", "K_e,d", principale, accent)
+        + _poteau(30, L_selon_b, L, "L_(b)", "K_e(b)", principale, accent)
+        + _poteau(150, L_selon_d, L, "L_(d)", "K_e(d)", principale, accent)
         # Longueur L de l'élément, à droite de la deuxième vue
         + f"<path d='M188 30 H214 M188 190 H214' {pointille}/>"
         + _cote_verticale(208, 30, 190, accent)
