@@ -224,24 +224,3 @@ def test_figure_schematique_dans_la_note():
     assert note["resultats"][0]["figure_svg"].startswith("<svg")
     assert "#112233" in note["resultats"][0]["figure_svg"]
     assert produire_pdf([("2x8", r)], EnTete()).startswith(b"%PDF")
-
-
-def test_page_resume():
-    """Issue #85 : page résumé au début de la note, à partir de 2 vérifications."""
-    # Une seule vérification : sa page est déjà son résumé
-    assert donnees_de_la_note([("2x10", flexion())], ENTETE)["resume"] == []
-    # M_r = 4.086 kN·m : 4.0 kN·m -> 97.90 % ; 5.0 kN·m -> 122.37 % (gouverne, dépassé)
-    sans = art_6_5_3.verifier_flexion(
-        38, 235, 11.8, K_Zb=1.1, support_lateral_aux_appuis=True, rive_comprimee_maintenue=True,
-    )
-    note = donnees_de_la_note([("2x10", flexion(4.0)), ("2x10", sans), ("2x10", flexion(5.0))], ENTETE)
-    resume = note["resume"]
-    assert [l["indice"] for l in resume] == [0, 2]  # renvoi à la page de chaque vérification
-    assert [l["ratio"] for l in resume] == ["97.90 %", "122.37 %"]
-    assert [l["statut"] for l in resume] == ["Conforme", "Non conforme"]
-    assert [l["gouverne"] for l in resume] == [False, True]
-    assert resume[0]["charge"].startswith("4.00 kN·m (")  # deux unités
-    assert resume[0]["resistance"].startswith("4.09 kN·m (")
-    assert (resume[0]["symbole_charge"], resume[0]["article"]) == ("M_f", "6.5.3")
-    pdf = produire_pdf([("2x10", flexion(4.0)), ("2x10", flexion(5.0))], ENTETE)
-    assert pdf.startswith(b"%PDF")

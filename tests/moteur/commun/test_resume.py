@@ -59,3 +59,35 @@ def test_depassee_et_resistance_nulle():
     ])
     assert not lignes[0].respecte and math.isclose(lignes[0].ratio, 1.2)
     assert math.isinf(lignes[1].ratio) and lignes[1].gouverne and not lignes[1].respecte
+
+
+def test_page_resume_de_la_note():
+    """Page résumé au début de la note de calcul PDF, à partir de 2 vérifications."""
+    from moteur.commun.note_de_calcul import EnTete, donnees_de_la_note, produire_pdf
+    from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances import (
+        art_6_5_3_resistance_au_moment_de_flexion as art_6_5_3,
+    )
+
+    entete = EnTete("Client", "Projet", "Adresse", "2026-001", "2026-11-23", "Ingénieur", "000000")
+
+    def flexion(M_f=None):
+        # 38 x 235 mm, f_b = 11.8 MPa, K_Zb = 1.1 : M_r = 4 085 877 N·mm (test de 6.5.3)
+        return art_6_5_3.verifier_flexion(
+            38, 235, 11.8, K_Zb=1.1, support_lateral_aux_appuis=True, rive_comprimee_maintenue=True,
+            M_f=M_f,
+        )
+
+    # Une seule vérification : sa page est déjà son résumé
+    assert donnees_de_la_note([("2x10", flexion(4.0))], entete)["resume"] == []
+    # M_r = 4.086 kN·m : 4.0 kN·m -> 97.90 % ; 5.0 kN·m -> 122.37 % (gouverne, dépassé)
+    note = donnees_de_la_note([("2x10", flexion(4.0)), ("2x10", flexion()), ("2x10", flexion(5.0))], entete)
+    lignes = note["resume"]
+    assert [l["indice"] for l in lignes] == [0, 2]  # renvoi à la page de chaque vérification
+    assert [l["ratio"] for l in lignes] == ["97.90 %", "122.37 %"]
+    assert [l["statut"] for l in lignes] == ["Conforme", "Non conforme"]
+    assert [l["gouverne"] for l in lignes] == [False, True]
+    assert lignes[0]["charge"].startswith("4.00 kN·m (")  # deux unités
+    assert lignes[0]["resistance"].startswith("4.09 kN·m (")
+    assert (lignes[0]["symbole_charge"], lignes[0]["article"]) == ("M_f", "6.5.3")
+    pdf = produire_pdf([("2x10", flexion(4.0)), ("2x10", flexion(5.0))], entete)
+    assert pdf.startswith(b"%PDF")
