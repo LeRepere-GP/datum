@@ -118,9 +118,10 @@ Dépôt : **`LeRepere-GP/datum`** (organisation Le Repère).
    (`feature/...`, `fix/...`, `docs/...`). Ne jamais committer directement sur `main`.
 2. **Pas de PR automatique.** Créer une PR seulement quand c'est pertinent (travail prêt à être révisé,
    correctif à appliquer, décision à faire valider). Sinon, pousser la branche et en parler à l'utilisateur.
-3. **Pas d'abonnement à l'activité des PR** (pour économiser l'utilisation de Claude) : vérifier les tests
-   automatiques une seule fois avant de présenter la PR ; les commentaires et les merges sont lus à la
-   séance suivante ou signalés par l'utilisateur.
+3. **Abonnement à l'activité des PR** : laisser GitHub abonner Claude automatiquement à la PR qu'il crée
+   (ne pas se désabonner). Les résultats des tests automatiques et les commentaires arrivent alors dans la
+   conversation : corriger un test qui échoue et répondre aux commentaires. Les merges restent faits par
+   l'utilisateur.
 4. **Ne jamais merger soi-même.** Le merge dans `main` se fait seulement quand l'utilisateur confirme
    que tout fonctionne.
 5. **Assigner l'utilisateur (`GabPoulin`)** à chaque issue et PR créée, pour qu'il soit notifié.
@@ -134,8 +135,8 @@ Dépôt : **`LeRepere-GP/datum`** (organisation Le Repère).
   (`ARCHITECTURE.md`, section 14), et **proposer les avancées de temps en temps** à l'utilisateur.
 - **Séances planifiées** : en semaine, à midi et à 17 h, chacune dans une nouvelle conversation : lire les
   nouveaux commentaires des issues et des PR, vérifier les PR ouvertes, puis faire avancer la feuille de route.
-- **Économiser l'utilisation** : pas de rappels planifiés ni d'abonnements aux PR ; captures d'écran
-  seulement pour les changements d'interface.
+- **Économiser l'utilisation** : pas de rappels planifiés (l'abonnement automatique aux PR est permis,
+  voir Git et GitHub, point 3) ; captures d'écran seulement pour les changements d'interface.
 - **Plusieurs PR à la fois sont permises** si ce sont de **petits avancements qui ne se chevauchent
   pas** (fichiers ou parties de fichiers différents, sans dépendance entre elles). Chaque branche part
   de `main` à jour. Si un nouveau travail dépend d'une PR ouverte ou touche les mêmes lignes, attendre
