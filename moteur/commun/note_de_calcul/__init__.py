@@ -19,6 +19,7 @@ import typst
 
 from moteur.commun.figures import figure
 from moteur.commun.resultat import Resultat, Verification
+from moteur.commun.resume import LigneDuResume, resume
 from moteur.commun.nombres import cs
 from moteur.commun.unites import deux_unites, grandeur, vers_imperial
 
@@ -154,6 +155,26 @@ def _verification(v: Verification) -> dict:
     }
 
 
+def formater_ligne_du_resume(ligne: LigneDuResume) -> dict:
+    """
+    Ligne du résumé (issue #85) en texte, avec les deux unités comme ailleurs dans la note. Sert à la
+    page résumé de la note et au tableau « Résumé » de l'interface (mêmes valeurs aux deux endroits).
+    """
+    return {
+        "element": ligne.element,
+        "titre": ligne.titre,
+        "article": ligne.article,
+        "symbole_charge": ligne.symbole_charge,
+        "charge": formater_resultat(ligne.charge, ligne.unite, ligne.grandeur),
+        "symbole_resistance": ligne.symbole_resistance,
+        "resistance": formater_resultat(ligne.resistance, ligne.unite, ligne.grandeur),
+        "ratio": f"{ligne.ratio * 100:.2f} %" if ligne.resistance > 0 else "—",
+        "respecte": ligne.respecte,
+        "statut": "Conforme" if ligne.respecte else "Non conforme",
+        "gouverne": ligne.gouverne,
+    }
+
+
 def donnees_de_la_note(
     resultats: list[tuple],
     entete: EnTete,
@@ -170,12 +191,17 @@ def donnees_de_la_note(
         entete (EnTete): Champs de l'en-tête.
         apparence (Apparence, optional): Logo et couleurs. Default to ceux de la marque.
         commentaires (str, optional): Commentaires de l'ingénieur, en bas à gauche de la première
-            page, à côté de la vérification et du sceau (datum-retours #3). Default to "" (aucun).
+            page de vérification (après la page résumé, s'il y en a une), à côté de la vérification et
+            du sceau (datum-retours #3). Default to "" (aucun).
 
     Returns:
         dict: Données sérialisables en JSON.
     """
     normes = sorted({r[1].norme for r in resultats})
+    lignes = resume(resultats)
+    # Position de chaque vérification faite dans la note (« indice ») : le gabarit renvoie chaque
+    # ligne du résumé à sa page
+    indices = [i for i, (_, r, *_) in enumerate(resultats) if r.verification is not None]
     note = {
         "entete": {**vars(entete), "norme": ", ".join(normes)},
         "apparence": {
@@ -186,6 +212,13 @@ def donnees_de_la_note(
             "police_texte": apparence.police_texte,
         },
         "commentaires": commentaires.strip(),
+        # Page résumé au début de la note (issue #85), seulement s'il y a 2 vérifications ou plus :
+        # avec une seule, sa page est déjà son résumé.
+        "resume": (
+            [{**formater_ligne_du_resume(l), "indice": i} for l, i in zip(lignes, indices)]
+            if len(lignes) >= 2
+            else []
+        ),
         "resultats": [],
     }
     for element, r, *option in resultats:

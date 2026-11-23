@@ -43,6 +43,7 @@ moteur/                     ← moteur de calcul Python (aucune dépendance à l
   commun/                   ← outils partagés par toutes les normes
     resultat.py             ← trace d'une vérification (section 8)
     registre.py             ← catalogue des calculs offerts par édition (section 9)
+    resume.py               ← résumé des vérifications faites (section 8, issue #85)
   normes/
     csa_o86_19/             ← bois, édition 2019 (section 5)
     csa_o86_24/             ← bois, édition suivante (plus tard)
@@ -303,6 +304,12 @@ Cette trace est la **source unique** pour :
 4. **toutes les étapes de calcul**, chacune avec : l'article, la description, **la formule**, **la formule
    avec les valeurs**, puis **le résultat** ;
 5. la vérification finale (ratio en %, respecté ou dépassé).
+
+**Page résumé** (issue #85), au début de la note s'il y a 2 vérifications ou plus : une ligne par
+vérification (vérification, article, charge pondérée, résistance pondérée, ratio, statut), la vérification
+qui gouverne (ratio le plus élevé) en gras, et le renvoi à sa page. Les lignes viennent de
+`moteur/commun/resume.py` (aucun nouveau calcul) ; le même tableau est affiché dans l'interface, au-dessus
+de la note de calcul.
 
 Les **formules sont écrites en LaTeX** dans la trace. Elles sont affichées avec KaTeX dans l'interface,
 et rendues proprement dans le PDF.

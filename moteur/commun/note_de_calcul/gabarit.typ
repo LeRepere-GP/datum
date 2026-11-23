@@ -144,8 +144,47 @@
   }
 ]
 
+// Page résumé (issue #85) : une ligne par vérification faite, la vérification qui gouverne (ratio le
+// plus élevé) en gras. Chaque titre renvoie à la page de sa vérification.
+#let resume = donnees.at("resume", default: ())
+#let page-de(indice) = context counter(page).at(label("verification-" + str(indice))).first()
+#if resume.len() > 0 {
+  block(below: 0.3cm, titre(11.5pt, principale, [Résumé des vérifications]))
+  let cellule(l, corps) = text(size: 7.5pt, weight: if l.gouverne { "bold" } else { "regular" })[#corps]
+  table(
+    columns: (1fr, auto, auto, auto, auto, auto),
+    stroke: none,
+    inset: (x: 3pt, y: 3pt),
+    align: (left + horizon, left + horizon, left + horizon, left + horizon, right + horizon, left + horizon),
+    fill: (_, y) => if y == 0 { principale } else if calc.even(y) { gris-pale },
+    table.header(
+      ..([Vérification], [Article], [Charge pondérée], [Résistance pondérée], [Ratio], [Statut])
+        .map(t => text(fill: white, weight: "bold", size: 7.5pt)[#t]),
+    ),
+    ..resume
+      .map(l => {
+        let couleur = if l.respecte { principale } else { rouge }
+        (
+          cellule(l, link(label("verification-" + str(l.indice)))[
+            #l.titre #if l.element != "" [— #l.element] #text(fill: gris)[(p. #page-de(l.indice))]
+          ]),
+          text(size: 7.5pt, fill: accent, weight: "bold")[#l.article],
+          cellule(l, [#mi(l.symbole_charge) $=$ #l.charge]),
+          cellule(l, [#mi(l.symbole_resistance) $=$ #l.resistance]),
+          cellule(l, l.ratio),
+          text(size: 7.5pt, weight: "bold", fill: couleur)[#if l.respecte [✔] else [✖] #l.statut],
+        )
+      })
+      .flatten(),
+  )
+  text(size: 7pt, fill: gris)[En gras : la vérification qui gouverne (ratio le plus élevé).]
+  pagebreak()
+}
+
 #for (i, r) in donnees.resultats.enumerate() {
   if i > 0 { pagebreak() }
+  // Repère de la page de cette vérification, pour les renvois de la page résumé (issue #85)
+  [#metadata(i) #label("verification-" + str(i))]
   block(below: 0.2cm)[
     #titre(11.5pt, principale, [#r.titre #if r.element != "" [— #r.element]])
     #h(1fr) #text(size: 8.5pt, fill: accent, weight: "bold")[#r.norme, article #r.article]
