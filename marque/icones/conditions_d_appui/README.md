@@ -20,7 +20,8 @@ Symboles :
 - **Translation fixe, rotation libre** : triangle sur une base hachurée (rotule).
 - **Translation libre, rotation fixe** : plaque sur rouleaux (glissière) ; la déformée se déplace à
   l'horizontale et reste verticale à cette extrémité.
-- **Rotation partiellement fixe** : la glissière, avec un ressort de rotation (spirale).
+- **Rotation partiellement fixe** : la glissière, avec un triangle (rotule) entre l'élément et la plaque
+  (demande de l'utilisateur, PR #92).
 - **Translation et rotation libres** : aucun appui.
 - **Déformée** (flambement) : trait pointillé, comme dans le tableau A.4.
 
