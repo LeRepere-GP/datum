@@ -19,6 +19,12 @@ L'utilisateur est ingénieur en structure de bâtiment et utilisera ce logiciel 
   Toujours **lire la norme dans `pdf/` pour valider** avant de coder, au lieu de se fier à sa mémoire
   ou au code existant. Le code existant peut contenir des erreurs.
 - Citer l'article de la norme dans la docstring de chaque fonction (le style actuel est à conserver).
+- **La norme dicte le nom des variables** (PR #87) : un symbole de la norme (3.2 ou défini dans un article)
+  désigne **seulement** la grandeur que la norme lui donne, dans le code, la trace, la note et les figures
+  (ex. L_b = longueur d'appui, 6.5.6 ; jamais l'entraxe des appuis latéraux). Une grandeur sans symbole
+  dans la norme n'a **pas de symbole** (colonne Symbole vide, description seulement ; ex. nombre de plis).
+  Pour distinguer un même symbole selon l'axe de flambage, l'axe est **entre parenthèses** à l'affichage
+  (ex. L_(b), K_e(b), L_e(b), P_r(b)) et en toutes lettres dans le code (ex. `L_selon_b`, `K_e_selon_b`).
 
 ## Conventions de calcul et d'affichage
 
