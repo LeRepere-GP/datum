@@ -17,7 +17,7 @@ from pathlib import Path
 
 import typst
 
-from moteur.commun.figures import figure
+from moteur.commun.figures import figure, icone_de_l_article
 from moteur.commun.resultat import Resultat, Verification
 from moteur.commun.resume import LigneDuResume, resume
 from moteur.commun.nombres import cs
@@ -233,6 +233,8 @@ def donnees_de_la_note(
             "figure": r.figure or "",
             # Figure schématique dans les couleurs du compte (issue #62) ; None : pas encore de figure
             "figure_svg": figure(r, apparence.principale, apparence.accent),
+            # Petite icône à côté du titre (issue #89) ; None : pas d'icône pour cet article
+            "icone_svg": icone_de_l_article(r.article, apparence.principale, apparence.accent),
             "donnees": [
                 {
                     "symbole": d.symbole,

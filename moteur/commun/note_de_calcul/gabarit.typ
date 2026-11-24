@@ -191,6 +191,11 @@
   // Repère de la page de cette vérification, pour les renvois de la page résumé (issue #85)
   [#metadata(i) #label("verification-" + str(i))]
   block(below: 0.2cm)[
+    // Petite icône du type de calcul à côté du titre (issue #89)
+    #if r.icone_svg != none {
+      box(baseline: 25%, image(bytes(r.icone_svg), format: "svg", height: 0.8cm))
+      h(0.2cm)
+    }
     #titre(11.5pt, principale, [#r.titre #if r.element != "" [— #r.element]])
     #h(1fr) #text(size: 8.5pt, fill: accent, weight: "bold")[#r.norme, article #r.article]
   ]

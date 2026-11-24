@@ -166,16 +166,132 @@ def test_largeur_d_appui_preremplie():
     assert champ().value == 50.0
 
 
-def test_compression_parallele_entraxes_et_k_e():
-    """La page demande L et K_e pour chaque axe (6.5.5.1) ; la figure de 6.5.5 s'affiche."""
-    at = _connecte("admin", "mot-admin")
+def _compression_parallele(at):
+    """2x6 (38 x 140 mm), L = 3000 mm, L_(b) = 1500 mm, L_(d) = 3000 mm."""
     [n for n in at.number_input if n.label.startswith("Longueur de l'élément")][0].set_value(3000)  # mm
     [n for n in at.number_input if n.key == "cpa_L_selon_b"][0].set_value(1500)  # mm
     [n for n in at.number_input if n.key == "cpa_L_selon_d"][0].set_value(3000)  # mm
-    [n for n in at.number_input if n.key == "cpa_K_e_selon_b"][0].set_value(0.80)
     at.run()
+    [n for n in at.number_input if n.label.startswith("$Pf")][0].set_value(5.0)  # kN
+    return at.run()
+
+
+def _c_c(at) -> list[str]:
+    return [m.value.split("$C_c = ")[1].split("$")[0] for m in at.markdown if "$C_c = " in m.value]
+
+
+def _bouton(at, cle):
+    return [b for b in at.button if b.key == cle][0]
+
+
+def test_compression_parallele_entraxes_et_k_e():
+    """
+    La page demande L pour chaque axe (6.5.5.1) ; la figure de 6.5.5 s'affiche. Par défaut, K_e = 1.00
+    (tableau A.4 : translation fixe et rotation libre aux deux extrémités ; issue #90).
+    """
+    at = _compression_parallele(_connecte("admin", "mot-admin"))
     assert not at.exception
     assert any("Ke(b)" in t and "L(d)" in t for t in _figures_svg(at._tree))
-    # 2x6 (38 mm) : L_e(b) = K_e(b) L_(b) = 0.80 x 1500 mm = 1200 mm ; C_c = 1200 mm / 38 mm = 31.58
-    [n for n in at.number_input if n.label.startswith("$Pf")][0].set_value(5.0).run()  # kN
-    assert any("C_c = 31.58" in m.value for m in at.markdown)
+    # C_c(b) = 1.00 x 1500 mm / 38 mm = 39.47 ; C_c(d) = 1.00 x 3000 mm / 140 mm = 21.43
+    assert _c_c(at) == ["39.47", "21.43"]
+    assert _bouton(at, "cpa_degre_selon_b_2").proto.type == "primary"  # 3e ligne : 1.00
+    assert _bouton(at, "cpa_degre_selon_d_2").proto.type == "primary"
+    assert not [n for n in at.number_input if n.key == "cpa_K_e_selon_b"]  # pas de K_e à entrer
+
+
+def test_k_e_choisi_avec_les_icones_du_tableau_a_4():
+    """
+    Issue #90 : un bouton sous chaque icône du tableau A.4 choisit K_e, pour chaque axe séparément.
+    Selon b : 2e ligne (translation fixe aux deux extrémités et rotation fixe à une extrémité, 0.80) ;
+    selon d : 7e ligne (translation et rotation libres à l'autre extrémité, 2.00).
+    """
+    at = _compression_parallele(_connecte("admin", "mot-admin"))
+    _bouton(at, "cpa_degre_selon_b_1").click().run()
+    _bouton(at, "cpa_degre_selon_d_6").click().run()
+    assert not at.exception
+    # C_c(b) = 0.80 x 1500 mm / 38 mm = 1200 mm / 38 mm = 31.58
+    # C_c(d) = 2.00 x 3000 mm / 140 mm = 6000 mm / 140 mm = 42.86
+    assert _c_c(at) == ["31.58", "42.86"]
+    assert _bouton(at, "cpa_degre_selon_b_1").proto.type == "primary"
+    assert _bouton(at, "cpa_degre_selon_b_2").proto.type == "secondary"
+    # K_e affiché (non modifiable) dans le champ de chaque axe
+    affiches = {n.label: n.value for n in at.number_input if n.label.startswith("$K_{e(")}
+    assert affiches == {"$K_{e(b)}$": 0.80, "$K_{e(d)}$": 2.00}
+
+
+def test_k_e_autre_entre_par_l_utilisateur():
+    """Issue #90 : « Autre » permet d'entrer K_e, sans avertissement (choix de l'ingénieur)."""
+    at = _compression_parallele(_connecte("admin", "mot-admin"))
+    _bouton(at, "cpa_degre_selon_b_autre").click().run()
+    champ = [n for n in at.number_input if n.key == "cpa_K_e_selon_b"][0]
+    assert champ.value == 1.00
+    champ.set_value(0.60).run()  # plus petit que toutes les valeurs du tableau A.4 : permis
+    assert not at.exception
+    assert not [w for w in at.warning if "K_e" in w.value or "A.4" in w.value]
+    # C_c(b) = 0.60 x 1500 mm / 38 mm = 900 mm / 38 mm = 23.68 ; C_c(d) inchangé : 21.43
+    assert _c_c(at) == ["23.68", "21.43"]
+    assert _bouton(at, "cpa_degre_selon_b_autre").proto.type == "primary"
+
+
+def test_icones_du_tableau_a_4_dans_l_onglet():
+    """Issue #90 : 7 icônes du tableau A.4 par axe (b et d), aux couleurs du compte."""
+    import config
+    from moteur.commun.figures import icones_des_degres_de_retenue
+
+    at = _connecte("admin", "mot-admin")
+    apparence = config.apparence_du_compte("admin")
+    attendues = icones_des_degres_de_retenue(apparence.principale, apparence.accent)
+    icones = _icones_svg(at._tree)
+    assert sum(i in attendues for i in icones) == 14
+    for i in range(7):
+        assert [b.label for b in at.button if b.key == f"cpa_degre_selon_b_{i}"] == [
+            ["0.65", "0.80", "1.00", "1.20", "1.50", "2.00", "2.00"][i]
+        ]
+
+
+def _icones_svg(noeud) -> list[str]:
+    """Petites icônes (SVG 64 x 64 de marque/icones/) affichées dans la page, décodées."""
+    import base64
+
+    icones = []
+    for e in getattr(noeud, "children", {}).values():
+        if getattr(e, "type", None) == "image":
+            for image in e.proto.imgs:
+                if image.url.startswith("data:image/svg+xml;base64,"):
+                    svg = base64.b64decode(image.url.split(",", 1)[1]).decode()
+                    if 'viewBox="0 0 64 64"' in svg:
+                        icones.append(svg)
+        icones += _icones_svg(e)
+    return icones
+
+
+def test_icones_en_haut_des_onglets():
+    """
+    Issue #89 (retour de la PR #91) : chaque onglet commence par une seule icône et son titre, aux
+    couleurs du compte. Cisaillement : icône du cisaillement (6.5.4.3) ; compression perpendiculaire :
+    icône de la compression près d'un appui (6.5.6.3). La compression oblique n'a pas d'icône :
+    6 icônes en tout.
+    """
+    import config
+    from moteur.commun.figures import icone, icones_des_degres_de_retenue
+
+    at = _connecte("admin", "mot-admin")
+    assert not at.exception
+    apparence = config.apparence_du_compte("admin")
+    a_4 = icones_des_degres_de_retenue(apparence.principale, apparence.accent)
+    icones = [i for i in _icones_svg(at._tree) if i not in a_4]  # sans celles du tableau A.4 (#90)
+    noms = [
+        "flexion", "cisaillement", "compression_parallele", "compression_pres_appui", "traction",
+        "flexion_et_charge_axiale",
+    ]
+    assert icones == [icone(n, apparence.principale, apparence.accent) for n in noms]
+    titres = [m.value for m in at.markdown if m.value.startswith("**") and "(6.5." in m.value]
+    assert titres == [
+        "**Moment de flexion (6.5.3)**",
+        "**Cisaillement (6.5.4)**",
+        "**Compression parallèle au fil (6.5.5)**",
+        "**Compression perpendiculaire au fil (6.5.6)**",
+        "**Compression oblique par rapport au fil (6.5.7)**",
+        "**Traction parallèle au fil (6.5.8)**",
+        "**Flexion et charge axiale combinées (6.5.9)**",
+    ]

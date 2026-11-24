@@ -2,6 +2,8 @@
 
 import re
 
+import pytest
+
 from moteur.commun.figures import figure, figure_avant_le_calcul
 from moteur.commun.resultat import Resultat
 from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances import (
@@ -259,3 +261,76 @@ def test_figure_avant_le_calcul_couleurs_du_compte():
 def test_figure_avant_le_calcul_article_sans_figure():
     assert figure_avant_le_calcul("6.5.8") is None
     assert figure_avant_le_calcul("") is None
+
+
+# --- Petites icônes des types de calcul (issue #89) ---
+from moteur.commun.figures import DOSSIER_ICONES, icone, icone_de_l_article  # noqa: E402
+
+
+@pytest.mark.parametrize("nom", sorted(p.stem for p in DOSSIER_ICONES.glob("*.svg")))
+def test_icone_couleurs_du_compte(nom):
+    """Chaque icône prend les deux couleurs du compte ; il ne reste aucune couleur de la marque."""
+    svg = icone(nom, principale="#112233", accent="#AA5500")
+    assert svg.lstrip().startswith("<svg")
+    assert "#112233" in svg and "#AA5500" in svg
+    assert "#233614" not in svg.upper() and "#9E5A00" not in svg.upper()
+
+
+def test_icone_couleurs_inversees():
+    """Remplacer la principale par l'accent (et l'inverse) ne mélange pas les deux couleurs."""
+    original = icone("traction")
+    inverse = icone("traction", principale="#9E5A00", accent="#233614")
+    assert original.count("#233614") == inverse.count("#9E5A00") == 1  # 1 trait principal
+    assert original.count("#9E5A00") == inverse.count("#233614") == 1  # 1 charge
+
+
+def test_icone_par_defaut_couleurs_de_la_marque():
+    svg = icone("flexion")
+    assert svg == (DOSSIER_ICONES / "flexion.svg").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "article, nom",
+    [
+        ("6.5.3", "flexion"),
+        ("6.5.4.3", "cisaillement"),
+        ("6.5.4.4", "cisaillement_entaille"),
+        ("6.5.5", "compression_parallele"),
+        ("6.5.6.2", "compression_perpendiculaire"),
+        ("6.5.6.3", "compression_pres_appui"),
+        ("6.5.8", "traction"),  # 6.5.8 Résistance à la traction parallèle au fil
+        ("6.5.9", "flexion_et_charge_axiale"),  # 6.5.9 Flexion et charge axiale combinées
+    ],
+)
+def test_icone_de_l_article(article, nom):
+    assert icone_de_l_article(article) == icone(nom)
+
+
+def test_article_sans_icone():
+    assert icone_de_l_article("6.5.7") is None  # compression oblique : pas d'icône
+    assert icone_de_l_article("") is None
+
+
+def test_icone_absente():
+    with pytest.raises(FileNotFoundError):
+        icone("n_existe_pas")
+
+
+def test_icones_des_degres_de_retenue():
+    """
+    Issue #90 : une icône par ligne du tableau A.4, dans l'ordre de la norme ; le K_e du nom du fichier
+    (ex. « 3_ke_1_00.svg ») est celui du tableau, aux couleurs du compte.
+    """
+    from moteur.commun.figures import icones_des_degres_de_retenue
+    from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.art_A_6_bois_de_sciage import (  # noqa: E501
+        art_A_6_5_5_1_coefficient_de_longueur_effective as art_A,
+    )
+
+    fichiers = sorted((DOSSIER_ICONES / "conditions_d_appui").glob("*_ke_*.svg"))
+    assert [f.stem.split("_")[0] for f in fichiers] == ["1", "2", "3", "4", "5", "6", "7"]
+    assert [float(f.stem.split("_ke_")[1].replace("_", ".")) for f in fichiers] == [
+        K_e for _, K_e in art_A.TABLEAU_A_4
+    ]
+    icones = icones_des_degres_de_retenue(principale="#112233")
+    assert len(icones) == len(art_A.TABLEAU_A_4) == 7
+    assert all("#112233" in i and "#233614" not in i for i in icones)

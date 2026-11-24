@@ -109,6 +109,24 @@ def test_verification_K_e():
     assert r.etape("P_r").valeur == pytest.approx(30155, rel=1e-4)
 
 
+def test_source_de_K_e():
+    """
+    Issue #90 : K_e(b) et K_e(d) ont la description courte « Coefficient de longueur effective » (le
+    symbole donne l'axe) et la source « Tableau A.4 » ou « Entré par l'utilisateur ».
+    """
+    def donnee(r, symbole):
+        return [d for d in r.donnees if d.symbole == symbole][0]
+
+    r = _verifier()
+    for symbole in ("K_{e(b)}", "K_{e(d)}"):
+        assert donnee(r, symbole).description == "Coefficient de longueur effective"
+        assert donnee(r, symbole).source == "Tableau A.4"
+    r = _verifier(K_e_selon_d=0.60, source_K_e_selon_d="Entré par l'utilisateur")
+    assert donnee(r, "K_{e(b)}").source == "Tableau A.4"
+    assert donnee(r, "K_{e(d)}").source == "Entré par l'utilisateur"
+    assert donnee(r, "K_{e(d)}").valeur == 0.60
+
+
 def test_verification_trace():
     r = _verifier()
     assert r.norme == "CSA O86:19" and r.article == "6.5.5" and r.figure == "colonne"
