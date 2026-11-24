@@ -54,3 +54,381 @@ def test_deux_unites(valeur, nom, attendu):
 def test_grandeur_inconnue():
     with pytest.raises(KeyError):
         unites.vers_imperial(1, "vitesse")
+
+
+# --- Saisie des valeurs : calculatrice avec unités (lire_grandeur, PR #99) ---
+# Valeurs attendues calculées à la main : 1 po = 25.4 mm ; 1 pi = 304.8 mm ; 1 lb = 4.4482216152605 N.
+
+from moteur.commun.unites import ecrire_pieds_pouces, ecrire_pouces, lire_grandeur  # noqa: E402
+
+LB = 4.4482216152605  # N
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Unités seules
+        ("89 mm", "dimension", 89.0),
+        ("8.9 cm", "dimension", 89.0),
+        ("2.4764 m", "longueur", 2476.4),
+        ("3.5 po", "dimension", 88.9),
+        ("3.5 in", "dimension", 88.9),
+        ('3.5"', "dimension", 88.9),
+        ("8 pi", "longueur", 2438.4),
+        ("8'", "longueur", 2438.4),
+        ("8 ft", "longueur", 2438.4),
+        ("8 pieds", "longueur", 2438.4),
+        # Pieds, pouces et fractions (sans tiret : « - » est une soustraction)
+        ("8' 6\"", "longueur", 2590.8),  # 102 po
+        ("8’ 6”", "longueur", 2590.8),  # apostrophes typographiques (cellulaire)
+        ("8 pi 6 po", "longueur", 2590.8),
+        ("8pi6po", "longueur", 2590.8),
+        ("8 pi 6", "longueur", 2590.8),  # nombre après les pieds : des pouces
+        ("8 ft 6 in", "longueur", 2590.8),
+        ("3 pi 2 1/4 po", "longueur", 971.55),  # 38.25 po (exemple de l'utilisateur)
+        ("1/2 po", "dimension", 12.7),
+        ("2 1/4\"", "dimension", 57.15),  # 2.25 po
+        ("3/4 po", "dimension", 19.05),
+        # Valeurs juxtaposées additionnées
+        ("8 pi 38 mm", "longueur", 2476.4),  # 2438.4 mm + 38 mm (exemple de l'utilisateur)
+        ("1 m 50 mm", "longueur", 1050.0),
+        # Forces et moments
+        ("5 kN", "force", 5.0),
+        ("5000 N", "force", 5.0),
+        ("5 000 N", "force", 5.0),  # espace de milliers
+        ("1124 lb", "force", 1124 * LB / 1000),
+        ("1 kip", "force", LB),
+        ("4.5 kN·m", "moment", 4.5),
+        ("4.5 kN-m", "moment", 4.5),
+        ("4.5 kNm", "moment", 4.5),
+        ("4.5 kN*m", "moment", 4.5),
+        ("4500 N·m", "moment", 4.5),
+        ("4 500 000 N·mm", "moment", 4.5),
+        ("40 000 lb·po", "moment", 40000 * LB * 25.4 / 1e6),  # 4.519 kN·m
+        ("40000 lb-in", "moment", 40000 * LB * 25.4 / 1e6),
+        ("10 kip-ft", "moment", 10 * LB * 304.8 / 1e3),  # 13.558 kN·m
+        ("3000 lb·pi", "moment", 3000 * LB * 304.8 / 1e6),
+    ],
+)
+def test_unites(texte, nom, attendu):
+    # Avec une unité, l'unité par défaut ne change rien
+    assert lire_grandeur(texte, nom, False) == pytest.approx(attendu)
+    assert lire_grandeur(texte, nom, True) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Exemples de l'utilisateur
+        ("8 pieds + 36 po - 50 mm", "longueur", 3302.8),  # 2438.4 mm + 914.4 mm - 50 mm
+        ("(2+3)/2 po", "dimension", 63.5),  # 2.5 po : unité finale pour tout le résultat
+        ("2 + 3 po", "dimension", 127.0),  # 5 po
+        # Additions et soustractions (« - » est toujours une soustraction)
+        ("8-6", "longueur", 2.0),  # 8 mm - 6 mm, unité par défaut métrique
+        ("10 po - 2 po", "dimension", 203.2),  # 8 po
+        ("2-1/4 po", "dimension", 44.45),  # 2 - 1/4 = 1.75 po
+        ("8 pi - 6 po", "longueur", 2286.0),  # 7 pi 6 po = 90 po
+        ("1 + 2 + 3 po", "dimension", 152.4),  # 6 po
+        ("2 + 3 po + 10 mm", "dimension", 137.0),  # 5 po + 10 mm
+        ("10 mm + 2", "dimension", 12.0),  # le nombre reprend l'unité voisine
+        ("1500 lb + 2 kN", "force", 1.5 * LB + 2),  # 8.672 kN
+        ("-2 + 5 po", "dimension", 76.2),  # 3 po
+        # Multiplications et divisions
+        ("3*4 kN", "force", 12.0),
+        ("2 × 3 po", "dimension", 152.4),
+        ("2 po x 3", "dimension", 152.4),
+        ("6 ÷ 2 po", "dimension", 76.2),  # 3 po
+        ("(2 po + 3 po)/2", "dimension", 63.5),
+        ("8 pi 6 po / 2", "longueur", 1295.4),  # 4 pi 3 po
+        ("12/6/2 mm", "dimension", 1.0),  # (12/6)/2, de gauche à droite
+        ("(4)/6/2 mm", "dimension", 4 / 12),
+        ("2 po / 1 po * 3 mm", "dimension", 6.0),  # rapport sans unité
+        # Puissances, pourcentages, crochets
+        ("2^3 mm", "dimension", 8.0),
+        ("5 kN * 115%", "force", 5.75),
+        ("[2+3]*2 mm", "dimension", 10.0),
+        ("((1 + 1) * (2 + 3)) po", "dimension", 254.0),  # 10 po
+    ],
+)
+def test_calculatrice(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "metrique", "imperial"),
+    [
+        # Résultat sans unité : unité par défaut (mm, kN, kN·m ou po, pi, lb, lb·po)
+        ("89", "dimension", 89.0, 89 * 25.4),
+        ("(2+3)/2", "dimension", 2.5, 63.5),  # exemple de l'utilisateur
+        ("3 1/2", "dimension", 3.5, 88.9),
+        ("1 000", "dimension", 1000.0, 25400.0),  # espace de milliers
+        ("8.5", "longueur", 8.5, 2590.8),  # 8.5 pi en impérial
+        ("8-6", "longueur", 2.0, 609.6),  # soustraction : 2 pi en impérial
+        ("5", "force", 5.0, 5 * LB / 1000),
+        ("40 000", "moment", 40000.0, 40000 * LB * 25.4 / 1e6),
+        ("2 + 3", "dimension", 5.0, 127.0),
+    ],
+)
+def test_unite_par_defaut(texte, nom, metrique, imperial):
+    assert lire_grandeur(texte, nom, False) == pytest.approx(metrique)
+    assert lire_grandeur(texte, nom, True) == pytest.approx(imperial)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom"),
+    [
+        ("", "dimension"), ("   ", "dimension"), ("trois", "dimension"), ("huit pieds", "longueur"),
+        ("5 kN", "dimension"),  # unité d'une autre grandeur
+        ("89 mm", "force"), ("4.5 kN", "moment"), ("5 kN·m", "force"), ("5 kg", "force"),
+        ("3 po + 2 kN", "dimension"),  # unités incompatibles
+        ("2 po * 3 mm", "dimension"),  # deux unités différentes : 6 po ou 6 mm ? ambigu
+        ("(2 po)^2", "dimension"),  # une aire, pas une longueur
+        ("2 +", "dimension"), ("+", "dimension"), ("(2+3", "dimension"), ("2+3)", "dimension"),
+        ("1/0", "dimension"), ("10 mm / 0", "dimension"), ("2 * * 3", "dimension"),
+        ("2^0.5 po", "dimension"),  # exposant entier seulement
+        ("import os", "dimension"), ("__import__('os')", "dimension"),  # aucun eval()
+        ("4.5 kN·m", "contrainte"),  # grandeur non offerte
+    ],
+)
+def test_illisible(texte, nom):
+    with pytest.raises(ValueError):
+        lire_grandeur(texte, nom)
+
+
+@pytest.mark.parametrize(
+    ("mm", "texte"),
+    [
+        (88.9, "3 1/2"),  # 3.5 po x 25.4 mm/po
+        (38.0, "1 1/2"),  # 1.496 po x 16 = 23.9 -> 24/16 po
+        (89.0, "3 1/2"),  # 3.504 po x 16 = 56.06 -> 56/16 po
+        (19.05, "3/4"),
+        (76.2, "3"),
+        (35.0, "1 3/8"),  # 1.378 po x 16 = 22.05 -> 22/16 po
+    ],
+)
+def test_ecrire_pouces(mm, texte):
+    assert ecrire_pouces(mm) == texte
+
+
+@pytest.mark.parametrize(
+    ("mm", "texte"),
+    [
+        (2590.8, "8 pi 6 po"),  # 8.5 pi x 304.8 mm/pi
+        (2603.5, "8 pi 6 1/2 po"),  # 102.5 po
+        (971.55, "3 pi 2 1/4 po"),  # 38.25 po (exemple de l'utilisateur)
+        (3048.0, "10 pi 0 po"),
+        (19.05, "0 pi 3/4 po"),
+        (1295.4, "4 pi 3 po"),
+        (3000.0, "9 pi 10 1/8 po"),  # 118.11 po -> 118 2/16 po (au 1/16 po près)
+        (304.0, "0 pi 11 15/16 po"),  # 11.9685 po x 16 = 191.5 -> 191/16 po
+        (304.5, "1 pi 0 po"),  # 11.988 po x 16 = 191.8 -> 192/16 po = 12 po = 1 pi
+    ],
+)
+def test_ecrire_pieds_pouces(mm, texte):
+    assert ecrire_pieds_pouces(mm) == texte
+
+
+@pytest.mark.parametrize("mm", [2590.8, 2603.5, 971.55, 19.05, 1295.4, 6096.0, 88.9])
+def test_aller_retour(mm):
+    # Le texte écrit (au 1/16 po près) se relit exactement, en longueur (pi-po) et en dimension (po)
+    assert lire_grandeur(ecrire_pieds_pouces(mm), "longueur") == pytest.approx(mm)
+    assert lire_grandeur(ecrire_pouces(mm) + " po", "dimension") == pytest.approx(mm)
+    assert lire_grandeur(ecrire_pouces(mm), "dimension", True) == pytest.approx(mm)
+
+
+@pytest.mark.parametrize(
+    ("virgule", "point", "nom"),
+    [
+        # Décimales avec un point ou une virgule : même valeur (demande de l'utilisateur)
+        ("3,5 po", "3.5 po", "dimension"),  # 88.9 mm
+        ("2,4764 m", "2.4764 m", "longueur"),  # 2476.4 mm
+        ("8 pi 6,5 po", "8 pi 6.5 po", "longueur"),  # 102.5 po = 2603.5 mm
+        ("(2,5+3,5)/2 po", "(2.5+3.5)/2 po", "dimension"),  # 3 po = 76.2 mm
+        ("1,5 kip", "1.5 kip", "force"),  # 6.672 kN
+        ("4,5 kN·m", "4.5 kN·m", "moment"),
+        ("5 kN * 112,5%", "5 kN * 112.5%", "force"),  # 5.625 kN
+        ("40 000,5 N", "40 000.5 N", "force"),  # espace de milliers et virgule décimale
+        ("0,75", "0.75", "dimension"),
+    ],
+)
+def test_point_ou_virgule_decimale(virgule, point, nom):
+    assert lire_grandeur(virgule, nom) == pytest.approx(lire_grandeur(point, nom))
+    assert lire_grandeur(virgule, nom, True) == pytest.approx(lire_grandeur(point, nom, True))
+
+
+def test_virgule_toujours_decimale():
+    """
+    Décision de l'utilisateur (PR #99) : la virgule est toujours décimale, même suivie de 3 chiffres.
+    « 1,500 kN » = 1.5 kN ; « 40,000 lb » = 40 lb x 4.4482 N/lb = 177.9 N = 0.1779 kN. Les milliers
+    s'écrivent avec une espace (« 40 000 lb ») ou sans séparateur (« 40000 lb »).
+    """
+    assert lire_grandeur("1,500 kN", "force") == pytest.approx(1.5)
+    assert lire_grandeur("40,000 lb", "force") == pytest.approx(40 * LB / 1000)
+    assert lire_grandeur("40 000 lb", "force") == pytest.approx(40000 * LB / 1000)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # « de » (ou « of ») après un pourcentage veut dire « fois » (demande de l'utilisateur)
+        ("50% de 4 mm", "dimension", 2.0),
+        ("50 % de 4 po", "dimension", 50.8),  # 2 po
+        ("115% de 5 kN", "force", 5.75),
+        ("50% of 8 pi", "longueur", 1219.2),  # 4 pi
+        ("50% de (2+2) po", "dimension", 50.8),
+        ("25% de 50% de 16 po", "dimension", 50.8),  # 0.25 x 0.5 x 16 po = 2 po
+        ("50% de 4 + 1 po", "dimension", 76.2),  # 2 + 1 = 3 po
+    ],
+)
+def test_pourcentage_de(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+def test_pourcentage_de_sans_unite():
+    """Exemple de l'utilisateur : « 50% de 4 » = 2, dans l'unité par défaut."""
+    assert lire_grandeur("50% de 4", "dimension") == pytest.approx(2.0)  # 2 mm
+    assert lire_grandeur("50% de 4", "dimension", True) == pytest.approx(50.8)  # 2 po
+
+
+@pytest.mark.parametrize("texte", ["2 de 4", "50% de", "de 4", "50% dé 4"])
+def test_de_seulement_apres_un_pourcentage(texte):
+    with pytest.raises(ValueError):
+        lire_grandeur(texte, "dimension")
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Même unité des deux côtés : comptée une seule fois (demande de l'utilisateur)
+        ("2 po * 3 po", "dimension", 152.4),  # 6 po
+        ("2 pi * 3 pi", "longueur", 1828.8),  # 6 pi
+        ("2 po * 3 po * 4 po", "dimension", 609.6),  # 24 po
+        ("5 kN * 2 kN", "force", 10.0),
+        ("2 po * 3", "dimension", 152.4),
+        ("3 * 2 po", "dimension", 152.4),
+    ],
+)
+def test_multiplication_meme_unite(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "raison"),
+    [
+        # Messages courts qui donnent la raison (pour l'interface)
+        ("2 po * 3 mm", "dimension", "multiplication de deux unités différentes"),
+        ("(2 po)^2", "dimension", "le résultat n'est pas une dimension"),
+        ("5 kN", "dimension", "unité qui ne convient pas à une longueur"),
+        ("89 mm", "force", "unité qui ne convient pas à une force"),
+        ("1/0", "dimension", "division par zéro"),
+        ("2^0.5", "dimension", "exposant invalide"),
+    ],
+)
+def test_raison_du_refus(texte, nom, raison):
+    with pytest.raises(ValueError, match=raison):
+        lire_grandeur(texte, nom)
+
+
+# --- Cas limites : négatifs, zéro, division par zéro, grands nombres (PR #99) ---
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Le moteur lit les négatifs ; c'est le champ qui les refuse (bornes de interface_unites.champ)
+        ("-5 po", "dimension", -127.0),
+        ("5 - 10 po", "dimension", -127.0),
+        ("--5 kN", "force", 5.0),
+        ("5 kN * -2", "force", -10.0),
+        ("(-2)^3 po", "dimension", -203.2),  # -8 po
+        ("50% de -4 po", "dimension", -50.8),
+        ("0", "dimension", 0.0),
+        ("0 kN", "force", 0.0),
+        ("2^-1 po", "dimension", 12.7),  # 0.5 po
+        (".5 po", "dimension", 12.7),
+        ("((((2))))", "dimension", 2.0),
+    ],
+)
+def test_negatifs_et_zero(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+def test_moins_zero_devient_zero():
+    """« -0 » -> 0.0, pas -0.0 (sinon « -0.00 kN » à l'affichage)."""
+    import math
+    assert math.copysign(1, lire_grandeur("-0", "force")) == 1
+
+
+@pytest.mark.parametrize(
+    ("texte", "raison"),
+    [
+        ("1/0", "division par zéro"),
+        ("5 kN / 0", "division par zéro"),
+        ("5/(2-2) kN", "division par zéro"),
+        ("0/0", "division par zéro"),
+        ("0^-1", "division par zéro"),
+        ("10^400", "nombre trop grand"),
+        ("()", "texte illisible"),
+        ("2..5", "texte illisible"),
+        ("1,2,3", "texte illisible"),
+        ("nan", "texte illisible"),
+        ("inf", "texte illisible"),
+        ("1e", "texte illisible"),  # exposant incomplet
+        ("5 kN kN", "texte illisible"),
+    ],
+)
+def test_refus_cas_limites(texte, raison):
+    with pytest.raises(ValueError, match=raison):
+        lire_grandeur(texte, "force")
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Notation scientifique (demande de l'utilisateur)
+        ("1e3 mm", "dimension", 1000.0),
+        ("1E3 mm", "dimension", 1000.0),
+        ("1.5E-3 m", "longueur", 1.5),  # 0.0015 m = 1.5 mm
+        ("2,5e4 N", "force", 25.0),  # 25 000 N = 25 kN, virgule décimale
+        ("5e-1 po", "dimension", 12.7),  # 0.5 po
+        (".5e1 po", "dimension", 127.0),  # 5 po
+        ("1e+2 mm", "dimension", 100.0),
+        ("2e3*2 mm", "dimension", 4000.0),
+        ("40 000e-3 kN", "force", 40.0),
+        ("1e3", "force", 1000.0),  # unité par défaut : kN
+        ("3 feet", "longueur", 914.4),  # le « e » d'une unité n'est pas un exposant
+        ("3feet", "longueur", 914.4),
+    ],
+)
+def test_notation_scientifique(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize("texte", ["1e400", "1e308*10", "1e308 kN * 1e308"])
+def test_nombre_trop_grand(texte):
+    """Pas de plafond (décision de l'utilisateur), mais un nombre infini est refusé."""
+    with pytest.raises(ValueError, match="nombre trop grand"):
+        lire_grandeur(texte, "force")
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # « x » pour la multiplication (demande de l'utilisateur, revue de la PR #99)
+        ("2 x 3 po", "dimension", 152.4),  # 6 po
+        ("2x3 po", "dimension", 152.4),
+        ("2 X 3 po", "dimension", 152.4),
+        ("2 po x 3", "dimension", 152.4),
+        ("2 po x 3 po", "dimension", 152.4),  # même unité comptée une fois
+        ("(2+3) x 2 po", "dimension", 254.0),  # 10 po
+        ("2 x (3 po)", "dimension", 152.4),
+        ("2 x .5 po", "dimension", 25.4),  # 1 po
+        ("2x3x4 mm", "dimension", 24.0),
+        ("3 x 4 kN", "force", 12.0),
+        ("50% x 4 po", "dimension", 50.8),  # 2 po
+        ("2 x -3 po", "dimension", -152.4),  # « x » suivi d'un signe
+        ("1e3 x 2 mm", "dimension", 2000.0),
+        ("2 x 3", "dimension", 6.0),  # unité par défaut
+    ],
+)
+def test_x_multiplication(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)

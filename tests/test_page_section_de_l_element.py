@@ -62,7 +62,7 @@ def test_section_suit_le_nombre_de_plis():
 def test_figures_apres_le_calcul_sans_section():
     """Une fois la vérification faite (V_f entré), la figure tirée de la trace reste sans section."""
     at = _connecte("admin", "mot-admin")
-    [n for n in at.number_input if n.label == "$Vf: (kN)$"][0].set_value(5.0).run()  # kN
+    [n for n in at.text_input if n.label == "$Vf: (kN)$"][0].set_value("5.0").run()  # kN
     assert not at.exception
     svgs = _svg_affiches(at._tree)
     cisaillement = next(s for s in svgs if "Vf" in _texte(s) and "dn" not in _texte(s))
@@ -82,10 +82,10 @@ def test_element_compose_trace_avec_la_largeur_totale():
     """
     at = _connecte("admin", "mot-admin")
     [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(2).run()
-    [n for n in at.number_input if n.label == "$Vf: (kN)$"][0].set_value(1.0).run()  # kN
+    [n for n in at.text_input if n.label == "$Vf: (kN)$"][0].set_value("1.0").run()  # kN
     assert not at.exception
     v_r_affiche = next(m.value for m in at.markdown if m.value.startswith("$Vr = "))
-    v_r_affiche = float(v_r_affiche.removeprefix("$Vr = ").removesuffix(" kN$"))
+    v_r_affiche = float(v_r_affiche.removeprefix("$Vr = \\text{").split(" kN")[0])  # « 14.75 kN (3 316 lb) »
     (tableau,) = _resume(at)
     ligne = next(l for l in tableau.splitlines() if "6.5.4.3" in l)
     v_r_trace = float(re.search(r"\$V_r\$ = ([\d.]+) kN", ligne).group(1))

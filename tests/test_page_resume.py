@@ -16,8 +16,8 @@ def test_pas_de_resume_sans_verification():
 def test_resume_de_deux_verifications():
     at = _connecte("admin", "mot-admin")
     for cle, valeur in (("cp_support_length", 89.0), ("cp_rf", 5.0)):  # mm ; kN
-        [n for n in at.number_input if n.key == cle][0].set_value(valeur)
-    [n for n in at.number_input if n.label.startswith("$Vf")][0].set_value(1.0)  # kN
+        [n for n in at.text_input if n.key == cle][0].set_value(f"{valeur} {'mm' if cle == 'cp_support_length' else 'kN'}")
+    [n for n in at.text_input if n.label.startswith("$Vf")][0].set_value("1.0")  # kN
     at.run()
     assert not at.exception
     (tableau,) = _resume(at)
@@ -29,12 +29,14 @@ def test_resume_de_deux_verifications():
     assert any("Résumé" == s.value for s in at.subheader)
 
 
-def test_resume_en_metrique_seulement():
-    """PR #93 : charges et résistances du résumé en métrique seulement (pas d'impérial entre parenthèses)."""
+def test_resume_dans_les_deux_unites():
+    """
+    PR #99 (décision de l'utilisateur) : résultats dans les deux unités, résumé compris.
+    V_f = 1.00 kN = 1000 N / 4.4482 N/lb = 224.8 lb -> « 225 lb » (3 chiffres significatifs).
+    """
     at = _connecte("admin", "mot-admin")
-    [n for n in at.number_input if n.label.startswith("$Vf")][0].set_value(1.0)  # kN
+    [n for n in at.text_input if n.label.startswith("$Vf")][0].set_value("1.0")  # kN
     at.run()
     (tableau,) = _resume(at)
     ligne = tableau.splitlines()[2]
-    assert "= 1.00 kN" in ligne  # V_f = 1.00 kN
-    assert "lb" not in ligne and "(" not in ligne
+    assert "$V_f$ = 1.00 kN (225 lb)" in ligne
