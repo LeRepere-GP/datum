@@ -157,9 +157,10 @@ def test_moments_en_toutes_unites():
 def test_valeur_illisible():
     at = _connecte("admin", "mot-admin")
     _entrer(at, "Longueur d'appui", "trois")
-    assert any("Valeur illisible" in e.value for e in at.error)
+    assert any("« trois » : texte illisible" in e.value for e in at.error)
     _entrer(at, "$Rf", "5 mm")  # unité d'une autre grandeur
-    assert any("Valeur illisible : « 5 mm »" in e.value for e in at.error)
+    assert any("« 5 mm » : texte illisible, ou unité qui ne convient pas à une force" in e.value
+               for e in at.error)
 
 
 def test_entaille_a_la_limite():
@@ -251,3 +252,17 @@ def test_virgule_decimale():
     assert "= 88.9 mm (3 1/2 po)" in _conversions(at)
     _entrer(at, "$Rf", "4,5 kN")
     assert "= 4.50 kN (1 012 lb)" in _conversions(at)
+
+
+def test_message_court_et_multiplication():
+    """
+    « 2 po * 3 po » = 6 po = 152.4 mm (même unité comptée une fois) ; « 2 po * 3 mm » est refusé avec la
+    raison, en un message court (les exemples restent dans l'aide).
+    """
+    at = _connecte("admin", "mot-admin")
+    _entrer(at, "Longueur d'appui", "2 po * 3 po")
+    assert "= 152.4 mm (6 po)" in _conversions(at)
+    _entrer(at, "Longueur d'appui", "2 po * 3 mm")
+    (erreur,) = [e.value for e in at.error]
+    assert erreur.startswith("« 2 po * 3 mm » : multiplication de deux unités différentes")
+    assert len(erreur) < 150 and "Calculs permis" not in erreur

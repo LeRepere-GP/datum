@@ -93,6 +93,7 @@ def deux_unites(valeur: float, nom_grandeur: str) -> str:
 # mélangées, avec des opérations) et rend la valeur métrique utilisée dans les calculs (mm, kN, kN·m).
 # Sert dans Streamlit aujourd'hui et servira dans la future interface web.
 
+import math as _math  # noqa: E402
 import re as _re  # noqa: E402
 from fractions import Fraction as _Fraction  # noqa: E402
 
@@ -124,6 +125,7 @@ _UNITES_D_ENTREE = {
     },
 }
 _FAMILLE = {"dimension": "longueur", "longueur": "longueur", "force": "force", "moment": "moment"}
+_NOMS = {"dimension": "une dimension", "longueur": "une longueur", "force": "une force", "moment": "un moment"}
 _PIEDS = r"(?:'|pi|pieds?|ft|feet|foot)"
 
 # Nombres : espaces de milliers (« 40 000 »), nombre fractionnaire (« 2 1/4 »), fraction (« 3/4 »).
@@ -172,7 +174,7 @@ class _Lecteur:
         return self.s[self.i] if self.i < len(self.s) else ""
 
     def _erreur(self):
-        raise ValueError("expression illisible")
+        raise ValueError(f"texte illisible, ou unité qui ne convient pas à {_NOMS[self.famille]}")
 
     def _unite(self):
         """Unité qui suit (facteur, est-ce des pieds), ou None."""
@@ -218,7 +220,7 @@ class _Lecteur:
         # celle du terme précédent ; un nombre pur seul reste un nombre pur.
         dimensions = {t.dimension for t in termes if t.dimension != 0}
         if len(dimensions) > 1:
-            raise ValueError("unités incompatibles dans une addition")
+            raise ValueError("addition d'unités incompatibles")
         total = 0.0
         for k, (t, signe) in enumerate(zip(termes, signes)):
             if t.dimension == 0 and dimensions:
@@ -251,8 +253,19 @@ class _Lecteur:
                 if droite.valeur == 0:
                     raise ValueError("division par zéro")
                 gauche = _Quantite(gauche.valeur / droite.valeur, gauche.dimension - droite.dimension)
+            elif gauche.dimension and droite.dimension:
+                # « 2 po * 3 po » = 6 po (demande de l'utilisateur) : la même unité des deux côtés n'est
+                # comptée qu'une fois. Deux unités différentes (« 2 po * 3 mm » : 6 po ou 6 mm ?) : refus.
+                if (gauche.dimension, droite.dimension) != (1, 1) or not _math.isclose(
+                        gauche.facteur_de_saisie, droite.facteur_de_saisie):
+                    raise ValueError(
+                        "multiplication de deux unités différentes : écrire l'unité une seule fois "
+                        "(ex. 2 * 3 po)")
+                gauche = _Quantite(gauche.valeur * droite.valeur / droite.facteur_de_saisie, 1,
+                                   gauche.facteur_de_saisie)
             else:
-                gauche = _Quantite(gauche.valeur * droite.valeur, gauche.dimension + droite.dimension)
+                gauche = _Quantite(gauche.valeur * droite.valeur, gauche.dimension + droite.dimension,
+                                   gauche.facteur_de_saisie if gauche.dimension else droite.facteur_de_saisie)
         return gauche
 
     def _puissance(self) -> "_Quantite":
@@ -261,7 +274,7 @@ class _Lecteur:
             self.i += 1
             exposant = self._unaire()
             if exposant.dimension != 0 or exposant.valeur != int(exposant.valeur):
-                raise ValueError("exposant invalide")
+                raise ValueError("exposant invalide (nombre entier seulement)")
             base = _Quantite(base.valeur ** exposant.valeur, base.dimension * int(exposant.valeur))
         return base
 
@@ -331,8 +344,9 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
       l'utilisateur) : « (2+3)/2 po » = 2 1/2 po, « 3*4 kN » = 12 kN.
     - Un résultat sans unité prend l'unité par défaut : métrique (mm, kN, kN·m) ou impériale (po pour une
       dimension, pi pour une longueur, lb, lb·po), selon imperial_par_defaut. « (2+3)/2 » = 2.5.
-    - Les unités sont vérifiées : « 5 kN » dans un champ de longueur, « 3 po + 2 kN » ou « 2 po * 3 po »
-      (une aire) sont refusés.
+    - Multiplication : la même unité des deux côtés n'est comptée qu'une fois (« 2 po * 3 po » = 6 po,
+      demande de l'utilisateur) ; deux unités différentes (« 2 po * 3 mm ») sont refusées.
+    - Les unités sont vérifiées : « 5 kN » dans un champ de longueur ou « 3 po + 2 kN » sont refusés.
 
     Exemple de l'utilisateur : « 8 pieds + 36 po - 50 mm » = 2438.4 mm + 914.4 mm - 50 mm = 3302.8 mm.
 
@@ -346,7 +360,8 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
 
     Raises:
         ValueError: Si le texte est illisible, si les unités ne conviennent pas ou si la grandeur n'est
-            pas offerte.
+            pas offerte. Le message donne la raison en quelques mots (ex. « le résultat n'est pas une
+            longueur »), pour l'interface.
     """
     if nom_grandeur not in _FAMILLE:
         raise ValueError(f"Saisie libre non offerte pour la grandeur {nom_grandeur!r}.")
@@ -355,7 +370,7 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
          .replace("”", '"').replace("″", '"').replace("''", '"').replace(" ", " ")
          .replace(" ", " ").replace("−", "-").replace("\t", " "))
     if not s:
-        raise ValueError("Valeur vide.")
+        raise ValueError("valeur vide")
     if imperial_par_defaut:
         defaut = {"longueur": _PI_EN_MM if nom_grandeur == "longueur" else _PO_EN_MM,
                   "force": _LB_EN_N / 1000, "moment": _LB_EN_N * _PO_EN_MM / 1e6}[famille]
@@ -378,12 +393,14 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
                         return sans_unite.valeur * facteur
                 break
         resultat = lecteur.lire()
-    except (ValueError, ZeroDivisionError, OverflowError) as erreur:
-        raise ValueError(f"Valeur illisible : « {texte} » ({erreur}).") from None
+    except ValueError:
+        raise
+    except (ZeroDivisionError, OverflowError):
+        raise ValueError("division par zéro ou nombre trop grand") from None
     if resultat.dimension == 0:
         return resultat.valeur * defaut
     if resultat.dimension != 1:
-        raise ValueError(f"Valeur illisible : « {texte} » (le résultat n'est pas une {nom_grandeur}).")
+        raise ValueError(f"le résultat n'est pas {_NOMS[nom_grandeur]}")
     return resultat.valeur
 
 

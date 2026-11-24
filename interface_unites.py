@@ -231,9 +231,10 @@ def champ(
     if saisie != st.session_state.get(cle_texte_lu) or st.session_state.get(cle_metrique) is None:
         try:
             st.session_state[cle_metrique] = lire_grandeur(saisie, nom_grandeur, en_imperial(nom_grandeur))
-        except ValueError:
+        except ValueError as raison:
             st.session_state[cle_metrique], st.session_state[cle_texte_lu] = None, ""
-            conteneur.error(f"Valeur illisible : « {saisie} ». {exemples}", icon=":material/error:")
+            # Message court avec la raison ; les exemples restent dans l'aide (?)
+            conteneur.error(f"« {saisie} » : {raison}. Exemples dans l'aide (?).", icon=":material/error:")
             return None
         st.session_state[cle_texte_lu] = saisie
     valeur = st.session_state[cle_metrique]

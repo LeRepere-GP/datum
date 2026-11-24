@@ -181,7 +181,8 @@ def test_unite_par_defaut(texte, nom, metrique, imperial):
         ("5 kN", "dimension"),  # unité d'une autre grandeur
         ("89 mm", "force"), ("4.5 kN", "moment"), ("5 kN·m", "force"), ("5 kg", "force"),
         ("3 po + 2 kN", "dimension"),  # unités incompatibles
-        ("2 po * 3 po", "dimension"),  # une aire, pas une longueur
+        ("2 po * 3 mm", "dimension"),  # deux unités différentes : 6 po ou 6 mm ? ambigu
+        ("(2 po)^2", "dimension"),  # une aire, pas une longueur
         ("2 +", "dimension"), ("+", "dimension"), ("(2+3", "dimension"), ("2+3)", "dimension"),
         ("1/0", "dimension"), ("10 mm / 0", "dimension"), ("2 * * 3", "dimension"),
         ("2^0.5 po", "dimension"),  # exposant entier seulement
@@ -293,3 +294,36 @@ def test_pourcentage_de_sans_unite():
 def test_de_seulement_apres_un_pourcentage(texte):
     with pytest.raises(ValueError):
         lire_grandeur(texte, "dimension")
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Même unité des deux côtés : comptée une seule fois (demande de l'utilisateur)
+        ("2 po * 3 po", "dimension", 152.4),  # 6 po
+        ("2 pi * 3 pi", "longueur", 1828.8),  # 6 pi
+        ("2 po * 3 po * 4 po", "dimension", 609.6),  # 24 po
+        ("5 kN * 2 kN", "force", 10.0),
+        ("2 po * 3", "dimension", 152.4),
+        ("3 * 2 po", "dimension", 152.4),
+    ],
+)
+def test_multiplication_meme_unite(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "raison"),
+    [
+        # Messages courts qui donnent la raison (pour l'interface)
+        ("2 po * 3 mm", "dimension", "multiplication de deux unités différentes"),
+        ("(2 po)^2", "dimension", "le résultat n'est pas une dimension"),
+        ("5 kN", "dimension", "unité qui ne convient pas à une longueur"),
+        ("89 mm", "force", "unité qui ne convient pas à une force"),
+        ("1/0", "dimension", "division par zéro"),
+        ("2^0.5", "dimension", "exposant invalide"),
+    ],
+)
+def test_raison_du_refus(texte, nom, raison):
+    with pytest.raises(ValueError, match=raison):
+        lire_grandeur(texte, nom)

@@ -370,7 +370,9 @@ la charge P_f, la longueur L et la section b × d.
   « - » est toujours une soustraction. Décimales avec un point ou une virgule ; la virgule est toujours
   décimale (« 1,500 » = 1.5) ; milliers avec une espace (« 40 000 »). Une unité à la toute fin s'applique au résultat si le reste n'a
   pas d'unité ; un nombre sans unité dans une somme prend l'unité voisine ; un résultat sans unité prend
-  l'unité par défaut. Les unités sont vérifiées (une aire ou des kN dans un champ de longueur sont refusés).
+  l'unité par défaut. Multiplication : la même unité des deux côtés n'est comptée qu'une fois
+  (« 2 po * 3 po » = 6 po) ; deux unités différentes sont refusées. Les unités sont vérifiées (des kN dans
+  un champ de longueur sont refusés). Un refus donne un message court avec la raison.
   Analyse par descente récursive, sans `eval()`. `ecrire_pouces()` et `ecrire_pieds_pouces()` écrivent les
   longueurs au 1/16 po près, sans tiret (« 8 pi 6 1/2 po »). Ces fonctions ne dépendent pas de
   l'interface : la future interface web et une future calculatrice d'unités les utiliseront aussi.
