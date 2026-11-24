@@ -242,3 +242,12 @@ def test_calculatrice():
     assert "= 609.6 mm (2 pi 0 po)" in _conversions(at)
     _entrer(at, "$Rf", "3*4 kN")
     assert "= 12.00 kN (2 698 lb)" in _conversions(at)  # 12 000 N / 4.4482 N/lb = 2697.7 lb
+
+
+def test_virgule_decimale():
+    """« 3,5 po » = « 3.5 po » = 88.9 mm ; « 4,5 kN » = 4.50 kN (1 012 lb : 4500 N / 4.4482 N/lb)."""
+    at = _connecte("admin", "mot-admin")
+    _entrer(at, "Longueur d'appui", "3,5 po")
+    assert "= 88.9 mm (3 1/2 po)" in _conversions(at)
+    _entrer(at, "$Rf", "4,5 kN")
+    assert "= 4.50 kN (1 012 lb)" in _conversions(at)

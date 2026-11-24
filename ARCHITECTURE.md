@@ -366,7 +366,8 @@ la charge P_f, la longueur L et la section b × d.
   le texte entré et rend la valeur métrique utilisée dans les calculs (mm, kN, kN·m). Unités mélangées,
   pieds, pouces et fractions (« 8' 6" », « 3 pi 2 1/4 po », « 8 pi 38 mm »), forces et moments (« 1124 lb »,
   « 40 000 lb·po »), opérations + - * / ^ % et parenthèses (« (2+3)/2 po », « 8 pieds + 36 po - 50 mm »).
-  « - » est toujours une soustraction. Une unité à la toute fin s'applique au résultat si le reste n'a
+  « - » est toujours une soustraction. Décimales avec un point ou une virgule ; la virgule est toujours
+  décimale (« 1,500 » = 1.5) ; milliers avec une espace (« 40 000 »). Une unité à la toute fin s'applique au résultat si le reste n'a
   pas d'unité ; un nombre sans unité dans une somme prend l'unité voisine ; un résultat sans unité prend
   l'unité par défaut. Les unités sont vérifiées (une aire ou des kN dans un champ de longueur sont refusés).
   Analyse par descente récursive, sans `eval()`. `ecrire_pouces()` et `ecrire_pieds_pouces()` écrivent les

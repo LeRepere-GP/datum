@@ -233,3 +233,34 @@ def test_aller_retour(mm):
     assert lire_grandeur(ecrire_pieds_pouces(mm), "longueur") == pytest.approx(mm)
     assert lire_grandeur(ecrire_pouces(mm) + " po", "dimension") == pytest.approx(mm)
     assert lire_grandeur(ecrire_pouces(mm), "dimension", True) == pytest.approx(mm)
+
+
+@pytest.mark.parametrize(
+    ("virgule", "point", "nom"),
+    [
+        # Décimales avec un point ou une virgule : même valeur (demande de l'utilisateur)
+        ("3,5 po", "3.5 po", "dimension"),  # 88.9 mm
+        ("2,4764 m", "2.4764 m", "longueur"),  # 2476.4 mm
+        ("8 pi 6,5 po", "8 pi 6.5 po", "longueur"),  # 102.5 po = 2603.5 mm
+        ("(2,5+3,5)/2 po", "(2.5+3.5)/2 po", "dimension"),  # 3 po = 76.2 mm
+        ("1,5 kip", "1.5 kip", "force"),  # 6.672 kN
+        ("4,5 kN·m", "4.5 kN·m", "moment"),
+        ("5 kN * 112,5%", "5 kN * 112.5%", "force"),  # 5.625 kN
+        ("40 000,5 N", "40 000.5 N", "force"),  # espace de milliers et virgule décimale
+        ("0,75", "0.75", "dimension"),
+    ],
+)
+def test_point_ou_virgule_decimale(virgule, point, nom):
+    assert lire_grandeur(virgule, nom) == pytest.approx(lire_grandeur(point, nom))
+    assert lire_grandeur(virgule, nom, True) == pytest.approx(lire_grandeur(point, nom, True))
+
+
+def test_virgule_toujours_decimale():
+    """
+    Décision de l'utilisateur (PR #99) : la virgule est toujours décimale, même suivie de 3 chiffres.
+    « 1,500 kN » = 1.5 kN ; « 40,000 lb » = 40 lb x 4.4482 N/lb = 177.9 N = 0.1779 kN. Les milliers
+    s'écrivent avec une espace (« 40 000 lb ») ou sans séparateur (« 40000 lb »).
+    """
+    assert lire_grandeur("1,500 kN", "force") == pytest.approx(1.5)
+    assert lire_grandeur("40,000 lb", "force") == pytest.approx(40 * LB / 1000)
+    assert lire_grandeur("40 000 lb", "force") == pytest.approx(40000 * LB / 1000)

@@ -305,6 +305,8 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
 
     - Unités : longueurs (mm, cm, m, po, ", in, pi, ', ft), forces (N, kN, lb, kip), moments (kN·m, N·m,
       N·mm, lb·po, lb·pi, kip·pi, kip·po ; « · », « * », « . », « - » ou rien entre les deux).
+    - Décimales avec un point ou une virgule (« 3.5 » = « 3,5 ») ; la virgule est toujours décimale, même
+      suivie de 3 chiffres (« 1,500 » = 1.5, décision de l'utilisateur). Milliers : une espace (« 40 000 »).
     - Opérations : + - * / (aussi × ÷), ^ (puissance entière), % (pourcentage), parenthèses ( ) et [ ].
       « - » est toujours une soustraction (décision de l'utilisateur) : « 8-6 » = 2.
     - Pieds, pouces et fractions : « 8' 6" », « 8 pi 6 po », « 8 pi 6 » (pouces après les pieds),

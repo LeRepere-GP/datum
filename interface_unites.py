@@ -60,7 +60,8 @@ _EXEMPLES = {
 }
 _CALCULATRICE = (
     "Calculs permis : + - * / ^ %, parenthèses (ex. (2 + 3)/2 po, 8 pi + 36 po - 50 mm). "
-    "« - » est toujours une soustraction : écrire 8' 6\" ou 2 1/4 po, sans tiret."
+    "« - » est toujours une soustraction : écrire 8' 6\" ou 2 1/4 po, sans tiret. Décimales avec un point "
+    "ou une virgule (3.5 ou 3,5) ; milliers avec une espace (40 000)."
 )
 
 
