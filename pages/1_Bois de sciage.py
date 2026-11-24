@@ -10,6 +10,8 @@ from moteur.commun.figures import (
     figure_avant_le_calcul,
     icone_de_l_article,
     icones_des_degres_de_retenue,
+    largeur_de_la_vue,
+    section_de_l_element,
 )
 from moteur.commun.note_de_calcul import (
     EnTete,
@@ -142,6 +144,13 @@ with st.container(horizontal_alignment="center"):
             )
 
         st.metric("Hauteur nette de l'élément, $d$", f"{depth} mm")
+        # Section de l'élément (b, d et les plis), affichée ici une seule fois plutôt que dans chaque
+        # onglet de calcul (retour #12) ; même échelle que les figures des onglets
+        apparence_du_compte = config.apparence_du_compte(st.session_state.get("compte", ""))
+        svg_de_la_section = section_de_l_element(
+            built_up, apparence_du_compte.principale, apparence_du_compte.accent
+        )
+        st.image(svg_de_la_section, width=round(440 * largeur_de_la_vue(svg_de_la_section) / 360))
         msr_mel = col2.segmented_control(
             label="Bois classé mécaniquement?",
             options=("MSR", "MEL"),
@@ -473,21 +482,27 @@ NOTE = {}
 SOURCE = tableau_des_resistances(CATEGORY)  # tableau des résistances prévues (6.3)
 
 
-def afficher_figures(*noms: str, largeur: int = 440) -> None:
+def afficher_figures(*noms: str, echelle: float = 440 / 360) -> None:
     """
     Figures schématiques des vérifications (issue #62), dans les couleurs du compte. La figure est
     affichée dès l'ouverture de l'onglet, avant d'entrer les valeurs (retours #9, #13 et #14) : elle
     ne montre que des symboles. L'article est entre parenthèses à la fin du nom (ex. « (6.5.3) »).
+
+    La section de l'élément (b, d) n'est pas répétée dans chaque onglet : elle est dans « Matériaux »
+    (retour #12). Les figures de 6.5.6 la gardent, avec la largeur d'appui b. Toutes les figures sont
+    à la même échelle (pixels par unité du SVG), pour que le texte ait la même taille.
     """
     apparence = config.apparence_du_compte(st.session_state.get("compte", ""))
     for nom in noms:
         if nom in NOTE:
-            svg = figure(NOTE[nom], apparence.principale, apparence.accent)
+            svg = figure(NOTE[nom], apparence.principale, apparence.accent, avec_section=False)
         else:
             article = nom.rsplit("(", 1)[-1].rstrip(")")
-            svg = figure_avant_le_calcul(article, built_up, apparence.principale, apparence.accent)
+            svg = figure_avant_le_calcul(
+                article, built_up, apparence.principale, apparence.accent, avec_section=False
+            )
         if svg:
-            st.image(svg, width=largeur)
+            st.image(svg, width=round(echelle * largeur_de_la_vue(svg)))
 
 
 def afficher_titre_de_l_onglet(titre: str, article: str) -> None:

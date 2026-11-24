@@ -109,16 +109,25 @@ def _fleches_reparties(x1: float, x2: float, y_haut: float, y_bas: float, accent
             f"stroke-linecap='round' stroke-linejoin='round'/>")
 
 
-def _section_seule(x_section: float, y: float, plis: int, principale: str, accent: str) -> str:
+def _svg(vue_avec_section: str, vue_sans_section: str, avec_section: bool) -> str:
+    """Balise d'ouverture du SVG, avec la zone visible (viewBox) de la figure avec ou sans la section."""
+    vue = vue_avec_section if avec_section else vue_sans_section
+    return f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='{vue}' fill='none'>"
+
+
+def _section_seule(x_section: float, y: float, plis: int, principale: str, accent: str,
+                   b_sur_toute_la_largeur: bool = False) -> str:
     """
     Section de l'élément, sans appui, avec les cotes b et d. L'élément est vu en bout : chaque pli
     avec son X (figure 6.1 de la norme). Avec plusieurs plis, la cote b est celle d'un pli (b est la
-    largeur d'un pli dans les traces de 6.5.3 et 6.5.4).
+    largeur d'un pli dans les traces de 6.5.3 et 6.5.4), sauf avec b_sur_toute_la_largeur.
 
     Args:
         x_section, y (float): Coin supérieur gauche de l'élément, en unités du SVG.
         plis (int): Nombre de plis.
         principale, accent (str): Couleurs de l'élément et des cotes.
+        b_sur_toute_la_largeur (bool, optional): Coter b sur toute la largeur de l'élément composé :
+            b = « largeur de l'élément » (3.2, p. 35). Default to False.
 
     Returns:
         str: Éléments SVG de la section.
@@ -126,14 +135,15 @@ def _section_seule(x_section: float, y: float, plis: int, principale: str, accen
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
     largeur_pli = 40 if plis == 1 else max(16, 76 / plis)
     largeur_section = largeur_pli * plis
+    largeur_b = largeur_section if b_sur_toute_la_largeur else largeur_pli
     x_cote_d = x_section + largeur_section + 12
     return (
         "".join(_bois_de_bout(x_section + i * largeur_pli, y, largeur_pli, 46, principale,
                               epaisseur=2.5) for i in range(plis))
-        + f"<path d='M{x_section} {y + 48} V{y + 64} M{x_section + largeur_pli} {y + 48} V{y + 64}' "
+        + f"<path d='M{x_section} {y + 48} V{y + 64} M{x_section + largeur_b} {y + 48} V{y + 64}' "
           f"{pointille}/>"
-        + _cote_horizontale(x_section, x_section + largeur_pli, y + 60, accent)
-        + _etiquette(x_section + largeur_pli / 2, y + 82, "b")
+        + _cote_horizontale(x_section, x_section + largeur_b, y + 60, accent)
+        + _etiquette(x_section + largeur_b / 2, y + 82, "b")
         + f"<path d='M{x_section + largeur_section + 2} {y} H{x_cote_d + 4} "
           f"M{x_section + largeur_section + 2} {y + 46} H{x_cote_d + 4}' {pointille}/>"
         + _cote_verticale(x_cote_d, y, y + 46, accent)
@@ -295,7 +305,8 @@ def compression_pres_d_un_appui(
 
 
 def flexion(
-    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT,
+    avec_section: bool = True,
 ) -> str:
     """
     Figure de 6.5.3 (résistance au moment de flexion) : poutre sur deux appuis (hachurés) sous une
@@ -306,6 +317,8 @@ def flexion(
         resultat (Resultat): Trace de verifier_flexion().
         principale, accent (str, optional): Couleurs de l'élément et des charges. Default to celles
             de la marque.
+        avec_section (bool, optional): Dessiner la section à droite. Default to True (note PDF) ;
+            l'interface la montre une seule fois, dans « Matériaux » (retour #12).
 
     Returns:
         str: SVG de la figure.
@@ -321,13 +334,14 @@ def flexion(
         + _etiquette(110, 114, "M_f")
     )
     return (
-        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 124' fill='none'>"
-        f"{elevation}{_section_seule(240, 26, plis, principale, accent)}</svg>"
+        _svg("0 0 360 124", "0 0 220 124", avec_section)
+        + f"{elevation}{_section_seule(240, 26, plis, principale, accent) if avec_section else ''}</svg>"
     )
 
 
 def cisaillement(
-    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT,
+    avec_section: bool = True,
 ) -> str:
     """
     Figure de 6.5.4.3 (résistance au cisaillement) : poutre sur son appui (hachuré) sous une charge
@@ -338,6 +352,8 @@ def cisaillement(
         resultat (Resultat): Trace de verifier_cisaillement().
         principale, accent (str, optional): Couleurs de l'élément et des charges. Default to celles
             de la marque.
+        avec_section (bool, optional): Dessiner la section à droite. Default to True (note PDF) ;
+            l'interface la montre une seule fois, dans « Matériaux » (retour #12).
 
     Returns:
         str: SVG de la figure.
@@ -355,13 +371,14 @@ def cisaillement(
         + _etiquette(96, 102, "V_f", ancre="start")
     )
     return (
-        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 124' fill='none'>"
-        f"{elevation}{_section_seule(240, 26, plis, principale, accent)}</svg>"
+        _svg("0 0 360 124", "0 0 226 124", avec_section)
+        + f"{elevation}{_section_seule(240, 26, plis, principale, accent) if avec_section else ''}</svg>"
     )
 
 
 def cisaillement_a_l_entaille(
-    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT,
+    avec_section: bool = True,
 ) -> str:
     """
     Figure de 6.5.4.4 (cisaillement par fissuration à l'entaille), d'après la figure 6.1 de la norme :
@@ -373,6 +390,8 @@ def cisaillement_a_l_entaille(
         resultat (Resultat): Trace de verifier_cisaillement_par_fissuration().
         principale, accent (str, optional): Couleurs de l'élément et des charges. Default to celles
             de la marque.
+        avec_section (bool, optional): Dessiner la section à droite. Default to True (note PDF) ;
+            l'interface la montre une seule fois, dans « Matériaux » (retour #12).
 
     Returns:
         str: SVG de la figure.
@@ -402,8 +421,8 @@ def cisaillement_a_l_entaille(
         + _etiquette(20, 98, "V_f", ancre="end")
     )
     return (
-        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='-24 0 384 146' fill='none'>"
-        f"{elevation}{_section_seule(240, 26, plis, principale, accent)}</svg>"
+        _svg("-24 0 384 146", "-24 0 250 146", avec_section)
+        + f"{elevation}{_section_seule(240, 26, plis, principale, accent) if avec_section else ''}</svg>"
     )
 
 
@@ -441,7 +460,8 @@ def _poteau(x: float, entraxe: float | None, L: float | None, symbole_entraxe: s
 
 
 def compression_parallele(
-    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT,
+    avec_section: bool = True,
 ) -> str:
     """
     Figure de 6.5.5 (compression parallèle au fil) : poteau de longueur L sous la charge pondérée P_f
@@ -454,6 +474,8 @@ def compression_parallele(
         resultat (Resultat): Trace de verifier_compression_parallele_au_fil().
         principale, accent (str, optional): Couleurs de l'élément et des charges. Default to celles
             de la marque.
+        avec_section (bool, optional): Dessiner la section à droite. Default to True (note PDF) ;
+            l'interface la montre une seule fois, dans « Matériaux » (retour #12).
 
     Returns:
         str: SVG de la figure.
@@ -471,8 +493,8 @@ def compression_parallele(
         + _etiquette(216, 116, "L", ancre="start")
     )
     return (
-        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='-30 0 390 236' fill='none'>"
-        f"{elevation}{_section_seule(250, 80, plis, principale, accent)}</svg>"
+        _svg("-30 0 390 236", "-30 0 270 236", avec_section)
+        + f"{elevation}{_section_seule(250, 80, plis, principale, accent) if avec_section else ''}</svg>"
     )
 
 
@@ -487,8 +509,14 @@ _FIGURES = {
 }
 
 
+# Figures qui dessinent la section de l'élément (b, d) à droite de l'élévation. Celles de 6.5.6 dessinent
+# plutôt la section sur son appui, avec la largeur d'appui b : elles la gardent toujours (retour #12).
+_FIGURES_AVEC_LA_SECTION_DE_L_ELEMENT = {"6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5"}
+
+
 def figure(
-    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT,
+    avec_section: bool = True,
 ) -> str | None:
     """
     Figure schématique d'une vérification (même figure dans l'interface et dans la note PDF).
@@ -497,16 +525,26 @@ def figure(
         resultat (Resultat): Trace du calcul.
         principale (str, optional): Couleur de l'élément et des appuis. Default to celle de la marque.
         accent (str, optional): Couleur des charges et des cotes. Default to celle de la marque.
+        avec_section (bool, optional): Dessiner la section de l'élément (b, d) à droite de
+            l'élévation. Default to True (note PDF : chaque page reste complète en elle-même).
+            L'interface passe False : la section est affichée une seule fois, dans « Matériaux »
+            (section_de_l_element(), retour #12). Sans effet sur les figures de 6.5.6, qui montrent la
+            largeur d'appui b sur la section.
 
     Returns:
         str | None: SVG de la figure, ou None si la vérification n'a pas encore de figure.
     """
     dessiner = _FIGURES.get(resultat.article)
-    return dessiner(resultat, principale, accent) if dessiner else None
+    if dessiner is None:
+        return None
+    if resultat.article in _FIGURES_AVEC_LA_SECTION_DE_L_ELEMENT:
+        return dessiner(resultat, principale, accent, avec_section)
+    return dessiner(resultat, principale, accent)
 
 
 def figure_avant_le_calcul(
-    article: str, plis: int = 1, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+    article: str, plis: int = 1, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT,
+    avec_section: bool = True,
 ) -> str | None:
     """
     Figure schématique d'une vérification pas encore faite (retours des utilisateurs : afficher la
@@ -518,6 +556,8 @@ def figure_avant_le_calcul(
         plis (int, optional): Nombre de plis de l'élément. Default to 1.
         principale (str, optional): Couleur de l'élément et des appuis. Default to celle de la marque.
         accent (str, optional): Couleur des charges et des cotes. Default to celle de la marque.
+        avec_section (bool, optional): Dessiner la section de l'élément (voir figure()). Default to
+            True.
 
     Returns:
         str | None: SVG de la figure, ou None si la vérification n'a pas encore de figure.
@@ -526,7 +566,47 @@ def figure_avant_le_calcul(
         norme="", article=article, titre="",
         donnees=[Donnee("", "Nombre de plis", plis)],  # pas de symbole dans la norme
     )
-    return figure(resultat, principale, accent)
+    return figure(resultat, principale, accent, avec_section)
+
+
+def section_de_l_element(
+    plis: int = 1, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+) -> str:
+    """
+    Section de l'élément seule, pour la section « Matériaux » de l'interface (retour #12) : chaque pli
+    vu en bout avec son X (figure 6.1 de la norme), la cote b et la cote d. Symboles seulement.
+
+    La cote b couvre toute la largeur de l'élément, plis compris : b = « largeur de l'élément, mm »
+    (3.2, p. 35 ; « width of member »). Pour un élément composé, l'élément est l'assemblage ; ses plis
+    sont les « éléments individuels » (6.5.3.2.4, p. 65) ou « éléments constitutifs » (6.5.5.4.1, note,
+    p. 70), sans symbole dans la norme. C'est aussi la largeur affichée dans « Matériaux »
+    (ex. 2*38 = 76 mm).
+
+    Args:
+        plis (int, optional): Nombre de plis de l'élément. Default to 1.
+        principale (str, optional): Couleur de l'élément. Default to celle de la marque.
+        accent (str, optional): Couleur des cotes. Default to celle de la marque.
+
+    Returns:
+        str: SVG de la section.
+    """
+    largeur_section = (40 if plis == 1 else max(16, 76 / plis)) * plis  # comme _section_seule()
+    largeur = largeur_section + 50  # cote d et son étiquette à droite
+    return (
+        f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 {largeur:g} 104' fill='none'>"
+        f"{_section_seule(0, 0, plis, principale, accent, b_sur_toute_la_largeur=True)}</svg>"
+    )
+
+
+def largeur_de_la_vue(svg: str) -> float:
+    """
+    Largeur de la zone visible (viewBox) d'une figure, en unités du SVG. L'interface s'en sert pour
+    afficher toutes les figures à la même échelle (texte de même taille), avec ou sans la section.
+    """
+    vue = re.search(r"viewBox='([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)'", svg)
+    if vue is None:
+        raise ValueError("Le SVG n'a pas de viewBox.")
+    return float(vue.group(3))
 
 
 # --- Petites icônes des types de calcul (issue #89) ---

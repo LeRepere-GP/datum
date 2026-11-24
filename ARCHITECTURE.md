@@ -338,6 +338,12 @@ la charge P_f, la longueur L et la section b × d.
 - Dans l'interface, la figure est affichée **dès l'ouverture de l'onglet**, avant d'entrer les valeurs :
   `figure_avant_le_calcul(article, plis, principale, accent)` la dessine sans trace (seul le nombre de
   plis est nécessaire). Une fois la vérification faite, la figure tirée de la trace la remplace.
+- **Section de l'élément** (retour datum-retours#12) : dans l'interface, la section (plis, b, d) est
+  affichée **une seule fois, dans « Matériaux »** (`section_de_l_element(plis, principale, accent)`, cote b
+  sur toute la largeur : b = « largeur de l'élément », 3.2). Les onglets montrent l'élévation seulement
+  (`figure(..., avec_section=False)`). Les figures de 6.5.6 gardent leur section, qui montre la largeur
+  d'appui b. La **note PDF** garde la section dans chaque vérification (chaque page reste complète).
+  Dans l'interface, toutes les figures sont à la même échelle (`largeur_de_la_vue(svg)`).
 - Petites icônes des types de calcul (sans texte) : `marque/icones/`.
 - Convention de dessin : une pièce de bois **vue en bout** (fil d'extrémité) porte un **X** (figure 6.1 de
   la norme) ; vue de côté, un rectangle simple. Les **appuis** sont hachurés (appui quelconque, pas
