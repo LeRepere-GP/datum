@@ -138,7 +138,7 @@ def _sans_chiffres(texte: str, *symboles_avec_chiffres: str) -> bool:
 def test_flexion():
     # 3-2x10 : 3 plis de 38 mm x 235 mm, plis fixés à au plus 4 d (6.5.3.2.4)
     r = art_6_5_3.verifier_flexion(
-        b=38, d=235, f_b=11.8, plis=3, M_f=5,  # mm ; MPa ; kN·m
+        b=114, d=235, f_b=11.8, plis=3, M_f=5,  # 3 x 38 mm = 114 mm ; mm ; MPa ; kN·m
         support_lateral_aux_appuis=True, rive_comprimee_maintenue=True,
         plis_fixes_a_au_plus_4d=True,
     )
@@ -399,9 +399,8 @@ def test_section_de_l_element_b_sur_toute_la_largeur():
 
     for plis, largeur in ((1, 40), (2, 76), (5, 80)):
         assert cote_b(section_de_l_element(plis), 0) == largeur, plis
-    # Les figures des vérifications (traces : b = largeur d'un pli) gardent la cote sur un pli :
-    # 2 plis de 38 unités, section à x = 240
-    assert cote_b(figure_avant_le_calcul("6.5.3", plis=2), 240) == 38
+    # Les figures des vérifications aussi (issue #95) : 2 plis de 38 unités = 76, section à x = 240
+    assert cote_b(figure_avant_le_calcul("6.5.3", plis=2), 240) == 76
 
 
 def test_section_de_l_element_largeur_de_la_vue():

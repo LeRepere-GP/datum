@@ -13,7 +13,7 @@ K_L selon 7.5.6.4 n'est pas encore offert : si le rapport hauteur/largeur dépas
 est levée (issue #3).
 
 Poutres composées (6.5.3.2.2 et 6.5.3.2.4, lecture stricte validée avec l'utilisateur, issue #48) :
-K_L = 1 seulement si les plis sont fixés ensemble à intervalles d'au plus 4 d ET si d / (n b) <= 2,5
+K_L = 1 seulement si les plis sont fixés ensemble à intervalles d'au plus 4 d ET si d / b <= 2,5
 (6.5.3.2.1 sur la largeur totale). Les rapports de 6.5.3.2.3 ne s'appliquent pas aux poutres composées
 (6.5.3.2.2 : « autres que les poutres composées »). Dans les autres cas, K_L selon 7.5.6.4 (à venir).
 """
@@ -157,17 +157,18 @@ def espacement_maximal_des_fixations(d: float) -> float:
     return ESPACEMENT_FIXATIONS_EN_HAUTEURS * d
 
 
-def K_L_poutre_composee(b_totale: float, d: float, plis_fixes_a_au_plus_4d: bool) -> float:
+def K_L_poutre_composee(b: float, d: float, plis_fixes_a_au_plus_4d: bool) -> float:
     """
     6.5.3.2.4 Coefficient de stabilité latérale, K_L, d'une poutre composée (au moins deux plis de même
     hauteur).
 
-    K_L = 1 si les plis sont fixés ensemble à intervalles d'au plus 4 d et si d / (n b) <= 2,5 (rapport de
+    K_L = 1 si les plis sont fixés ensemble à intervalles d'au plus 4 d et si d / b <= 2,5 (rapport de
     6.5.3.2.1 basé sur la largeur totale). « Dans d'autres cas », K_L selon 7.5.6.4 (pas encore offert).
     Les rapports de 6.5.3.2.3 ne s'appliquent pas (6.5.3.2.2, issue #48).
 
     Args:
-        b_totale (float): Largeur totale de la poutre, n b, mm.
+        b (float): Largeur de la poutre composée (3.2 : largeur de l'élément), tous les plis compris,
+            mm.
         d (float): Hauteur de la poutre, mm.
         plis_fixes_a_au_plus_4d (bool): Plis solidement fixés ensemble à intervalles d'au plus 4 d.
 
@@ -175,7 +176,7 @@ def K_L_poutre_composee(b_totale: float, d: float, plis_fixes_a_au_plus_4d: bool
         float: K_L = 1.
 
     Raises:
-        ValueError: Si les plis ne sont pas fixés à au plus 4 d, ou si d / (n b) > 2,5 (K_L selon
+        ValueError: Si les plis ne sont pas fixés à au plus 4 d, ou si d / b > 2,5 (K_L selon
             7.5.6.4, à venir).
     """
     if not plis_fixes_a_au_plus_4d:
@@ -184,10 +185,10 @@ def K_L_poutre_composee(b_totale: float, d: float, plis_fixes_a_au_plus_4d: bool
             f"4 d = {espacement_maximal_des_fixations(d):g} mm (6.5.3.2.4). Sinon, KL doit être "
             "déterminé selon l'article 7.5.6.4, fonctionnalité à venir."
         )
-    rapport = d / b_totale
+    rapport = d / b
     if rapport > RAPPORT_SANS_SUPPORT:
         raise ValueError(
-            f"Poutre composée : d/(n b) = {rapport:.2f} > {RAPPORT_SANS_SUPPORT:g} : KL doit être "
+            f"Poutre composée : d/b = {rapport:.2f} > {RAPPORT_SANS_SUPPORT:g} : KL doit être "
             "déterminé selon l'article 7.5.6.4 (6.5.3.2.4), fonctionnalité à venir. Les rapports de "
             "6.5.3.2.3 ne s'appliquent pas aux poutres composées (6.5.3.2.2)."
         )
@@ -238,7 +239,8 @@ def verifier_flexion(
     6.5.3 Résistance pondérée au moment de flexion d'un élément en bois de sciage.
 
     Args:
-        b (float): Largeur d'un pli, mm.
+        b (float): Largeur de l'élément, mm (3.2) : largeur totale d'un élément composé, tous les plis
+            compris (issue #95).
         d (float): Hauteur de l'élément, mm.
         f_b (float): Résistance prévue en flexion, MPa.
         plis (int, optional): Nombre de plis (poutre composée, 6.4.4.3 et 6.5.3.2.4). Default to 1.
@@ -262,9 +264,11 @@ def verifier_flexion(
     """
     r = Resultat(NORME, "6.5.3", "Résistance au moment de flexion", "poutre")
     for donnee in (
-        Donnee("b", "Largeur d'un pli", b, "mm", "dimension"),
+        Donnee("b", "Largeur de l'élément", b, "mm", "dimension"),
         Donnee("d", "Hauteur de l'élément", d, "mm", "dimension"),
-        Donnee("", "Nombre de plis", plis),
+        Donnee("", "Nombre de plis", plis),  # pas de symbole dans la norme
+        # Largeur d'un pli : « élément individuel » (6.5.3.2.4), sans symbole dans la norme
+        *([Donnee("", "Largeur d'un pli", b / plis, "mm", "dimension")] if plis > 1 else []),
         Donnee("f_b", "Résistance prévue en flexion", f_b, "MPa", "contrainte", source_resistances),
         Donnee("K_D", "Coefficient de durée d'application de la charge", K_D, source=source_K_D),
         Donnee("K_H", "Coefficient de système", K_H, source="Tableau 6.12"),
@@ -274,7 +278,6 @@ def verifier_flexion(
     ):
         r.ajouter_donnee(donnee)
 
-    largeur = b * plis
     f_b_corrige = r.ajouter_etape(Etape(
         "6.5.3.1", "Résistance corrigée en flexion", "F_b",
         r"F_b = f_b \, (K_D \, K_H \, K_{Sb} \, K_T)",
@@ -283,16 +286,16 @@ def verifier_flexion(
     ))
     module = r.ajouter_etape(Etape(
         "6.5.3.1", "Module de section", "S",
-        r"S = \frac{(n \, b) \, d^2}{6}", rf"\frac{{({plis} \times {cs(b)}) \times {cs(d)}^2}}{{6}}",
-        S(largeur, d), "mm³",
+        r"S = \frac{b \, d^2}{6}", rf"\frac{{{cs(b)} \times {cs(d)}^2}}{{6}}",
+        S(b, d), "mm³",
     ))
     if plis > 1:
         k_l = r.ajouter_etape(Etape(
             "6.5.3.2.4", "Coefficient de stabilité latérale (poutre composée)", "K_L",
-            r"K_L = 1 \text{ si fixations} \leq 4 \, d \text{ et } \frac{d}{n \, b} \leq 2.5",
+            r"K_L = 1 \text{ si fixations} \leq 4 \, d \text{ et } \frac{d}{b} \leq 2.5",
             rf"4 \times {cs(d)} = {cs(espacement_maximal_des_fixations(d))} \text{{ mm}} ; "
-            rf"\frac{{{cs(d)}}}{{{cs(largeur)}}} = {cs(d / largeur)} \leq 2.5",
-            K_L_poutre_composee(largeur, d, plis_fixes_a_au_plus_4d),
+            rf"\frac{{{cs(d)}}}{{{cs(b)}}} = {cs(d / b)} \leq 2.5",
+            K_L_poutre_composee(b, d, plis_fixes_a_au_plus_4d),
         ))
     else:
         rapport_maximal = rapport_hauteur_largeur_maximal(
@@ -302,8 +305,8 @@ def verifier_flexion(
         k_l = r.ajouter_etape(Etape(
             "6.5.3.2", "Coefficient de stabilité latérale", "K_L",
             rf"K_L = 1 \text{{ si }} \frac{{d}}{{b}} \leq {rapport_maximal:g}",
-            rf"\frac{{{cs(d)}}}{{{cs(largeur)}}} = {cs(d / largeur)} \leq {rapport_maximal:g}",
-            K_L(largeur, d, rapport_maximal),
+            rf"\frac{{{cs(d)}}}{{{cs(b)}}} = {cs(d / b)} \leq {rapport_maximal:g}",
+            K_L(b, d, rapport_maximal),
         ))
     m_r = r.ajouter_etape(Etape(
         "6.5.3.1", "Résistance pondérée au moment de flexion", "M_r",

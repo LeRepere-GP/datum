@@ -695,7 +695,7 @@ if "flexion" in ONGLETS:
                     st.write(f"$Mr = {round(mr,2)} kN \\cdot m$")
                     show_verification(VERIF)
                     NOTE["Flexion (6.5.3)"] = art_6_5_3.verifier_flexion(
-                        b=width, d=depth, f_b=compute_resistance[0], plis=built_up,
+                        b=width * built_up, d=depth, f_b=compute_resistance[0], plis=built_up,
                         K_D=kd, K_H=kh, K_Sb=ksb, K_T=kt, K_Zb=kzb,
                         support_lateral_aux_appuis=LATERAL, pannes_ou_tirants=TIE_ROD,
                         rive_comprimee_maintenue=COMP_EDGE, entretoises_ou_entremises=BLOCK,
@@ -799,7 +799,7 @@ if "cisaillement" in ONGLETS:
 
                 entaille = bool(notch_depth and notch_length)
                 NOTE["Cisaillement (6.5.4.3)"] = art_6_5_4.verifier_cisaillement(
-                    b=width, d=depth, f_v=compute_resistance[1], plis=built_up,
+                    b=width * built_up, d=depth, f_v=compute_resistance[1], plis=built_up,
                     d_n=notch_depth if entaille else 0,
                     K_D=beam_shear.kd, K_H=beam_shear.kh, K_Sv=ksv, K_T=beam_shear.kt, K_Zv=kzv,
                     V_f=vf, source_resistances=SOURCE, source_K_D=SOURCE_KD,
@@ -807,7 +807,7 @@ if "cisaillement" in ONGLETS:
                 if entaille:
                     NOTE["Cisaillement par fissuration à l'entaille (6.5.4.4)"] = (
                         art_6_5_4.verifier_cisaillement_par_fissuration(
-                            b=width, d=depth, d_n=notch_depth, e=notch_length, plis=built_up,
+                            b=width * built_up, d=depth, d_n=notch_depth, e=notch_length, plis=built_up,
                             K_D=kd, K_H=kh, K_Sf=ksf, K_T=kt, V_f=vf, source_K_D=SOURCE_KD,
                         )
                     )

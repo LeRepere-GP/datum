@@ -68,3 +68,27 @@ def test_figures_apres_le_calcul_sans_section():
     cisaillement = next(s for s in svgs if "Vf" in _texte(s) and "dn" not in _texte(s))
     assert _x_du_pli(cisaillement) == 0
     assert len(_sections(svgs)) == 1
+
+
+def _resume(at):
+    return [m.value for m in at.markdown if m.value.startswith("| Vérification")]
+
+
+def test_element_compose_trace_avec_la_largeur_totale():
+    """
+    Issue #95 : la page passe b = largeur de l'élément (3.2), tous les plis compris, au nouveau moteur.
+    Avec 2 plis, V_r de la trace (résumé) est égal à V_r de l'ancien module affiché dans l'onglet :
+    même largeur totale, 2 x 38 mm = 76 mm.
+    """
+    at = _connecte("admin", "mot-admin")
+    [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(2).run()
+    [n for n in at.number_input if n.label == "$Vf: (kN)$"][0].set_value(1.0).run()  # kN
+    assert not at.exception
+    v_r_affiche = next(m.value for m in at.markdown if m.value.startswith("$Vr = "))
+    v_r_affiche = float(v_r_affiche.removeprefix("$Vr = ").removesuffix(" kN$"))
+    (tableau,) = _resume(at)
+    ligne = next(l for l in tableau.splitlines() if "6.5.4.3" in l)
+    v_r_trace = float(re.search(r"\$V_r\$ = ([\d.]+) kN", ligne).group(1))
+    # Résumé à 3 chiffres significatifs (14.7 kN), onglet à 2 décimales (14.75 kN). Avec la largeur
+    # d'un pli seulement (38 mm), la trace donnerait environ la moitié (7.4 kN).
+    assert abs(v_r_trace - v_r_affiche) < 0.06  # kN (écart d'arrondi seulement)

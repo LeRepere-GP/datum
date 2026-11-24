@@ -176,7 +176,8 @@ def verifier_cisaillement(
     6.5.4.3 Résistance pondérée au cisaillement d'un élément en bois de sciage.
 
     Args:
-        b (float): Largeur d'un pli, mm.
+        b (float): Largeur de l'élément, mm (3.2) : largeur totale d'un élément composé, tous les plis
+            compris (issue #95).
         d (float): Hauteur de l'élément, mm.
         f_v (float): Résistance prévue en cisaillement, MPa.
         plis (int, optional): Nombre de plis. Default to 1.
@@ -193,9 +194,11 @@ def verifier_cisaillement(
     """
     r = Resultat(NORME, "6.5.4.3", "Résistance au cisaillement", "poutre")
     for donnee in (
-        Donnee("b", "Largeur d'un pli", b, "mm", "dimension"),
+        Donnee("b", "Largeur de l'élément", b, "mm", "dimension"),
         Donnee("d", "Hauteur de l'élément", d, "mm", "dimension"),
-        Donnee("", "Nombre de plis", plis),
+        Donnee("", "Nombre de plis", plis),  # pas de symbole dans la norme
+        # Largeur d'un pli : « élément individuel » (6.5.3.2.4), sans symbole dans la norme
+        *([Donnee("", "Largeur d'un pli", b / plis, "mm", "dimension")] if plis > 1 else []),
         Donnee("d_n", "Profondeur de l'entaille", d_n, "mm", "dimension"),
         Donnee("f_v", "Résistance prévue en cisaillement", f_v, "MPa", "contrainte", source_resistances),
         Donnee("K_D", "Coefficient de durée d'application de la charge", K_D, source=source_K_D),
@@ -215,8 +218,8 @@ def verifier_cisaillement(
     ))
     a_n = r.ajouter_etape(Etape(
         "5.3.8", "Aire de la section transversale nette", "A_n",
-        r"A_n = n \, b \, (d - d_n)", rf"{plis} \times {cs(b)} \times ({cs(d)} - {cs(d_n)})",
-        plis * b * (d - d_n), "mm²",
+        r"A_n = b \, (d - d_n)", rf"{cs(b)} \times ({cs(d)} - {cs(d_n)})",
+        b * (d - d_n), "mm²",
     ))
     v_r = r.ajouter_etape(Etape(
         "6.5.4.3", "Résistance pondérée au cisaillement", "V_r",
@@ -250,7 +253,8 @@ def verifier_cisaillement_par_fissuration(
     la rive en traction.
 
     Args:
-        b (float): Largeur d'un pli, mm.
+        b (float): Largeur de l'élément, mm (3.2) : largeur totale d'un élément composé, tous les plis
+            compris (issue #95).
         d (float): Hauteur de l'élément, mm.
         d_n (float): Profondeur de l'entaille (<= 0,25 d), mm.
         e (float): Longueur de l'entaille (figure 6.1), mm.
@@ -269,9 +273,11 @@ def verifier_cisaillement_par_fissuration(
     """
     r = Resultat(NORME, "6.5.4.4", "Résistance au cisaillement par fissuration à l'entaille", "entaille")
     for donnee in (
-        Donnee("b", "Largeur d'un pli", b, "mm", "dimension"),
+        Donnee("b", "Largeur de l'élément", b, "mm", "dimension"),
         Donnee("d", "Hauteur de l'élément", d, "mm", "dimension"),
-        Donnee("", "Nombre de plis", plis),
+        Donnee("", "Nombre de plis", plis),  # pas de symbole dans la norme
+        # Largeur d'un pli : « élément individuel » (6.5.3.2.4), sans symbole dans la norme
+        *([Donnee("", "Largeur d'un pli", b / plis, "mm", "dimension")] if plis > 1 else []),
         Donnee("d_n", "Profondeur de l'entaille", d_n, "mm", "dimension"),
         Donnee("e", "Longueur de l'entaille", e, "mm", "dimension"),
         Donnee("K_D", "Coefficient de durée d'application de la charge", K_D, source=source_K_D),
@@ -306,7 +312,7 @@ def verifier_cisaillement_par_fissuration(
     ))
     a_g = r.ajouter_etape(Etape(
         "6.5.4.4.1", "Aire brute de la section transversale", "A_g",
-        r"A_g = n \, b \, d", rf"{plis} \times {cs(b)} \times {cs(d)}", plis * b * d, "mm²",
+        r"A_g = b \, d", rf"{cs(b)} \times {cs(d)}", b * d, "mm²",
     ))
     f_r = r.ajouter_etape(Etape(
         "6.5.4.4.1", "Résistance pondérée au cisaillement par fissuration", "F_r",

@@ -89,8 +89,9 @@ def test_verifier_flexion_ratio_depasse():
 
 
 def test_verifier_flexion_poutre_composee():
-    # 3 plis de 38 x 235 mm : largeur totale 114 mm, d/b = 235 mm / 114 mm = 2.06 <= 2.5
-    r = verifier_flexion(38, 235, 11.8, plis=3, plis_fixes_a_au_plus_4d=True)
+    # 3 plis de 38 x 235 mm : b = largeur de l'élément = 3 x 38 mm = 114 mm (3.2, issue #95),
+    # d/b = 235 mm / 114 mm = 2.06 <= 2.5
+    r = verifier_flexion(114, 235, 11.8, plis=3, plis_fixes_a_au_plus_4d=True)
     assert r.etape("S").valeur == pytest.approx(114 * 235**2 / 6)  # 1 049 275 mm³
     assert r.etape("K_L").valeur == 1.0
     # 0.9 x 11.8 MPa x 1 049 275 mm³ = 11 143 300.5 N·mm
@@ -104,7 +105,7 @@ def test_espacement_maximal_des_fixations():
 
 
 def test_K_L_poutre_composee_au_seuil():
-    # 2 plis de 38 mm : largeur totale 76 mm ; d = 2.5 x 76 mm = 190 mm -> d/(n b) = 2.5 : K_L = 1
+    # 2 plis de 38 mm : largeur totale 76 mm ; d = 2.5 x 76 mm = 190 mm -> d/b = 2.5 : K_L = 1
     assert K_L_poutre_composee(76, 190, True) == 1.0
     # 191 mm / 76 mm = 2.51 > 2.5 -> K_L selon 7.5.6.4
     with pytest.raises(ValueError, match="2.51 > 2.5"):
@@ -122,7 +123,7 @@ def test_poutre_composee_sans_les_rapports_de_6_5_3_2_3():
     # rive comprimée maintenue (6.5:1). Maintenant : K_L selon 7.5.6.4, même avec tous les supports.
     with pytest.raises(ValueError, match="2.51 > 2.5"):
         verifier_flexion(
-            38, 286, 11.8, plis=3, plis_fixes_a_au_plus_4d=True, support_lateral_aux_appuis=True,
+            114, 286, 11.8, plis=3, plis_fixes_a_au_plus_4d=True, support_lateral_aux_appuis=True,
             rive_comprimee_maintenue=True, rive_tendue_maintenue=True,
         )
 
