@@ -11,20 +11,27 @@ Deux bascules indépendantes (demande de l'utilisateur, PR #99) :
 - « Charges » : forces (kN / lb), moments (kN·m / lb·po) et contraintes (MPa / psi).
 
 On peut basculer en tout temps : les valeurs entrées sont gardées (en métrique, exactes) et réaffichées
-dans l'autre système. Les longueurs en impérial s'entrent en pieds et pouces (ex. « 8-6 » = 8 pi 6 po).
+dans l'autre système. En impérial, les dimensions et les longueurs s'entrent en pieds, pouces et fractions
+de pouce (ex. « 3-1/2 » po, « 8-6 » = 8 pi 6 po, « 3 pi 2-1/4 po »), avec la fonction générale
+moteur/commun/unites.lire_imperial().
 
 Les dimensions nominales (ex. « 2x6 ») et les dimensions brutes restent en po dans les deux systèmes
 (décision de l'utilisateur, retour #10).
 """
 
 import math
-import re
-from fractions import Fraction
 
 import streamlit as st
 
 from moteur.commun.nombres import cs
-from moteur.commun.unites import grandeur, vers_imperial, vers_metrique
+from moteur.commun.unites import (
+    ecrire_pieds_pouces,
+    ecrire_pouces,
+    grandeur,
+    lire_imperial,
+    vers_imperial,
+    vers_metrique,
+)
 
 METRIQUE = "Métrique"
 IMPERIAL = "Impérial"
@@ -44,10 +51,10 @@ _BASCULE = {
 }
 
 # Format et pas des champs numériques, par grandeur et par système (unités de moteur/commun/unites.py).
-# Les longueurs en impérial s'entrent en pieds-pouces (champ texte, voir _champ_pieds_pouces()).
+# En impérial, les dimensions (po) et les longueurs (pi-po) s'entrent dans un champ texte, en pieds,
+# pouces et fractions de pouce (voir _champ_imperial() et unites.lire_imperial()).
 _FORMAT_ET_PAS = {
     ("dimension", METRIQUE): ("%.0f", 1.0),  # mm
-    ("dimension", IMPERIAL): ("%.2f", 0.25),  # po
     ("longueur", METRIQUE): ("%.0f", 100.0),  # mm
     ("force", METRIQUE): ("%.2f", 1.0),  # kN
     ("force", IMPERIAL): ("%.0f", 100.0),  # lb
@@ -104,77 +111,6 @@ def vers_affichage(valeur_metrique: float, nom_grandeur: str) -> float:
 def depuis_affichage(valeur: float, nom_grandeur: str) -> float:
     """Valeur du système choisi, ramenée en métrique pour le moteur."""
     return vers_metrique(valeur, nom_grandeur) if en_imperial(nom_grandeur) else valeur
-
-
-# --- Pieds et pouces ---
-
-_NOMBRE = r"\d+(?:\.\d+)?"
-# Pouces : 6, 6.5, 6 1/2, 6-1/2 ou 1/2 (fractions de pouce, demande de l'utilisateur)
-_POUCES = rf"(?:{_NOMBRE}(?:(?:\s+|\s*-\s*)\d+/\d+)?|\d+/\d+)"
-_UNITE_PI = r"(?:'|pi|pieds?)"
-_UNITE_PO = r'(?:"|po|pouces?)'
-
-
-def _pouces(texte: str) -> float:
-    """« 6 1/2 » ou « 6-1/2 » -> 6.5 ; « 1/2 » -> 0.5 ; « 6.5 » -> 6.5."""
-    total = 0.0
-    for morceau in texte.replace("-", " ").split():
-        if "/" in morceau:
-            numerateur, denominateur = morceau.split("/")
-            if float(denominateur) == 0:
-                raise ValueError("division par zéro")
-            total += float(numerateur) / float(denominateur)
-        else:
-            total += float(morceau)
-    return total
-
-
-def lire_pieds_pouces(texte: str) -> float:
-    """
-    Longueur entrée en pieds et pouces, en pieds.
-
-    Formes acceptées (point décimal ou virgule) : « 8-6 », « 8 - 6 », « 8 6 », « 8'-6" », « 8' 6" »,
-    « 8 pi 6 po », « 8 pi - 6 1/2 po », « 3 pi 2-1/4 po », « 3-2-1/4 », « 8.5 » ou « 8 pi » (pieds
-    seulement), « 6 po », « 6" » ou « 2-1/4 po » (pouces seulement, l'unité est alors obligatoire).
-    Sans unité, « 3-1/4 » se lit 3 pi 1/4 po ; avec l'unité, « 3-1/4 po » se lit 3 1/4 po.
-
-    Raises:
-        ValueError: Si le texte n'est pas une longueur en pieds et pouces.
-    """
-    s = (texte.strip().lower().replace(",", ".").replace("’", "'").replace("′", "'")
-         .replace("”", '"').replace("″", '"').replace("''", '"'))
-    if not s:
-        raise ValueError("vide")
-    # Pouces seulement : l'unité est obligatoire (« 6 1/2 po »)
-    m = re.fullmatch(rf"(?P<po>{_POUCES})\s*{_UNITE_PO}", s)
-    if m:
-        return _pouces(m["po"]) / 12
-    # Pieds seulement : « 8.5 », « 8 pi », « 8' »
-    m = re.fullmatch(rf"(?P<pi>{_NOMBRE})\s*{_UNITE_PI}?", s)
-    if m:
-        return float(m["pi"])
-    # Pieds et pouces : « 8-6 », « 8' 6" », « 8 pi - 6 1/2 po »
-    m = re.fullmatch(
-        rf"(?P<pi>{_NOMBRE})\s*(?:{_UNITE_PI}\s*-?\s*|-\s*|\s+)(?P<po>{_POUCES})\s*{_UNITE_PO}?", s
-    )
-    if m:
-        return float(m["pi"]) + _pouces(m["po"]) / 12
-    raise ValueError(f"longueur illisible : « {texte} »")
-
-
-def ecrire_pieds_pouces(valeur_metrique: float) -> str:
-    """
-    Longueur métrique (mm) en pieds et pouces, au 1/16 po près. Ex. 2590.8 mm -> « 8 pi - 6 po » ;
-    971.55 mm -> « 3 pi - 2-1/4 po ».
-    """
-    seiziemes = round(valeur_metrique / 25.4 * 16)  # 1 po = 25.4 mm
-    pieds, seiziemes = divmod(seiziemes, 12 * 16)
-    entiers, reste = divmod(seiziemes, 16)
-    pouces = str(entiers)
-    if reste:
-        fraction = Fraction(reste, 16)
-        pouces = f"{entiers}-{fraction}" if entiers else f"{fraction}"
-    return f"{pieds} pi - {pouces} po"
 
 
 # --- Textes des résultats ---
@@ -241,7 +177,8 @@ def champ(
     sa valeur métrique exacte (pas d'erreur d'arrondi : 89 mm -> 3.50 po -> 89 mm).
 
     En métrique, la clé du champ est `key` (tests et code existants) ; en impérial, `key + "__imperial"`.
-    Les longueurs en impérial s'entrent en pieds-pouces (champ texte, ex. « 8-6 »).
+    En impérial, les dimensions et les longueurs s'entrent dans un champ texte en pieds, pouces et
+    fractions de pouce (ex. « 3-1/2 », « 8-6 »).
 
     Args:
         libelle (str): Libellé ; « {unite} » y est remplacé par l'unité (ex. « $L_b$ ({unite}) »).
@@ -255,8 +192,8 @@ def champ(
         float | None: Valeur en métrique (mm, kN, kN·m), ou None.
     """
     imperial = en_imperial(nom_grandeur)
-    if nom_grandeur == "longueur" and imperial:
-        return _champ_pieds_pouces(libelle, key, conteneur, min_value, max_value, **kwargs)
+    if imperial and nom_grandeur in ("dimension", "longueur"):
+        return _champ_imperial(libelle, nom_grandeur, key, conteneur, min_value, max_value, **kwargs)
     cle_du_champ, cle_de_l_autre, cle_metrique, cle_initiale = _cles(key, imperial)
     format_, pas = _FORMAT_ET_PAS[(nom_grandeur, systeme(nom_grandeur))]
 
@@ -316,8 +253,9 @@ def champ(
     return st.session_state[cle_metrique]
 
 
-def _champ_pieds_pouces(
+def _champ_imperial(
     libelle: str,
+    nom_grandeur: str,
     key: str,
     conteneur,
     min_value: float | None,
@@ -325,22 +263,30 @@ def _champ_pieds_pouces(
     **kwargs,
 ) -> float | None:
     """
-    Longueur en impérial : champ texte en pieds et pouces (ex. « 8-6 » = 8 pi 6 po = 8.5 pi), qui rend
-    une valeur en mm. Mêmes règles que champ() pour la bascule et les valeurs gardées.
+    Dimension (po) ou longueur (pi-po) en impérial : champ texte lu par unites.lire_imperial() (toutes les
+    combinaisons de pieds, pouces et fractions de pouce), qui rend une valeur en mm. La valeur gardée est
+    réaffichée au 1/16 po près (ex. « 3-1/2 », « 8 pi - 6 po »). Mêmes règles que champ() pour la bascule
+    et les valeurs gardées (une valeur non modifiée reste exacte en mm).
     """
+    longueur = nom_grandeur == "longueur"
+    ecrire = ecrire_pieds_pouces if longueur else ecrire_pouces
     cle_du_champ, cle_de_l_autre, cle_metrique, cle_initiale = _cles(key, True)
     st.session_state.pop(cle_de_l_autre, None)
     if cle_du_champ not in st.session_state:
         metrique = st.session_state.get(cle_metrique)
-        st.session_state[cle_du_champ] = "" if metrique is None else ecrire_pieds_pouces(metrique)
+        st.session_state[cle_du_champ] = "" if metrique is None else ecrire(metrique)
         st.session_state[cle_initiale] = st.session_state[cle_du_champ]
 
     aide = kwargs.pop("help", None)
-    exemples = "En pieds et pouces : ex. 8-6, 8' 6\", 3 pi 2-1/4 po, 8.5 (pieds) ou 6 po."
+    exemples = (
+        "En pieds et pouces : ex. 8-6, 8' 6\", 3 pi 2-1/4 po, 8.5 (pieds) ou 6 po."
+        if longueur else
+        "En pouces : ex. 3.5, 3-1/2, 3 1/2, 3/4, ou en pieds et pouces : 1' 2-1/4\"."
+    )
     for inutile in ("step", "format", "min_value", "max_value"):
         kwargs.pop(inutile, None)
     valeur = conteneur.text_input(
-        libelle.replace("{unite}", _PI_PO),
+        libelle.replace("{unite}", _PI_PO if longueur else "po"),
         key=cle_du_champ,
         help=f"{aide} {exemples}" if aide else exemples,
         **kwargs,
@@ -349,22 +295,27 @@ def _champ_pieds_pouces(
         st.session_state[cle_metrique] = None
     elif valeur != st.session_state.get(cle_initiale) or st.session_state.get(cle_metrique) is None:
         try:
-            metrique = vers_metrique(lire_pieds_pouces(valeur), "longueur")
+            pouces = lire_imperial(valeur, "pi" if longueur else "po")
         except ValueError:
-            conteneur.error(
-                f"Longueur illisible : « {valeur} ». {exemples}", icon=":material/error:"
-            )
+            conteneur.error(f"Valeur illisible : « {valeur} ». {exemples}", icon=":material/error:")
             st.session_state[cle_metrique] = None
             return None
-        st.session_state[cle_metrique] = metrique
+        st.session_state[cle_metrique] = vers_metrique(pouces, "dimension")  # po -> mm
         st.session_state[cle_initiale] = None  # modifiée : la valeur entrée fait foi
     metrique = st.session_state[cle_metrique]
-    if metrique is not None and (
-        (min_value is not None and metrique < min_value)
-        or (max_value is not None and metrique > max_value)
-    ):
-        conteneur.error("Longueur hors des limites permises.", icon=":material/error:")
-        return None
+    if metrique is not None:
+        if min_value is not None and metrique < min_value:
+            conteneur.error(
+                f"La valeur doit être d'au moins {ecrire(min_value)}"
+                + ("" if longueur else " po") + ".", icon=":material/error:"
+            )
+            return None
+        if max_value is not None and metrique > max_value:
+            conteneur.error(
+                f"La valeur ne doit pas dépasser {vers_imperial(max_value, 'dimension'):.3f} po "
+                f"({max_value:.1f} mm).", icon=":material/error:"
+            )
+            return None
     return metrique
 
 

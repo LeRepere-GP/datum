@@ -757,7 +757,7 @@ if "cisaillement" in ONGLETS:
                     placeholder="Optionnel",
                     help=(
                         f"Ne doit pas dépasser $0.25 \\cdot d = "
-                        f"{iu.vers_affichage(quart_de_d, 'dimension'):.{2 if iu.en_imperial("dimension") else 1}f}$ "
+                        f"{iu.vers_affichage(quart_de_d, 'dimension'):.{3 if iu.en_imperial("dimension") else 1}f}$ "
                         f"{iu.unite('dimension')} (6.5.4.4.2)"
                     ),
                     icon=":material/height:",

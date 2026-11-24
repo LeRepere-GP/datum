@@ -47,7 +47,8 @@ def test_bascules_independantes():
     """Dimensions en impérial et charges en kN (exemple de l'utilisateur), puis l'inverse."""
     at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Impérial")
     libelles = [n.label for n in at.number_input]
-    assert "Longueur d'appui, $L_b$ (po)" in libelles
+    # Dimensions en po : champ texte (pieds, pouces et fractions de pouce, unites.lire_imperial())
+    assert _texte(at, "Longueur d'appui").label == "Longueur d'appui, $L_b$ (po)"
     assert "$Rf: (kN)$" in libelles
     assert "$Mf: (kN \\cdot m)$" in libelles
     # Longueurs en pieds-pouces (champ texte)
@@ -83,7 +84,7 @@ def test_calcul_en_imperial():
     at = _connecte("admin", "mot-admin")
     _basculer(at, DIMENSIONS, "Impérial")
     _basculer(at, CHARGES, "Impérial")
-    _champ(at, "Longueur d'appui").set_value(3.5).run()  # po
+    _texte(at, "Longueur d'appui").set_value("3-1/2").run()  # po
     _champ(at, "$Rf").set_value(1000.0).run()  # lb = 4.45 kN
     assert not at.exception
     assert _qr(at) == ["$Qr = 3220 lb$"]
@@ -101,7 +102,7 @@ def test_aller_retour_sans_erreur_d_arrondi():
     assert _qr(at) == ["$Qr = 14.34 kN$"]
     _basculer(at, DIMENSIONS, "Impérial")
     _basculer(at, CHARGES, "Impérial")
-    assert _champ(at, "Longueur d'appui").value == 3.5  # 89 mm / 25.4 mm/po = 3.504 po
+    assert _texte(at, "Longueur d'appui").value == "3-1/2"  # 89 mm / 25.4 mm/po = 3.504 po
     assert _champ(at, "$Rf").value == 1124.0  # 5 000 N / 4.4482 N/lb = 1124 lb
     # 14 340 N / 4.4482 N/lb = 3224 lb : calcul avec 89 mm exactement, pas 3.50 po = 88.9 mm
     assert _qr(at) == ["$Qr = 3224 lb$"]
@@ -115,19 +116,20 @@ def test_methode_de_travail_bascules_en_tout_temps():
     """
     Exemple de l'utilisateur : longueur d'appui en po, entaille en mm, largeur d'appui en po, puis
     vérification en mm ; aucune valeur n'est perdue.
-    L_b = 3.5 po = 88.9 mm ; d_n = 20 mm ; b = 1.25 po = 31.75 mm.
+    L_b = 3-1/2 po = 88.9 mm ; d_n = 20 mm ; b = 1-1/4 po = 31.75 mm.
     Q_r = 0.8 x 5.3 MPa x (31.75 mm x 88.9 mm) = 0.8 x 5.3 MPa x 2822.6 mm² = 11 967.7 N = 11.97 kN
     """
     at = _connecte("admin", "mot-admin")
     _champ(at, "$Rf").set_value(5.0).run()  # kN
     _basculer(at, DIMENSIONS, "Impérial")
-    _champ(at, "Longueur d'appui").set_value(3.5).run()  # po
+    _texte(at, "Longueur d'appui").set_value("3-1/2").run()  # po
     _basculer(at, DIMENSIONS, "Métrique")
     _champ(at, "Profondeur de l'entaille").set_value(20.0).run()  # mm
     _basculer(at, DIMENSIONS, "Impérial")
-    assert _champ(at, "Longueur d'appui").value == 3.5
-    assert _champ(at, "Profondeur de l'entaille").value == 0.79  # 20 mm / 25.4 mm/po = 0.787 po
-    _champ(at, "Largeur d'appui").set_value(1.25).run()  # po
+    assert _texte(at, "Longueur d'appui").value == "3-1/2"
+    # 20 mm / 25.4 mm/po = 0.787 po x 16 = 12.6 -> 13/16 po (affichage au 1/16 po près)
+    assert _texte(at, "Profondeur de l'entaille").value == "13/16"
+    _texte(at, "Largeur d'appui").set_value("1 1/4").run()  # po
     _basculer(at, DIMENSIONS, "Métrique")
     assert not at.exception
     assert _champ(at, "Longueur d'appui").value == 89.0  # 88.9 mm, affiché au mm près
@@ -157,14 +159,14 @@ def test_longueur_illisible():
     at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Impérial")
     _texte(at, "Longueur de l'élément").set_value("huit pieds").run()
     assert not at.exception
-    assert any("Longueur illisible" in e.value for e in at.error)
+    assert any("Valeur illisible" in e.value for e in at.error)
 
 
 def test_entaille_a_la_limite_en_imperial():
     """
-    d_n = 0.25 d = 0.25 x 140 mm = 35 mm (6.5.4.4.2) : en impérial, 35 mm / 25.4 mm/po = 1.378 po ;
-    la borne affichée est arrondie vers le bas (1.37 po) et la valeur métrique reste 35 mm exactement
-    (la réduire ne serait pas conservateur).
+    d_n = 0.25 d = 0.25 x 140 mm = 35 mm (6.5.4.4.2) : en impérial, 35 mm / 25.4 mm/po = 1.378 po,
+    affichée 1-3/8 po (1.375 po) au 1/16 po près ; la valeur métrique reste 35 mm exactement (la réduire
+    ne serait pas conservateur). Une valeur entrée au-delà de 1.378 po est refusée.
     """
     at = _connecte("admin", "mot-admin")
     _champ(at, "Profondeur de l'entaille").set_value(35.0).run()  # mm
@@ -172,9 +174,8 @@ def test_entaille_a_la_limite_en_imperial():
     _champ(at, "$Vf").set_value(1.0).run()  # kN
     fr_metrique = [m.value for m in at.markdown if m.value.startswith("$Fr")]
     _basculer(at, DIMENSIONS, "Impérial")
-    assert _champ(at, "Profondeur de l'entaille").max == 1.37
-    assert _champ(at, "Profondeur de l'entaille").value == 1.37
-    assert "0.25 \\cdot d = 1.38$ po" in _champ(at, "Profondeur de l'entaille").help
+    assert _texte(at, "Profondeur de l'entaille").value == "1-3/8"
+    assert "0.25 \\cdot d = 1.378$ po" in _texte(at, "Profondeur de l'entaille").help
     _basculer(at, DIMENSIONS, "Métrique")
     assert _champ(at, "Profondeur de l'entaille").value == 35.0
     assert [m.value for m in at.markdown if m.value.startswith("$Fr")] == fr_metrique
@@ -212,3 +213,29 @@ def test_fractions_de_pouce():
     assert _champ(at, "Longueur de l'élément").value == 972.0  # 971.55 mm
     _basculer(at, DIMENSIONS, "Impérial")
     assert _texte(at, "Longueur de l'élément").value == "3 pi - 2-1/4 po"
+
+
+def test_dimension_au_dela_de_la_limite_en_imperial():
+    """d_n = 1.38 po x 25.4 mm/po = 35.05 mm > 0.25 d = 35 mm (6.5.4.4.2) : refusée avec un message."""
+    at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Impérial")
+    _texte(at, "Profondeur de l'entaille").set_value("1.38").run()
+    _texte(at, "Longueur de l'entaille").set_value("4").run()  # po
+    assert not at.exception
+    assert any("ne doit pas dépasser 1.378 po (35.0 mm)" in e.value for e in at.error)
+    assert not [m.value for m in at.markdown if m.value.startswith("$Fr")]
+
+
+def test_dimension_en_pieds_et_pouces():
+    """Un champ en po accepte aussi les pieds : 1' 2-1/4" = 14.25 po x 25.4 mm/po = 361.95 mm -> 362 mm."""
+    at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Impérial")
+    _texte(at, "Longueur d'appui").set_value("1' 2-1/4\"").run()
+    assert not at.exception and not at.error
+    _basculer(at, DIMENSIONS, "Métrique")
+    assert _champ(at, "Longueur d'appui").value == 362.0
+
+
+def test_dimension_illisible():
+    at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Impérial")
+    _texte(at, "Longueur d'appui").set_value("trois").run()
+    assert not at.exception
+    assert any("Valeur illisible" in e.value for e in at.error)

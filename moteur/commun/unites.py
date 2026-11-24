@@ -86,3 +86,115 @@ def deux_unites(valeur: float, nom_grandeur: str) -> str:
         f"{valeur:.{g.decimales_metrique}f} {g.unite_metrique} "
         f"({imperial:.{g.decimales_imperiale}f} {g.unite_imperiale})"
     )
+
+
+# --- Longueurs impériales en pieds, pouces et fractions de pouce (PR #99) ---
+# Fonctions générales, sans interface : servent à toute entrée ou tout affichage en impérial (dimensions
+# en po, longueurs en pi-po), dans Streamlit aujourd'hui et dans la future interface web.
+
+import re as _re  # noqa: E402
+from fractions import Fraction as _Fraction  # noqa: E402
+
+_NOMBRE = r"\d+(?:\.\d+)?"
+# Pouces : 6, 6.5, 6 1/2, 6-1/2 ou 1/2
+_POUCES = rf"(?:{_NOMBRE}(?:(?:\s+|\s*-\s*)\d+/\d+)?|\d+/\d+)"
+_UNITE_PI = r"(?:'|pi|pieds?)"
+_UNITE_PO = r'(?:"|po|pouces?)'
+
+
+def _valeur_des_pouces(texte: str) -> float:
+    """« 6 1/2 » ou « 6-1/2 » -> 6.5 ; « 1/2 » -> 0.5 ; « 6.5 » -> 6.5."""
+    total = 0.0
+    for morceau in texte.replace("-", " ").split():
+        if "/" in morceau:
+            numerateur, denominateur = morceau.split("/")
+            if float(denominateur) == 0:
+                raise ValueError("division par zéro")
+            total += float(numerateur) / float(denominateur)
+        else:
+            total += float(morceau)
+    return total
+
+
+def lire_imperial(texte: str, unite_par_defaut: str = "po") -> float:
+    """
+    Longueur impériale entrée au clavier, en pouces. Toutes les combinaisons de pieds, de pouces et de
+    fractions de pouce sont acceptées (point décimal ou virgule, apostrophes droites ou typographiques) :
+
+    - pieds et pouces : « 8-6 », « 8 - 6 », « 8 6 », « 8'-6" », « 8' 6" », « 8 pi 6 po »,
+      « 3 pi 2-1/4 po », « 3'-2 1/4" », « 3-2-1/4 » ;
+    - pieds seulement : « 8 pi », « 8' » ;
+    - pouces seulement : « 6 po », « 6" », « 2-1/4 po », « 3/4" » ;
+    - nombre sans unité (« 8.5 », « 3-1/2 », « 3 1/2 », « 3/4 ») : dans l'unité par défaut du champ.
+      Pour un champ en pieds (unite_par_defaut="pi"), « 3-1/4 » se lit 3 pi 1/4 po (notation des plans).
+
+    Exemple : lire_imperial("3 pi 2-1/4 po") -> 38.25 (po) ; x 25.4 mm/po = 971.55 mm.
+
+    Args:
+        texte (str): Texte entré.
+        unite_par_defaut (str, optional): « po » ou « pi », pour un nombre sans unité. Default to "po".
+
+    Returns:
+        float: Longueur en pouces.
+
+    Raises:
+        ValueError: Si le texte n'est pas une longueur impériale, ou si l'unité par défaut est inconnue.
+    """
+    if unite_par_defaut not in ("po", "pi"):
+        raise ValueError(f"Unité par défaut inconnue : {unite_par_defaut!r} (« po » ou « pi »).")
+    s = (texte.strip().lower().replace(",", ".").replace("’", "'").replace("′", "'")
+         .replace("”", '"').replace("″", '"').replace("''", '"'))
+    if not s:
+        raise ValueError("Longueur vide.")
+    # Pouces seulement, avec l'unité : « 6 po », « 2-1/4" »
+    m = _re.fullmatch(rf"(?P<po>{_POUCES})\s*{_UNITE_PO}", s)
+    if m:
+        return _valeur_des_pouces(m["po"])
+    # Pieds seulement, avec l'unité : « 8 pi », « 8' »
+    m = _re.fullmatch(rf"(?P<pi>{_NOMBRE})\s*{_UNITE_PI}", s)
+    if m:
+        return float(m["pi"]) * 12
+    # Nombre sans unité, dans l'unité par défaut
+    if unite_par_defaut == "po":
+        if _re.fullmatch(_POUCES, s):
+            return _valeur_des_pouces(s)
+    elif _re.fullmatch(_NOMBRE, s):
+        return float(s) * 12
+    # Pieds et pouces : « 8-6 », « 8' 6" », « 3 pi - 2-1/4 po »
+    m = _re.fullmatch(
+        rf"(?P<pi>{_NOMBRE})\s*(?:{_UNITE_PI}\s*-?\s*|-\s*|\s+)(?P<po>{_POUCES})\s*{_UNITE_PO}?", s
+    )
+    if m:
+        return float(m["pi"]) * 12 + _valeur_des_pouces(m["po"])
+    raise ValueError(f"Longueur illisible : « {texte} ».")
+
+
+def _seiziemes(valeur_metrique: float) -> int:
+    """Longueur en mm, en seizièmes de pouce (arrondie au 1/16 po près ; 1 po = 25.4 mm)."""
+    return round(valeur_metrique / _PO_EN_MM * 16)
+
+
+def _pouces_et_fraction(seiziemes: int) -> str:
+    """191 seizièmes -> « 11-15/16 » ; 8 -> « 1/2 » ; 48 -> « 3 »."""
+    entiers, reste = divmod(seiziemes, 16)
+    if not reste:
+        return str(entiers)
+    fraction = _Fraction(reste, 16)
+    return f"{entiers}-{fraction}" if entiers else f"{fraction}"
+
+
+def ecrire_pouces(valeur_metrique: float) -> str:
+    """
+    Longueur métrique (mm) en pouces et fraction de pouce, au 1/16 po près, sans l'unité.
+    Ex. 88.9 mm -> « 3-1/2 » ; 38 mm -> « 1-1/2 » ; 19.05 mm -> « 3/4 ».
+    """
+    return _pouces_et_fraction(_seiziemes(valeur_metrique))
+
+
+def ecrire_pieds_pouces(valeur_metrique: float) -> str:
+    """
+    Longueur métrique (mm) en pieds et pouces, au 1/16 po près. Ex. 2590.8 mm -> « 8 pi - 6 po » ;
+    971.55 mm -> « 3 pi - 2-1/4 po ».
+    """
+    pieds, seiziemes = divmod(_seiziemes(valeur_metrique), 12 * 16)
+    return f"{pieds} pi - {_pouces_et_fraction(seiziemes)} po"
