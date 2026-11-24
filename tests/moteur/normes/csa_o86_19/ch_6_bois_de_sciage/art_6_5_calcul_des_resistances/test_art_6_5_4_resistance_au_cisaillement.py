@@ -82,8 +82,8 @@ def test_verifier_cisaillement():
 
 
 def test_verifier_cisaillement_entaille_et_plis():
-    # Aire nette avec entaille : 2 x 38 mm x (235 mm - 20 mm) = 16 340 mm²
-    r = verifier_cisaillement(38, 235, 1.5, plis=2, d_n=20)
+    # Aire nette avec entaille : b = 2 x 38 mm = 76 mm ; 76 mm x (235 mm - 20 mm) = 16 340 mm²
+    r = verifier_cisaillement(76, 235, 1.5, plis=2, d_n=20)
     assert r.etape("A_n").valeur == 16_340
     # 0.9 x 1.5 MPa x (2 x 16 340 mm² / 3) = 14 706 N
     assert r.etape("V_r").valeur == pytest.approx(14_706)

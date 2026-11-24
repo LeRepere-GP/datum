@@ -106,6 +106,10 @@ L'utilisateur est ingénieur en structure de bâtiment et utilisera ce logiciel 
 - **L_b1 et L_b2 (6.5.6.3.2, p. 72)** (PR #80) : L_b1 = longueur d'appui **la plus petite**, L_b2 = **la
   plus grande**, selon le texte, peu importe la position (dessus ou dessous). La figure 6.2 (L_b1 sur le
   dessus) est un exemple. À longueurs égales, L_b1 est celle de la charge (sur le dessus).
+- **b des éléments composés (3.2, p. 35)** (issue #95) : b = « largeur de l'élément », donc la
+  **largeur totale**, tous les plis compris. Un pli est un « élément individuel » (6.5.3.2.4) : sa largeur
+  et le nombre de plis n'ont **pas de symbole** (pas de `n`). Exception de la norme : en 6.5.6, b = largeur
+  d'appui.
 - **Ke** : une fonction simple reçoit Le (ou Ke) en chiffre. Une fonction séparée déduira Ke des
   conditions d'appui (annexe A, informative).
 

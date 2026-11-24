@@ -115,19 +115,16 @@ def _svg(vue_avec_section: str, vue_sans_section: str, avec_section: bool) -> st
     return f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='{vue}' fill='none'>"
 
 
-def _section_seule(x_section: float, y: float, plis: int, principale: str, accent: str,
-                   b_sur_toute_la_largeur: bool = False) -> str:
+def _section_seule(x_section: float, y: float, plis: int, principale: str, accent: str) -> str:
     """
     Section de l'élément, sans appui, avec les cotes b et d. L'élément est vu en bout : chaque pli
-    avec son X (figure 6.1 de la norme). Avec plusieurs plis, la cote b est celle d'un pli (b est la
-    largeur d'un pli dans les traces de 6.5.3 et 6.5.4), sauf avec b_sur_toute_la_largeur.
+    avec son X (figure 6.1 de la norme). La cote b couvre toute la largeur, plis compris :
+    b = « largeur de l'élément, mm » (3.2, p. 35 ; issue #95).
 
     Args:
         x_section, y (float): Coin supérieur gauche de l'élément, en unités du SVG.
         plis (int): Nombre de plis.
         principale, accent (str): Couleurs de l'élément et des cotes.
-        b_sur_toute_la_largeur (bool, optional): Coter b sur toute la largeur de l'élément composé :
-            b = « largeur de l'élément » (3.2, p. 35). Default to False.
 
     Returns:
         str: Éléments SVG de la section.
@@ -135,7 +132,7 @@ def _section_seule(x_section: float, y: float, plis: int, principale: str, accen
     pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
     largeur_pli = 40 if plis == 1 else max(16, 76 / plis)
     largeur_section = largeur_pli * plis
-    largeur_b = largeur_section if b_sur_toute_la_largeur else largeur_pli
+    largeur_b = largeur_section
     x_cote_d = x_section + largeur_section + 12
     return (
         "".join(_bois_de_bout(x_section + i * largeur_pli, y, largeur_pli, 46, principale,
@@ -311,7 +308,7 @@ def flexion(
     """
     Figure de 6.5.3 (résistance au moment de flexion) : poutre sur deux appuis (hachurés) sous une
     charge répartie, moment pondéré M_f (M_f ≤ M_r). À droite, la section : chaque pli avec son X, b
-    (largeur d'un pli) et d.
+    (largeur de l'élément, plis compris) et d.
 
     Args:
         resultat (Resultat): Trace de verifier_flexion().
@@ -346,7 +343,7 @@ def cisaillement(
     """
     Figure de 6.5.4.3 (résistance au cisaillement) : poutre sur son appui (hachuré) sous une charge
     répartie, effort tranchant pondéré V_f près de l'appui (V_f ≤ V_r). À droite, la section : chaque
-    pli avec son X, b (largeur d'un pli) et d.
+    pli avec son X, b (largeur de l'élément, plis compris) et d.
 
     Args:
         resultat (Resultat): Trace de verifier_cisaillement().
@@ -594,7 +591,7 @@ def section_de_l_element(
     largeur = largeur_section + 50  # cote d et son étiquette à droite
     return (
         f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 {largeur:g} 104' fill='none'>"
-        f"{_section_seule(0, 0, plis, principale, accent, b_sur_toute_la_largeur=True)}</svg>"
+        f"{_section_seule(0, 0, plis, principale, accent)}</svg>"
     )
 
 
