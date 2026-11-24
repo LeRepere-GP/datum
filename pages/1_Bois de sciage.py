@@ -5,7 +5,7 @@ import streamlit as st
 import acces
 import config
 import datetime
-from moteur.commun.figures import figure, figure_avant_le_calcul
+from moteur.commun.figures import figure, figure_avant_le_calcul, icone_de_l_article
 from moteur.commun.note_de_calcul import (
     EnTete,
     nom_du_pdf,
@@ -480,6 +480,20 @@ def afficher_figures(*noms: str, largeur: int = 440) -> None:
             st.image(svg, width=largeur)
 
 
+def afficher_titre_de_l_onglet(titre: str, article: str) -> None:
+    """
+    Titre d'un onglet, précédé d'une seule petite icône (issue #89, retour de la PR #91), dans les
+    couleurs du compte. Streamlit n'accepte pas d'image dans le nom d'un onglet : l'icône va en haut
+    de l'onglet. Un article sans icône (ex. compression oblique) n'en affiche pas.
+    """
+    apparence = config.apparence_du_compte(st.session_state.get("compte", ""))
+    svg = icone_de_l_article(article, apparence.principale, apparence.accent)
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        if svg:
+            st.image(svg, width=44)
+        st.markdown(f"**{titre}**")
+
+
 # Onglets offerts au compte connecté (acces.py, ACCES_GROUPE_LANTIER.md ; issue #56)
 ONGLETS_POSSIBLES = {
     "flexion": "Moment de flexion",
@@ -499,6 +513,7 @@ if not OFFERTS:
 
 if "flexion" in ONGLETS:
     with ONGLETS["flexion"]:
+        afficher_titre_de_l_onglet("Moment de flexion (6.5.3)", "6.5.3")
         acces.avertir_si_en_test("flexion")
         kd, ksb, kt, kh, kzb = sawn_lumber.modification_factors(
             width=width,
@@ -609,6 +624,7 @@ if "flexion" in ONGLETS:
 
 if "cisaillement" in ONGLETS:
     with ONGLETS["cisaillement"]:
+        afficher_titre_de_l_onglet("Cisaillement (6.5.4)", "6.5.4.3")
         acces.avertir_si_en_test("cisaillement")
         kd, ksv, kt, kh, kzv = sawn_lumber.modification_factors(
             width=width,
@@ -719,6 +735,7 @@ if "cisaillement" in ONGLETS:
 
 if "compression_parallele" in ONGLETS:
     with ONGLETS["compression_parallele"]:
+        afficher_titre_de_l_onglet("Compression parallèle au fil (6.5.5)", "6.5.5")
         acces.avertir_si_en_test("compression_parallele")
         with st.container(horizontal_alignment="center"):
             if built_up > 1:
@@ -887,6 +904,7 @@ if "compression_parallele" in ONGLETS:
 
 if "compression_perpendiculaire" in ONGLETS:
     with ONGLETS["compression_perpendiculaire"]:
+        afficher_titre_de_l_onglet("Compression perpendiculaire au fil (6.5.6)", "6.5.6.3")
         acces.avertir_si_en_test("compression_perpendiculaire")
         with st.container(horizontal_alignment="center"):
             kd, kscp, kt, _, _ = sawn_lumber.modification_factors(
@@ -1137,16 +1155,19 @@ if "compression_perpendiculaire" in ONGLETS:
 
 if "compression_oblique" in ONGLETS:
     with ONGLETS["compression_oblique"]:
+        afficher_titre_de_l_onglet("Compression oblique par rapport au fil (6.5.7)", "6.5.7")
         with st.container(horizontal_alignment="center"):
             st.warning("Fonctionnalité à venir.", width=200)
 
 if "traction" in ONGLETS:
     with ONGLETS["traction"]:
+        afficher_titre_de_l_onglet("Traction parallèle au fil (6.5.8)", "6.5.8")
         with st.container(horizontal_alignment="center"):
             st.warning("Fonctionnalité à venir.", width=200)
 
 if "flexion_et_charge_axiale" in ONGLETS:
     with ONGLETS["flexion_et_charge_axiale"]:
+        afficher_titre_de_l_onglet("Flexion et charge axiale combinées (6.5.9)", "6.5.9")
         with st.container(horizontal_alignment="center"):
             st.warning("Fonctionnalité à venir.", width=200)
 

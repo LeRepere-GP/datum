@@ -179,3 +179,50 @@ def test_compression_parallele_entraxes_et_k_e():
     # 2x6 (38 mm) : L_e(b) = K_e(b) L_(b) = 0.80 x 1500 mm = 1200 mm ; C_c = 1200 mm / 38 mm = 31.58
     [n for n in at.number_input if n.label.startswith("$Pf")][0].set_value(5.0).run()  # kN
     assert any("C_c = 31.58" in m.value for m in at.markdown)
+
+
+def _icones_svg(noeud) -> list[str]:
+    """Petites icônes (SVG 64 x 64 de marque/icones/) affichées dans la page, décodées."""
+    import base64
+
+    icones = []
+    for e in getattr(noeud, "children", {}).values():
+        if getattr(e, "type", None) == "image":
+            for image in e.proto.imgs:
+                if image.url.startswith("data:image/svg+xml;base64,"):
+                    svg = base64.b64decode(image.url.split(",", 1)[1]).decode()
+                    if 'viewBox="0 0 64 64"' in svg:
+                        icones.append(svg)
+        icones += _icones_svg(e)
+    return icones
+
+
+def test_icones_en_haut_des_onglets():
+    """
+    Issue #89 (retour de la PR #91) : chaque onglet commence par une seule icône et son titre, aux
+    couleurs du compte. Cisaillement : icône du cisaillement (6.5.4.3) ; compression perpendiculaire :
+    icône de la compression près d'un appui (6.5.6.3). La compression oblique n'a pas d'icône :
+    6 icônes en tout.
+    """
+    import config
+    from moteur.commun.figures import icone
+
+    at = _connecte("admin", "mot-admin")
+    assert not at.exception
+    apparence = config.apparence_du_compte("admin")
+    icones = _icones_svg(at._tree)
+    noms = [
+        "flexion", "cisaillement", "compression_parallele", "compression_pres_appui", "traction",
+        "flexion_et_charge_axiale",
+    ]
+    assert icones == [icone(n, apparence.principale, apparence.accent) for n in noms]
+    titres = [m.value for m in at.markdown if m.value.startswith("**") and "(6.5." in m.value]
+    assert titres == [
+        "**Moment de flexion (6.5.3)**",
+        "**Cisaillement (6.5.4)**",
+        "**Compression parallèle au fil (6.5.5)**",
+        "**Compression perpendiculaire au fil (6.5.6)**",
+        "**Compression oblique par rapport au fil (6.5.7)**",
+        "**Traction parallèle au fil (6.5.8)**",
+        "**Flexion et charge axiale combinées (6.5.9)**",
+    ]
