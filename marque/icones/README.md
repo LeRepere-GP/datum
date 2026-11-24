@@ -15,8 +15,9 @@ appuis sont hachurés.
 
 Aperçu : `apercu.png`. Style validé (issue #62).
 
-Utilisation (issue #89) : en haut de chaque onglet, à côté du titre (Streamlit n'accepte pas d'image dans
-le nom d'un onglet), et dans la note PDF, à côté du titre de chaque vérification. La fonction
+Utilisation (issue #89) : en haut de chaque onglet, une seule icône à côté du titre (Streamlit n'accepte
+pas d'image dans le nom d'un onglet ; cisaillement : `cisaillement.svg`, compression perpendiculaire :
+`compression_pres_appui.svg`), et dans la note PDF, à côté du titre de chaque vérification. La fonction
 `icone_de_l_article()` de `moteur/commun/figures.py` choisit l'icône selon l'article et remplace les
 couleurs de la marque par celles du compte. Grandes figures détaillées (variables du calcul, ex. longueur
 d'appui) : `figure()` du même fichier.
