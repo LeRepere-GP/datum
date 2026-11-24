@@ -4,7 +4,9 @@ from tests.test_acces import _connecte
 
 
 def _qr(at):
-    return [m.value for m in at.markdown if m.value.startswith("$Qr")]
+    """Q_r affichée, partie métrique seulement (les résultats sont dans les deux unités, PR #99)."""
+    import re
+    return [re.sub(r" \(.*\)\$$", "$", m.value) for m in at.markdown if m.value.startswith("$Qr")]
 
 
 def _preparer(p_l, neige, surcharge):
@@ -15,7 +17,7 @@ def _preparer(p_l, neige, surcharge):
         [n for n in at.number_input if n.key == cle][0].set_value(valeur)
     at.run()
     for cle, valeur in (("cp_support_length", 89.0), ("cp_rf", 5.0)):  # mm ; kN
-        [n for n in at.number_input if n.key == cle][0].set_value(valeur)
+        [n for n in at.text_input if n.key == cle][0].set_value(str(valeur))
     return at.run()
 
 
@@ -46,7 +48,7 @@ def test_sans_charges_tableau_5_1():
     [r for r in at.radio if r.label.startswith("Durée")][0].set_value("Continue (permanente)").run()
     [c for c in at.checkbox if c.key == "kd_charges"][0].check().run()
     for cle, valeur in (("cp_support_length", 89.0), ("cp_rf", 5.0)):
-        [n for n in at.number_input if n.key == cle][0].set_value(valeur)
+        [n for n in at.text_input if n.key == cle][0].set_value(str(valeur))
     at.run()
     assert not at.exception
     assert any("tableau 5.1" in i.value for i in at.info)
@@ -69,7 +71,7 @@ def test_figure_de_la_compression_perpendiculaire():
     at = _connecte("admin", "mot-admin")
     assert any("Lb" in t and "Rf" in t for t in _figures_svg(at._tree))
     avant = _images(at._tree)
-    [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0).run()  # mm
+    [n for n in at.text_input if n.key == "cp_support_length"][0].set_value("89.0").run()  # mm
     assert not at.exception
     assert _images(at._tree) == avant
 
@@ -78,7 +80,7 @@ def test_figure_d_un_element_compose():
     """Issue #62 : avec 3 plis, la page passe le nombre de plis à la trace (figure)."""
     at = _connecte("admin", "mot-admin")
     [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(3).run()
-    [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0).run()  # mm
+    [n for n in at.text_input if n.key == "cp_support_length"][0].set_value("89.0").run()  # mm
     assert not at.exception
     assert _images(at._tree) >= 1
 
@@ -90,10 +92,10 @@ def test_figure_de_la_compression_pres_d_un_appui():
     """
     at = _connecte("admin", "mot-admin")
     assert any("Lb1" in t and "Lb2" in t for t in _figures_svg(at._tree))
-    [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0).run()  # mm
+    [n for n in at.text_input if n.key == "cp_support_length"][0].set_value("89.0").run()  # mm
     avant = _images(at._tree)
     [c for c in at.checkbox if c.key == "cp_near_load"][0].check().run()
-    [n for n in at.number_input if n.key == "cp_load_length"][0].set_value(38.0).run()  # mm
+    [n for n in at.text_input if n.key == "cp_load_length"][0].set_value("38.0").run()  # mm
     assert not at.exception
     assert _images(at._tree) == avant
 
@@ -144,9 +146,9 @@ def test_figures_avant_les_valeurs():
 def test_aide_de_la_profondeur_de_l_entaille():
     """Retour #18 : l'aide de d_n est en LaTeX valide (pas d'espace après « $ »), avec un point."""
     at = _connecte("admin", "mot-admin")
-    aide = [n for n in at.number_input if n.label.startswith("Profondeur de l'entaille")][0].help
-    # 2x6 : d = 140 mm ; 0.25 x 140 mm = 35.0 mm (1.38 po)
-    assert aide == "Ne doit pas dépasser $0.25 \\cdot d = 35.0$ mm (6.5.4.4.2)"
+    aide = [n for n in at.text_input if n.label.startswith("Profondeur de l'entaille")][0].help
+    # 2x6 : d = 140 mm ; 0.25 x 140 mm = 35 mm (1.378 po, affiché 1-3/8 po au 1/16 po près)
+    assert aide.startswith("Ne doit pas dépasser $0.25 \\cdot d$ = 35 mm (1-3/8 po) (6.5.4.4.2)")
 
 
 def test_largeur_d_appui_preremplie():
@@ -155,24 +157,24 @@ def test_largeur_d_appui_preremplie():
     changement du nombre de plis.
     """
     at = _connecte("admin", "mot-admin")
-    champ = lambda: [n for n in at.number_input if n.key == "cp_bearing_width"][0]  # noqa: E731
-    assert champ().value == 38.0  # 2x6 : b = 38 mm (1.50 po)
+    champ = lambda: [n for n in at.text_input if n.key == "cp_bearing_width"][0]  # noqa: E731
+    assert champ().value == "38 mm"  # 2x6 : b = 38 mm (1.50 po)
     [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(2).run()
     assert not at.exception
-    assert champ().value == 76.0  # 2 plis x 38 mm = 76 mm (2.99 po)
+    assert champ().value == "76 mm"  # 2 plis x 38 mm = 76 mm (2.99 po)
     # Une valeur entrée par l'utilisateur est gardée tant que l'élément ne change pas
-    champ().set_value(50.0).run()  # mm
-    [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0).run()  # mm
-    assert champ().value == 50.0
+    champ().set_value("50").run()  # mm
+    [n for n in at.text_input if n.key == "cp_support_length"][0].set_value("89.0").run()  # mm
+    assert champ().value == "50"
 
 
 def _compression_parallele(at):
     """2x6 (38 x 140 mm), L = 3000 mm, L_(b) = 1500 mm, L_(d) = 3000 mm."""
-    [n for n in at.number_input if n.label.startswith("Longueur de l'élément")][0].set_value(3000)  # mm
-    [n for n in at.number_input if n.key == "cpa_L_selon_b"][0].set_value(1500)  # mm
-    [n for n in at.number_input if n.key == "cpa_L_selon_d"][0].set_value(3000)  # mm
+    [n for n in at.text_input if n.label.startswith("Longueur de l'élément")][0].set_value("3000")  # mm
+    [n for n in at.text_input if n.key == "cpa_L_selon_b"][0].set_value("1500")  # mm
+    [n for n in at.text_input if n.key == "cpa_L_selon_d"][0].set_value("3000")  # mm
     at.run()
-    [n for n in at.number_input if n.label.startswith("$Pf")][0].set_value(5.0)  # kN
+    [n for n in at.text_input if n.label.startswith("$Pf")][0].set_value("5.0")  # kN
     return at.run()
 
 

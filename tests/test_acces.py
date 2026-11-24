@@ -185,15 +185,15 @@ def test_note_avec_compression_perpendiculaire():
         at = _connecte("lantier", "mot-lantier")
 
         def ni(cle):
-            return [n for n in at.number_input if n.key == cle][0]
+            return [n for n in at.text_input if n.key == cle][0]
 
-        ni("cp_support_length").set_value(89.0)
-        ni("cp_rf").set_value(5.0)
+        ni("cp_support_length").set_value("89.0")
+        ni("cp_rf").set_value("5.0")
         at.run()
         [c for c in at.checkbox if c.key == "cp_near_load"][0].check()
         at.run()
-        ni("cp_load_length").set_value(140.0)
-        ni("cp_pf").set_value(3.0)
+        ni("cp_load_length").set_value("140.0")
+        ni("cp_pf").set_value("3.0")
         at.run()
     assert not at.exception
     cases = [c.label for c in at.checkbox if c.key and c.key.startswith("note_")]
@@ -211,16 +211,16 @@ def test_note_seulement_les_verifications_faites():
         at = _connecte("lantier", "mot-lantier")
 
         def ni(cle):
-            return [n for n in at.number_input if n.key == cle][0]
+            return [n for n in at.text_input if n.key == cle][0]
 
         def cases():
             return [(c.label, c.value) for c in at.checkbox if c.key and c.key.startswith("note_")]
 
-        ni("cp_support_length").set_value(89.0)
+        ni("cp_support_length").set_value("89.0")
         at.run()
         assert cases() == []  # Q_r calculée, mais R_f non entrée
         assert any("charge pondérée" in i.value for i in at.info)
-        ni("cp_rf").set_value(5.0)  # kN
+        ni("cp_rf").set_value("5.0")  # kN
         at.run()
         assert cases() == [("Compression perpendiculaire au fil (6.5.6.2)", True)]
         [c for c in at.checkbox if c.key and c.key.startswith("note_")][0].uncheck()
@@ -296,8 +296,8 @@ def test_en_tete_de_la_note():
     # commentaires, pas d'options d'apparence
     with mock.patch.dict(acces.ACCES, {acces.LANTIER: frozenset({"compression_perpendiculaire", "note_pdf"})}):
         at = _connecte("lantier", "mot-lantier")
-        [n for n in at.number_input if n.key == "cp_support_length"][0].set_value(89.0)
-        [n for n in at.number_input if n.key == "cp_rf"][0].set_value(5.0)  # kN
+        [n for n in at.text_input if n.key == "cp_support_length"][0].set_value("89.0")
+        [n for n in at.text_input if n.key == "cp_rf"][0].set_value("5.0")  # kN
         at.run()
         etiquettes = [e.label for e in at.expander]  # plus de sections repliables dans la note
         assert "En-tête de la note" not in etiquettes

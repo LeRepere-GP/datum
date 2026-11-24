@@ -55,8 +55,9 @@ def show_verification(message: str) -> None:
 # ---- en-tête ----
 config.configurer_page("Bois de sciage")
 EDITION = config.choisir_edition()  # une seule pour l'instant : CSA O86:19 (issue #72)
-# Bascules métrique / impérial des dimensions et des charges (retour #10, PR #99) : affichage
-# seulement, les calculs restent en métrique
+# Unités (retour #10, PR #99) : saisie libre dans chaque champ (ex. 8 pi 38 mm, 5 kN, 1124 lb) ;
+# unité par défaut des nombres sans unité dans la barre latérale ; résultats dans les deux unités.
+# Les calculs restent en métrique.
 iu.choisir_systemes()
 st.title(config.TITLE, anchor=False)
 st.caption(config.SOUS_TITRE)
@@ -144,8 +145,7 @@ with st.container(horizontal_alignment="center"):
         else:
             st.metric(
                 "Largeur nette de l'élément, $b$",
-                f"{built_up}*{iu.texte(width, 'dimension').split()[0]} = "
-                f"{iu.texte(built_up * width, 'dimension')}",
+                f"{built_up}*{width:g} = {iu.texte(built_up * width, 'dimension')}",
             )
 
         st.metric("Hauteur nette de l'élément, $d$", iu.texte(depth, "dimension"))
@@ -325,11 +325,9 @@ with st.container(horizontal_alignment="center"):
         for i in range(0, int(len(compute_resistance))):
             col1, col2 = st.columns([3, 1])
             col1.text(f"{display_resistance[i][0]}:")
-            valeur = (
-                iu.latex(compute_resistance[i], "contrainte") if iu.en_imperial("contrainte")
-                else f"{compute_resistance[i]} MPa"
+            col2.markdown(
+                f"{display_resistance[i][1]} $= {iu.latex(compute_resistance[i], 'contrainte')}$"
             )
-            col2.markdown(f"{display_resistance[i][1]} $= {valeur}$")
 
 
 # --- section coefficients ---
@@ -648,14 +646,14 @@ if "flexion" in ONGLETS:
                 COMP_EDGE = st.toggle(
                     "Rive supérieure maintenue",
                     help="""Rive comprimée maintenu par fixation directe du platelage ou par des solives
-                    dont l'espacement ne dépasse pas """ + iu.texte(610, "dimension", 0 if not iu.en_imperial("dimension") else 1),
+                    dont l'espacement ne dépasse pas """ + iu.texte(610, "dimension"),
                     value=subfloor,
                 )
                 BLOCK = st.toggle(
                     "Entremises",
                     help=f"""Présence d'entretoises ou d'entremises dont l'espacement ne dépasse pas
                     huit fois la hauteur de la section de l'élément -> $8 \\cdot d =$
-                    {iu.texte(8 * depth, "dimension", 0 if not iu.en_imperial("dimension") else 1)} c/c""",
+                    {iu.texte(8 * depth, "dimension")} c/c""",
                 )
                 TEN_EDGE = st.toggle(
                     "Rive inférieure maintenue",
@@ -665,7 +663,7 @@ if "flexion" in ONGLETS:
                 if built_up > 1:
                     PLIES_FASTENED = st.toggle(
                         f"Plis fixés à au plus 4d = "
-                        f"{iu.texte(4 * depth, 'dimension', 0 if not iu.en_imperial("dimension") else 1)} c/c",
+                        f"{iu.texte(4 * depth, 'dimension')} c/c",
                         help="""6.5.3.2.4 : poutre composée dont les plis sont solidement attachés les
                         uns aux autres à intervalles ne dépassant pas quatre fois la hauteur. Les
                         supports latéraux ci-dessus (6.5.3.2.3) ne s'appliquent pas aux poutres
@@ -755,11 +753,7 @@ if "cisaillement" in ONGLETS:
                     min_value=0.0,
                     max_value=quart_de_d,
                     placeholder="Optionnel",
-                    help=(
-                        f"Ne doit pas dépasser $0.25 \\cdot d = "
-                        f"{iu.vers_affichage(quart_de_d, 'dimension'):.{3 if iu.en_imperial("dimension") else 1}f}$ "
-                        f"{iu.unite('dimension')} (6.5.4.4.2)"
-                    ),
+                    help=f"Ne doit pas dépasser $0.25 \\cdot d$ = {iu.texte(quart_de_d, 'dimension')} (6.5.4.4.2)",
                     icon=":material/height:",
                 )
                 notch_length = iu.champ(
@@ -1005,22 +999,12 @@ if "compression_parallele" in ONGLETS:
 
                 if axes:
                     with st.expander("Voir plus:", width=650):
-                        if iu.en_imperial("contrainte"):
-                            st.markdown(
-                                f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = "
-                                f"{iu.latex(compute_resistance[2], 'contrainte')} \\cdot "
-                                f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = "
-                                f"{iu.latex(fc_modified, 'contrainte')}$"
-                            )
-                            st.markdown(
-                                f"$E_{{05}} = {iu.latex(e05, 'contrainte')}$, $K_{{SE}} = {kse}$"
-                            )
-                        else:
-                            st.markdown(
-                                f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = {compute_resistance[2]} \\cdot "
-                                f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = {fc_modified:.3f}$ MPa"
-                            )
-                            st.markdown(f"$E_{{05}} = {e05}$ MPa, $K_{{SE}} = {kse}$")
+                        st.markdown(
+                            f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = {compute_resistance[2]} \\cdot "
+                            f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = "
+                            f"{iu.latex(fc_modified, 'contrainte')}$"
+                        )
+                        st.markdown(f"$E_{{05}} = {iu.latex(e05, 'contrainte')}$, $K_{{SE}} = {kse}$")
                         for label, axis in zip(
                             ("Selon $b$", "Selon $d$"), axes
                         ):
@@ -1271,17 +1255,10 @@ if "compression_perpendiculaire" in ONGLETS:
 
             if details:
                 with st.expander("Voir plus:", width=650):
-                    if iu.en_imperial("contrainte"):
-                        st.markdown(
-                            f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {iu.latex(fcp, 'contrainte')} "
-                            f"\\cdot ({kd} \\cdot {kscp} \\cdot {kt}) = "
-                            f"{iu.latex(fcp_modified, 'contrainte')}$"
-                        )
-                    else:
-                        st.markdown(
-                            f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {fcp:.2f} \\cdot "
-                            f"({kd} \\cdot {kscp} \\cdot {kt}) = {fcp_modified:.3f}$ MPa"
-                        )
+                    st.markdown(
+                        f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {fcp:.2f} \\cdot "
+                        f"({kd} \\cdot {kscp} \\cdot {kt}) = {iu.latex(fcp_modified, 'contrainte')}$"
+                    )
                     st.markdown(
                         f"$K_{{Zcp}} = {kzcp:.4f}$ (largeur/hauteur = "
                         f"{member_width}/{depth} = {member_width / depth:.2f})"
@@ -1328,9 +1305,8 @@ if acces.permis("note_pdf") and FAITES:
         lignes = []
         for ligne in resume([("", r) for r in FAITES.values()]):
             l = formater_ligne_du_resume(ligne)
-            # Interface : charges et résistances dans le système choisi (retour #10) ; la note PDF
-            # garde les deux unités
-            if ligne.grandeur and iu.en_imperial(ligne.grandeur):
+            # Interface : charges et résistances dans les deux unités (PR #99), comme la note PDF
+            if ligne.grandeur:
                 l["charge"] = iu.texte_significatif(ligne.charge, ligne.grandeur)
                 l["resistance"] = iu.texte_significatif(ligne.resistance, ligne.grandeur)
             lignes.append(l)

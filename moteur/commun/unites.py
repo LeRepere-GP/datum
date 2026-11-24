@@ -198,3 +198,108 @@ def ecrire_pieds_pouces(valeur_metrique: float) -> str:
     """
     pieds, seiziemes = divmod(_seiziemes(valeur_metrique), 12 * 16)
     return f"{pieds} pi - {_pouces_et_fraction(seiziemes)} po"
+
+
+# --- Saisie libre d'une grandeur, en n'importe quelle unité (PR #99) ---
+# « 8 pi 38 mm » = 2438.4 mm + 38 mm = 2476.4 mm ; « 5 kN » ; « 1124 lb » ; « 40 000 lb·po ».
+# Les termes s'additionnent ; un nombre sans unité prend l'unité par défaut du champ.
+
+# Unités acceptées à l'entrée : nombre d'unités métriques de la grandeur (mm, kN, kN·m) dans 1 unité
+_SEPARATEUR_DE_PRODUIT = r"(?:\s*[·*.\-]\s*|\s+|)"  # kN·m, kN*m, kN.m, kN-m, kN m, kNm
+_UNITES_D_ENTREE = {
+    "longueur": {
+        r"mm": 1.0,
+        r"cm": 10.0,
+        r"m": 1000.0,
+        r'(?:"|po|pouces?|in(?:ch(?:es)?)?)': _PO_EN_MM,
+        r"(?:'|pi|pieds?|ft|feet|foot)": _PI_EN_MM,
+    },
+    "force": {
+        r"n": 0.001,
+        r"kn": 1.0,
+        r"(?:lbf|lbs|lb)": _LB_EN_N / 1000,
+        r"(?:kips?|k)": _LB_EN_N,
+    },
+    "moment": {
+        rf"kn{_SEPARATEUR_DE_PRODUIT}mm": 1e-3,
+        rf"kn{_SEPARATEUR_DE_PRODUIT}m": 1.0,
+        rf"n{_SEPARATEUR_DE_PRODUIT}mm": 1e-6,
+        rf"n{_SEPARATEUR_DE_PRODUIT}m": 1e-3,
+        rf"(?:lbf|lbs|lb){_SEPARATEUR_DE_PRODUIT}(?:po|in)": _LB_EN_N * _PO_EN_MM / 1e6,
+        rf"(?:lbf|lbs|lb){_SEPARATEUR_DE_PRODUIT}(?:pi|ft)": _LB_EN_N * _PI_EN_MM / 1e6,
+        rf"(?:kips?|k){_SEPARATEUR_DE_PRODUIT}(?:po|in)": _LB_EN_N * _PO_EN_MM / 1e3,
+        rf"(?:kips?|k){_SEPARATEUR_DE_PRODUIT}(?:pi|ft)": _LB_EN_N * _PI_EN_MM / 1e3,
+    },
+}
+_FAMILLE = {"dimension": "longueur", "longueur": "longueur", "force": "force", "moment": "moment"}
+# Nombre d'une saisie : espaces de milliers permis (« 40 000 »), fraction (« 2-1/4 », « 2 1/4 », « 1/4 »)
+_NOMBRE_SAISI = r"(?:\d{1,3}(?: \d{3})+|\d+)(?:\.\d+)?"
+_NOMBRE_ET_FRACTION = rf"(?:{_NOMBRE_SAISI}(?:(?:\s+|\s*-\s*)\d+/\d+)?|\d+/\d+)"
+
+
+def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = False) -> float:
+    """
+    Valeur entrée au clavier, en n'importe quelle unité, en unité métrique de la grandeur (mm, kN, kN·m).
+
+    - Unités acceptées : longueurs (mm, cm, m, po, ", in, pi, ', ft), forces (N, kN, lb, kip), moments
+      (kN·m, N·m, N·mm, lb·po, lb·pi, kip·pi, kip·po ; « · », « * », « . », « - » ou rien entre les deux).
+    - Les termes s'additionnent : « 8 pi 38 mm » = 8 x 304.8 mm + 38 mm = 2476.4 mm.
+    - Fractions de pouce et notation des plans : « 2-1/4 po », « 3 pi 2-1/4 po », « 8' 6" », « 8-6 ».
+    - Un nombre sans unité prend l'unité par défaut : métrique (mm, kN, kN·m) ou impériale (po pour
+      une dimension, pi-po pour une longueur, lb, lb·po), selon imperial_par_defaut.
+
+    Args:
+        texte (str): Texte entré.
+        nom_grandeur (str): « dimension », « longueur », « force » ou « moment ».
+        imperial_par_defaut (bool, optional): Unité par défaut impériale. Default to False (métrique).
+
+    Returns:
+        float: Valeur en mm, kN ou kN·m.
+
+    Raises:
+        ValueError: Si le texte est illisible ou si la grandeur n'est pas offerte.
+    """
+    if nom_grandeur not in _FAMILLE:
+        raise ValueError(f"Saisie libre non offerte pour la grandeur {nom_grandeur!r}.")
+    famille = _FAMILLE[nom_grandeur]
+    s = (texte.strip().lower().replace(",", ".").replace("’", "'").replace("′", "'")
+         .replace("”", '"').replace("″", '"').replace("''", '"').replace(" ", " "))
+    if not s:
+        raise ValueError("Valeur vide.")
+
+    # Nombre seul (« 89 », « 40 000 », « 3-1/2 ») : unité par défaut
+    if _re.fullmatch(_NOMBRE_ET_FRACTION, s):
+        if _re.fullmatch(r"\d{1,3}(?: \d{3})+(?:\.\d+)?", s):
+            s = s.replace(" ", "")  # espaces de milliers
+        if not imperial_par_defaut:
+            return _valeur_des_pouces(s) if "/" in s else float(s)
+        if famille == "longueur":
+            # po pour une dimension ; pi pour une longueur (« 8.5 » pi, « 3-1/4 » = 3 pi 1/4 po)
+            return lire_imperial(s, "pi" if nom_grandeur == "longueur" else "po") * _PO_EN_MM
+        valeur = _valeur_des_pouces(s) if "/" in s else float(s)
+        return valeur * {"force": _LB_EN_N / 1000, "moment": _LB_EN_N * _PO_EN_MM / 1e6}[famille]
+
+    # Pieds et pouces (« 8-6 », « 8' 6" », « 3 pi 2-1/4 po ») : lire_imperial(). « 8-6 » est la notation
+    # des plans (8 pi 6 po), quelle que soit l'unité par défaut.
+    if famille == "longueur":
+        try:
+            return lire_imperial(s, "pi" if nom_grandeur == "longueur" else "po") * _PO_EN_MM
+        except ValueError:
+            pass
+
+    # Somme de termes « nombre unité » : « 8 pi 38 mm », « 5 kn + 100 lb »
+    unites = _UNITES_D_ENTREE[famille]
+    # Unités les plus longues d'abord (ex. « kn-mm » avant « kn-m », « mm » avant « m »)
+    motif_unite = "|".join(f"(?:{u})" for u in sorted(unites, key=len, reverse=True))
+    terme = _re.compile(rf"\s*\+?\s*(?P<nombre>{_NOMBRE_ET_FRACTION})\s*(?P<unite>{motif_unite})(?![a-z])\s*")
+    total, position = 0.0, 0
+    while position < len(s):
+        m = terme.match(s, position)
+        if not m or m.end() == position:
+            raise ValueError(f"Valeur illisible : « {texte} ».")
+        facteur = next(f for u, f in unites.items() if _re.fullmatch(u, m["unite"]))
+        nombre = m["nombre"]
+        valeur = _valeur_des_pouces(nombre) if "/" in nombre else float(nombre.replace(" ", ""))
+        total += valeur * facteur
+        position = m.end()
+    return total

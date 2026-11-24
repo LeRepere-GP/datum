@@ -180,3 +180,85 @@ def test_aller_retour_imperial(mm):
     # Valeurs au 1/16 po près : l'aller-retour est exact, dans les deux écritures
     assert unites.vers_metrique(lire_imperial(ecrire_pieds_pouces(mm), "pi"), "dimension") == pytest.approx(mm)
     assert unites.vers_metrique(lire_imperial(ecrire_pouces(mm), "po"), "dimension") == pytest.approx(mm)
+
+
+# --- Saisie libre en n'importe quelle unité (lire_grandeur, PR #99) ---
+
+from moteur.commun.unites import lire_grandeur  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Exemple de l'utilisateur : 8 pi x 304.8 mm/pi + 38 mm = 2438.4 mm + 38 mm = 2476.4 mm
+        ("8 pi 38 mm", "longueur", 2476.4),
+        ("8 pi 38 mm", "dimension", 2476.4),
+        ("8' 38mm", "longueur", 2476.4),
+        ("2476.4 mm", "longueur", 2476.4),
+        ("2.4764 m", "longueur", 2476.4),
+        ("247.64 cm", "longueur", 2476.4),
+        ("89 mm", "dimension", 89.0),
+        ("3-1/2 po", "dimension", 88.9),  # 3.5 po x 25.4 mm/po
+        ('3 1/2"', "dimension", 88.9),
+        ("3.5 in", "dimension", 88.9),
+        ("3 pi 2-1/4 po", "longueur", 971.55),  # 38.25 po x 25.4 mm/po
+        ("8-6", "longueur", 2590.8),  # notation des plans : 8 pi 6 po
+        ("8 ft 6 in", "longueur", 2590.8),
+        ("1 m 50 mm", "longueur", 1050.0),
+        ("5 kN", "force", 5.0),
+        ("5000 N", "force", 5.0),
+        ("5 000 N", "force", 5.0),  # espace de milliers
+        ("1124 lb", "force", 1124 * 4.4482216152605 / 1000),  # 4.9998 kN
+        ("1 kip", "force", 4.4482216152605),
+        ("5 kN + 100 lb", "force", 5 + 0.44482216152605),
+        ("4.5 kN·m", "moment", 4.5),
+        ("4.5 kN-m", "moment", 4.5),
+        ("4.5 kNm", "moment", 4.5),
+        ("4.5 kN*m", "moment", 4.5),
+        ("4500 N·m", "moment", 4.5),
+        ("4 500 000 N·mm", "moment", 4.5),
+        ("4500 kN·mm", "moment", 4.5),
+        # 40 000 lb·po x 4.4482 N/lb x 25.4 mm/po = 4 519 393 N·mm = 4.519 kN·m
+        ("40 000 lb·po", "moment", 40000 * 4.4482216152605 * 25.4 / 1e6),
+        ("40000 lb-in", "moment", 40000 * 4.4482216152605 * 25.4 / 1e6),
+        # 10 kip·pi = 10 x 4448.2 N x 304.8 mm = 13.558 kN·m
+        ("10 kip-ft", "moment", 10 * 4.4482216152605 * 304.8 / 1e3),
+        ("3000 lb·pi", "moment", 3000 * 4.4482216152605 * 304.8 / 1e6),
+    ],
+)
+def test_lire_grandeur_avec_unites(texte, nom, attendu):
+    # Avec une unité, l'unité par défaut ne change rien
+    assert lire_grandeur(texte, nom, False) == pytest.approx(attendu)
+    assert lire_grandeur(texte, nom, True) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "metrique", "imperial"),
+    [
+        # Nombre sans unité : unité par défaut (mm, kN, kN·m ou po, pi-po, lb, lb·po)
+        ("89", "dimension", 89.0, 89 * 25.4),
+        ("3-1/2", "dimension", 3.5, 88.9),
+        ("1 000", "dimension", 1000.0, 25400.0),  # espace de milliers, pas 1 pi 0 po
+        ("3000", "longueur", 3000.0, 3000 * 304.8),
+        ("8.5", "longueur", 8.5, 2590.8),  # 8.5 pi en impérial
+        ("3-1/4", "longueur", 3.25, 920.75),  # impérial : 3 pi 1/4 po = 36.25 po
+        ("5", "force", 5.0, 5 * 4.4482216152605 / 1000),
+        ("40 000", "moment", 40000.0, 40000 * 4.4482216152605 * 25.4 / 1e6),
+    ],
+)
+def test_lire_grandeur_sans_unite(texte, nom, metrique, imperial):
+    assert lire_grandeur(texte, nom, False) == pytest.approx(metrique)
+    assert lire_grandeur(texte, nom, True) == pytest.approx(imperial)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom"),
+    [
+        ("", "dimension"), ("trois", "dimension"), ("5 kN", "dimension"), ("89 mm", "force"),
+        ("5 kg", "force"), ("4.5 kN", "moment"), ("8 pi mm", "longueur"),
+        ("-5 kN", "force"), ("5 kN 3", "force"), ("4.5 kN·m", "contrainte"),
+    ],
+)
+def test_lire_grandeur_illisible(texte, nom):
+    with pytest.raises(ValueError):
+        lire_grandeur(texte, nom)
