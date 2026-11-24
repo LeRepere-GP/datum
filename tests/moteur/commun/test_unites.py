@@ -372,10 +372,39 @@ def test_moins_zero_devient_zero():
         ("1,2,3", "texte illisible"),
         ("nan", "texte illisible"),
         ("inf", "texte illisible"),
-        ("1e3", "texte illisible"),  # notation scientifique non offerte
+        ("1e", "texte illisible"),  # exposant incomplet
         ("5 kN kN", "texte illisible"),
     ],
 )
 def test_refus_cas_limites(texte, raison):
     with pytest.raises(ValueError, match=raison):
+        lire_grandeur(texte, "force")
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Notation scientifique (demande de l'utilisateur)
+        ("1e3 mm", "dimension", 1000.0),
+        ("1E3 mm", "dimension", 1000.0),
+        ("1.5E-3 m", "longueur", 1.5),  # 0.0015 m = 1.5 mm
+        ("2,5e4 N", "force", 25.0),  # 25 000 N = 25 kN, virgule décimale
+        ("5e-1 po", "dimension", 12.7),  # 0.5 po
+        (".5e1 po", "dimension", 127.0),  # 5 po
+        ("1e+2 mm", "dimension", 100.0),
+        ("2e3*2 mm", "dimension", 4000.0),
+        ("40 000e-3 kN", "force", 40.0),
+        ("1e3", "force", 1000.0),  # unité par défaut : kN
+        ("3 feet", "longueur", 914.4),  # le « e » d'une unité n'est pas un exposant
+        ("3feet", "longueur", 914.4),
+    ],
+)
+def test_notation_scientifique(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize("texte", ["1e400", "1e308*10", "1e308 kN * 1e308"])
+def test_nombre_trop_grand(texte):
+    """Pas de plafond (décision de l'utilisateur), mais un nombre infini est refusé."""
+    with pytest.raises(ValueError, match="nombre trop grand"):
         lire_grandeur(texte, "force")

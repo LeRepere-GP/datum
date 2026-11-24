@@ -133,8 +133,8 @@ _PIEDS = r"(?:'|pi|pieds?|ft|feet|foot)"
 _JETON_NOMBRE = (
     r"(?<![/\d.])\d+\s+\d+/\d+(?![\d/.])"  # 2 1/4
     r"|(?<![/\d.])\d+/\d+(?![\d/.])"  # 3/4
-    r"|\d{1,3}(?:\s\d{3})+(?:\.\d+)?(?![\d/])"  # 40 000 ou 1 000.5
-    r"|\d+(?:\.\d+)?|\.\d+"
+    r"|\d{1,3}(?:\s\d{3})+(?:\.\d+)?(?:e[+-]?\d+)?(?![\d/])"  # 40 000 ou 1 000.5
+    r"|(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?"  # 3.5, .5, notation scientifique 1e3, 1.5e-3
 )
 
 
@@ -198,7 +198,10 @@ class _Lecteur:
             if any(m.endswith("/0") for m in morceaux):
                 raise ValueError("division par zéro")
             return float(sum(_Fraction(m) for m in morceaux))
-        return float(texte.replace(" ", ""))
+        valeur = float(texte.replace(" ", ""))
+        if not _math.isfinite(valeur):
+            raise ValueError("nombre trop grand")  # ex. 1e400
+        return valeur
 
     # -- grammaire --
     def lire(self) -> "_Quantite":
@@ -339,6 +342,7 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
 
     - Unités : longueurs (mm, cm, m, po, ", in, pi, ', ft), forces (N, kN, lb, kip), moments (kN·m, N·m,
       N·mm, lb·po, lb·pi, kip·pi, kip·po ; « · », « * », « . », « - » ou rien entre les deux).
+    - Notation scientifique : « 1e3 mm », « 1.5E-3 m », « 2,5e4 N » (demande de l'utilisateur).
     - Décimales avec un point ou une virgule (« 3.5 » = « 3,5 ») ; la virgule est toujours décimale, même
       suivie de 3 chiffres (« 1,500 » = 1.5, décision de l'utilisateur). Milliers : une espace (« 40 000 »).
     - Opérations : + - * / (aussi × ÷), ^ (puissance entière), % (pourcentage), parenthèses ( ) et [ ].
@@ -410,6 +414,8 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
     if resultat.dimension != 0 and resultat.dimension != 1:
         raise ValueError(f"le résultat n'est pas {_NOMS[nom_grandeur]}")
     valeur = resultat.valeur * (defaut if resultat.dimension == 0 else 1.0)
+    if not _math.isfinite(valeur):
+        raise ValueError("nombre trop grand")  # ex. 1e308 * 10
     return valeur + 0.0  # « -0 » -> 0.0 (pas de « -0.00 kN » à l'affichage)
 
 

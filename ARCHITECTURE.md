@@ -367,7 +367,8 @@ la charge P_f, la longueur L et la section b × d.
   pieds, pouces et fractions (« 8' 6" », « 3 pi 2 1/4 po », « 8 pi 38 mm »), forces et moments (« 1124 lb »,
   « 40 000 lb·po »), opérations + - * / ^ % et parenthèses (« (2+3)/2 po », « 8 pieds + 36 po - 50 mm »,
   « 50% de 4 po » : « de » après un pourcentage veut dire « fois »).
-  « - » est toujours une soustraction. Décimales avec un point ou une virgule ; la virgule est toujours
+  « - » est toujours une soustraction. Notation scientifique acceptée (« 1e3 mm », « 1.5E-3 m ») ; pas de
+  plafond, mais un nombre infini est refusé. Décimales avec un point ou une virgule ; la virgule est toujours
   décimale (« 1,500 » = 1.5) ; milliers avec une espace (« 40 000 »). Une unité à la toute fin s'applique au résultat si le reste n'a
   pas d'unité ; un nombre sans unité dans une somme prend l'unité voisine ; un résultat sans unité prend
   l'unité par défaut. Multiplication : la même unité des deux côtés n'est comptée qu'une fois
