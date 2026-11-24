@@ -480,16 +480,16 @@ def afficher_figures(*noms: str, largeur: int = 440) -> None:
             st.image(svg, width=largeur)
 
 
-def afficher_titre_de_l_onglet(titre: str, *articles: str) -> None:
+def afficher_titre_de_l_onglet(titre: str, article: str) -> None:
     """
-    Titre d'un onglet, précédé des petites icônes de ses vérifications (issue #89), dans les couleurs
-    du compte. Streamlit n'accepte pas d'image dans le nom d'un onglet : les icônes vont en haut de
-    l'onglet. Un article sans icône (ex. compression oblique) n'en affiche pas.
+    Titre d'un onglet, précédé d'une seule petite icône (issue #89, retour de la PR #91), dans les
+    couleurs du compte. Streamlit n'accepte pas d'image dans le nom d'un onglet : l'icône va en haut
+    de l'onglet. Un article sans icône (ex. compression oblique) n'en affiche pas.
     """
     apparence = config.apparence_du_compte(st.session_state.get("compte", ""))
-    icones = [icone_de_l_article(a, apparence.principale, apparence.accent) for a in articles]
+    svg = icone_de_l_article(article, apparence.principale, apparence.accent)
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
-        for svg in filter(None, icones):
+        if svg:
             st.image(svg, width=44)
         st.markdown(f"**{titre}**")
 
@@ -624,7 +624,7 @@ if "flexion" in ONGLETS:
 
 if "cisaillement" in ONGLETS:
     with ONGLETS["cisaillement"]:
-        afficher_titre_de_l_onglet("Cisaillement (6.5.4)", "6.5.4.3", "6.5.4.4")
+        afficher_titre_de_l_onglet("Cisaillement (6.5.4)", "6.5.4.3")
         acces.avertir_si_en_test("cisaillement")
         kd, ksv, kt, kh, kzv = sawn_lumber.modification_factors(
             width=width,
@@ -904,7 +904,7 @@ if "compression_parallele" in ONGLETS:
 
 if "compression_perpendiculaire" in ONGLETS:
     with ONGLETS["compression_perpendiculaire"]:
-        afficher_titre_de_l_onglet("Compression perpendiculaire au fil (6.5.6)", "6.5.6.2", "6.5.6.3")
+        afficher_titre_de_l_onglet("Compression perpendiculaire au fil (6.5.6)", "6.5.6.3")
         acces.avertir_si_en_test("compression_perpendiculaire")
         with st.container(horizontal_alignment="center"):
             kd, kscp, kt, _, _ = sawn_lumber.modification_factors(

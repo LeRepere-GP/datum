@@ -199,10 +199,10 @@ def _icones_svg(noeud) -> list[str]:
 
 def test_icones_en_haut_des_onglets():
     """
-    Issue #89 : chaque onglet commence par son titre et les icônes de ses vérifications, aux couleurs
-    du compte : flexion (1), cisaillement et entaille (2), compression parallèle (1), compression
-    perpendiculaire et près d'un appui (2), traction (1), flexion et charge axiale (1). La compression
-    oblique n'a pas d'icône : 8 icônes en tout.
+    Issue #89 (retour de la PR #91) : chaque onglet commence par une seule icône et son titre, aux
+    couleurs du compte. Cisaillement : icône du cisaillement (6.5.4.3) ; compression perpendiculaire :
+    icône de la compression près d'un appui (6.5.6.3). La compression oblique n'a pas d'icône :
+    6 icônes en tout.
     """
     import config
     from moteur.commun.figures import icone
@@ -212,8 +212,8 @@ def test_icones_en_haut_des_onglets():
     apparence = config.apparence_du_compte("admin")
     icones = _icones_svg(at._tree)
     noms = [
-        "flexion", "cisaillement", "cisaillement_entaille", "compression_parallele",
-        "compression_perpendiculaire", "compression_pres_appui", "traction", "flexion_et_charge_axiale",
+        "flexion", "cisaillement", "compression_parallele", "compression_pres_appui", "traction",
+        "flexion_et_charge_axiale",
     ]
     assert icones == [icone(n, apparence.principale, apparence.accent) for n in noms]
     titres = [m.value for m in at.markdown if m.value.startswith("**") and "(6.5." in m.value]
