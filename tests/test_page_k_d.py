@@ -150,8 +150,8 @@ def test_aide_de_la_profondeur_de_l_entaille():
     """Retour #18 : l'aide de d_n est en LaTeX valide (pas d'espace après « $ »), avec un point."""
     at = _connecte("admin", "mot-admin")
     aide = [n for n in at.text_input if n.label.startswith("Profondeur de l'entaille")][0].help
-    # 2x6 : d = 140 mm ; 0.25 x 140 mm = 35 mm (1.378 po, affiché 1-3/8 po au 1/16 po près)
-    assert aide.startswith("Ne doit pas dépasser $0.25 \\cdot d$ = 35 mm (1-3/8 po) (6.5.4.4.2)")
+    # 2x6 : d = 140 mm ; 0.25 x 140 mm = 35 mm (1.378 po, affiché 1 3/8 po au 1/16 po près)
+    assert aide.startswith("Ne doit pas dépasser $0.25 \\cdot d$ = 35 mm (1 3/8 po) (6.5.4.4.2)")
 
 
 def test_largeur_d_appui_preremplie():

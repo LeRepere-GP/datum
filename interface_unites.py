@@ -7,8 +7,9 @@ l'affichage : il lit les champs et rend toujours au moteur des valeurs métrique
 fonction générale moteur/commun/unites.lire_grandeur() ; aucune formule de la norme ici.
 
 Décisions de l'utilisateur (PR #99) :
-- chaque champ accepte n'importe quelle unité, même mélangées : « 8 pi 38 mm » = 2476.4 mm, « 3-1/2 po »,
-  « 5 kN », « 1124 lb », « 40 000 lb·po » ;
+- chaque champ accepte n'importe quelle unité, même mélangées, et fonctionne comme une calculatrice :
+  « 8 pi 38 mm » = 2476.4 mm, « 3 1/2 po », « 5 kN », « 1124 lb », « (2+3)/2 po », « 8 pieds + 36 po - 50 mm » ;
+  « - » est toujours une soustraction ;
 - un nombre sans unité prend l'unité par défaut, choisie dans la barre latérale (deux bascules
   indépendantes : dimensions, en impérial au départ, et charges, en métrique au départ) ;
 - avec « + », un nombre sans unité prend l'unité du terme suivant : « 2 + 3 po » = 5 po ;
@@ -52,11 +53,15 @@ _BASCULE = {
 
 # Exemples de saisie, dans l'aide de chaque champ
 _EXEMPLES = {
-    "dimension": "Toute unité : ex. 89 mm, 3-1/2 po, 3 1/2\", 1' 2-1/4\", 8 pi 38 mm.",
-    "longueur": "Toute unité : ex. 3000 mm, 3 m, 8-6 (8 pi 6 po), 8' 6\", 3 pi 2-1/4 po, 8 pi 38 mm.",
+    "dimension": "Toute unité : ex. 89 mm, 3 1/2 po, 3 1/2\", 1' 2 1/4\", 8 pi 38 mm.",
+    "longueur": "Toute unité : ex. 3000 mm, 3 m, 8' 6\", 8 pi 6 po, 3 pi 2 1/4 po, 8 pi 38 mm.",
     "force": "Toute unité : ex. 5 kN, 5000 N, 1124 lb, 1.2 kip.",
     "moment": "Toute unité : ex. 4.5 kN·m, 4500 N·m, 40 000 lb·po, 3300 lb·pi.",
 }
+_CALCULATRICE = (
+    "Calculs permis : + - * / ^ %, parenthèses (ex. (2 + 3)/2 po, 8 pi + 36 po - 50 mm). "
+    "« - » est toujours une soustraction : écrire 8' 6\" ou 2 1/4 po, sans tiret."
+)
 
 
 def choisir_systemes() -> None:
@@ -65,12 +70,13 @@ def choisir_systemes() -> None:
     dimensions (impérial au départ), une pour les charges (métrique au départ) ; gardées pour la séance.
     """
     aide = """Unité d'un nombre entré sans unité. On peut toujours écrire l'unité dans le champ
-    (ex. 89 mm, 3-1/2 po, 5 kN, 1124 lb), même mélangées (8 pi 38 mm). Les calculs se font en
+    (ex. 89 mm, 3 1/2 po, 5 kN, 1124 lb), même mélangées (8 pi 38 mm), avec des opérations
+    ((2 + 3)/2 po). Les calculs se font en
     métrique ; les résultats sont affichés dans les deux unités."""
     st.sidebar.markdown("**Unité par défaut**")
     st.sidebar.segmented_control(
         "Dimensions", options=SYSTEMES, default=_DEPART[DIMENSIONS], key=DIMENSIONS, width="stretch",
-        help="Métrique : mm. Impérial : po (dimensions) et pi-po (longueurs, ex. 8-6). " + aide,
+        help="Métrique : mm. Impérial : po (dimensions) et pi (longueurs). " + aide,
     )
     st.sidebar.segmented_control(
         "Charges", options=SYSTEMES, default=_DEPART[CHARGES], key=CHARGES, width="stretch",
@@ -85,11 +91,9 @@ def en_imperial(nom_grandeur: str) -> bool:
 
 
 def unite(nom_grandeur: str) -> str:
-    """Unité par défaut de la grandeur (ex. « mm » ou « po » ; « pi-po » pour une longueur en impérial)."""
+    """Unité par défaut de la grandeur (ex. « mm », « po » ; « pi » pour une longueur en impérial)."""
     if nom_grandeur == "pression":
         return "lb/pi²" if en_imperial(nom_grandeur) else "kPa"
-    if nom_grandeur == "longueur" and en_imperial(nom_grandeur):
-        return "pi-po"
     g = grandeur(nom_grandeur)
     return g.unite_imperiale if en_imperial(nom_grandeur) else g.unite_metrique
 
@@ -210,7 +214,7 @@ def champ(
     if key not in st.session_state:
         st.session_state[key] = st.session_state.get(cle_texte_lu) or ""
     aide = kwargs.pop("help", None)
-    exemples = _EXEMPLES[nom_grandeur] + f" Sans unité : {unite(nom_grandeur)}."
+    exemples = f"{_EXEMPLES[nom_grandeur]} {_CALCULATRICE} Sans unité : {unite(nom_grandeur)}."
     for inutile in ("step", "format", "value"):
         kwargs.pop(inutile, None)
     saisie = conteneur.text_input(

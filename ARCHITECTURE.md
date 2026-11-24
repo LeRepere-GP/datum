@@ -361,14 +361,17 @@ la charge P_f, la longueur L et la section b × d.
 - La **note de calcul indique les deux unités** pour les données et les résultats, par exemple
   `b = 38 mm (1.50 po)` et `P_r = 12.62 kN (2837 lb)`. Les étapes intermédiaires restent en métrique,
   comme dans la norme.
-- **Saisie libre** (retour datum-retours#10, PR #99) : une fonction générale du moteur,
-  `moteur/commun/unites.lire_grandeur(texte, grandeur, imperial_par_defaut)`, reçoit le texte entré
-  (n'importe quelle unité, même mélangées : « 8 pi 38 mm », « 3-1/2 po », « 3 pi 2-1/4 po », « 8-6 »,
-  « 5 kN », « 1124 lb », « 40 000 lb·po ») et rend la valeur métrique utilisée dans les calculs (mm, kN,
-  kN·m). Un nombre sans unité prend l'unité par défaut ; avec « + », il prend l'unité du terme suivant
-  (« 2 + 3 po » = 5 po). `lire_imperial()`, `ecrire_pouces()` et
-  `ecrire_pieds_pouces()` traitent les pieds, pouces et fractions de pouce. Ces fonctions ne dépendent
-  pas de l'interface : la future interface web les utilisera aussi.
+- **Saisie des valeurs : calculatrice avec unités** (retour datum-retours#10, PR #99) : une fonction
+  générale du moteur, `moteur/commun/unites.lire_grandeur(texte, grandeur, imperial_par_defaut)`, reçoit
+  le texte entré et rend la valeur métrique utilisée dans les calculs (mm, kN, kN·m). Unités mélangées,
+  pieds, pouces et fractions (« 8' 6" », « 3 pi 2 1/4 po », « 8 pi 38 mm »), forces et moments (« 1124 lb »,
+  « 40 000 lb·po »), opérations + - * / ^ % et parenthèses (« (2+3)/2 po », « 8 pieds + 36 po - 50 mm »).
+  « - » est toujours une soustraction. Une unité à la toute fin s'applique au résultat si le reste n'a
+  pas d'unité ; un nombre sans unité dans une somme prend l'unité voisine ; un résultat sans unité prend
+  l'unité par défaut. Les unités sont vérifiées (une aire ou des kN dans un champ de longueur sont refusés).
+  Analyse par descente récursive, sans `eval()`. `ecrire_pouces()` et `ecrire_pieds_pouces()` écrivent les
+  longueurs au 1/16 po près, sans tiret (« 8 pi 6 1/2 po »). Ces fonctions ne dépendent pas de
+  l'interface : la future interface web et une future calculatrice d'unités les utiliseront aussi.
 - **Interface Streamlit** : `interface_unites.py` (à la racine, couche d'interface). Chaque champ est un
   texte libre (`champ()`), qui garde le texte entré et affiche dessous la valeur retenue dans les deux
   unités. Deux bascules dans la barre latérale (« Unité par défaut » : dimensions, en impérial au départ ;
