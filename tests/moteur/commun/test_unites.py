@@ -408,3 +408,27 @@ def test_nombre_trop_grand(texte):
     """Pas de plafond (décision de l'utilisateur), mais un nombre infini est refusé."""
     with pytest.raises(ValueError, match="nombre trop grand"):
         lire_grandeur(texte, "force")
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # « x » pour la multiplication (demande de l'utilisateur, revue de la PR #99)
+        ("2 x 3 po", "dimension", 152.4),  # 6 po
+        ("2x3 po", "dimension", 152.4),
+        ("2 X 3 po", "dimension", 152.4),
+        ("2 po x 3", "dimension", 152.4),
+        ("2 po x 3 po", "dimension", 152.4),  # même unité comptée une fois
+        ("(2+3) x 2 po", "dimension", 254.0),  # 10 po
+        ("2 x (3 po)", "dimension", 152.4),
+        ("2 x .5 po", "dimension", 25.4),  # 1 po
+        ("2x3x4 mm", "dimension", 24.0),
+        ("3 x 4 kN", "force", 12.0),
+        ("50% x 4 po", "dimension", 50.8),  # 2 po
+        ("2 x -3 po", "dimension", -152.4),  # « x » suivi d'un signe
+        ("1e3 x 2 mm", "dimension", 2000.0),
+        ("2 x 3", "dimension", 6.0),  # unité par défaut
+    ],
+)
+def test_x_multiplication(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)

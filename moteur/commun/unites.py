@@ -245,8 +245,8 @@ class _Lecteur:
                 operateur = "*"
             elif c in ("*", "/", "×", "÷", "x"):
                 operateur = c
-                if operateur == "x" and not _re.match(r"x\s*[\d.(\[]", self.s[self.i:]):
-                    break  # « x » seulement comme « fois » devant un nombre
+                if operateur == "x" and not _re.match(r"x\s*[-+\d.(\[]", self.s[self.i:]):
+                    break  # « x » seulement comme « fois » devant un nombre, un signe ou une parenthèse
                 self.i += 1
             else:
                 break
@@ -345,7 +345,8 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
     - Notation scientifique : « 1e3 mm », « 1.5E-3 m », « 2,5e4 N » (demande de l'utilisateur).
     - Décimales avec un point ou une virgule (« 3.5 » = « 3,5 ») ; la virgule est toujours décimale, même
       suivie de 3 chiffres (« 1,500 » = 1.5, décision de l'utilisateur). Milliers : une espace (« 40 000 »).
-    - Opérations : + - * / (aussi × ÷), ^ (puissance entière), % (pourcentage), parenthèses ( ) et [ ].
+    - Opérations : + - * / (aussi x, × et ÷), ^ (puissance entière), % (pourcentage), parenthèses ( ) et [ ].
+      « x » est une multiplication (demande de l'utilisateur) : « 2 x 3 po » = « 2x3 po » = 6 po.
       « de » (ou « of ») après un pourcentage veut dire « fois » : « 50% de 4 » = 2.
       « - » est toujours une soustraction (décision de l'utilisateur) : « 8-6 » = 2.
     - Pieds, pouces et fractions : « 8' 6" », « 8 pi 6 po », « 8 pi 6 » (pouces après les pieds),
