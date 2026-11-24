@@ -4,6 +4,7 @@
 import streamlit as st
 import acces
 import config
+import interface_unites as iu
 import datetime
 from moteur.commun.figures import (
     figure,
@@ -54,6 +55,8 @@ def show_verification(message: str) -> None:
 # ---- en-tête ----
 config.configurer_page("Bois de sciage")
 EDITION = config.choisir_edition()  # une seule pour l'instant : CSA O86:19 (issue #72)
+# Bascule métrique / impérial (retour #10) : affichage seulement, les calculs restent en métrique
+iu.choisir_systeme()
 st.title(config.TITLE, anchor=False)
 st.caption(config.SOUS_TITRE)
 st.header(
@@ -136,14 +139,15 @@ with st.container(horizontal_alignment="center"):
             st.error(str(error), icon=":material/error:")
             st.stop()
         if built_up == 1:
-            st.metric("Largeur nette de l'élément, $b$", f"{width} mm")
+            st.metric("Largeur nette de l'élément, $b$", iu.texte(width, "dimension"))
         else:
             st.metric(
                 "Largeur nette de l'élément, $b$",
-                f"{built_up}*{width} = {built_up*width} mm",
+                f"{built_up}*{iu.texte(width, 'dimension').split()[0]} = "
+                f"{iu.texte(built_up * width, 'dimension')}",
             )
 
-        st.metric("Hauteur nette de l'élément, $d$", f"{depth} mm")
+        st.metric("Hauteur nette de l'élément, $d$", iu.texte(depth, "dimension"))
         # Section de l'élément (b, d et les plis), affichée ici une seule fois plutôt que dans chaque
         # onglet de calcul (retour #12) ; même échelle que les figures des onglets
         apparence_du_compte = config.apparence_du_compte(st.session_state.get("compte", ""))
@@ -320,7 +324,11 @@ with st.container(horizontal_alignment="center"):
         for i in range(0, int(len(compute_resistance))):
             col1, col2 = st.columns([3, 1])
             col1.text(f"{display_resistance[i][0]}:")
-            col2.markdown(f"{display_resistance[i][1]} $={compute_resistance[i]}MPa$")
+            valeur = (
+                iu.latex(compute_resistance[i], "contrainte") if iu.en_imperial()
+                else f"{compute_resistance[i]} MPa"
+            )
+            col2.markdown(f"{display_resistance[i][1]} $= {valeur}$")
 
 
 # --- section coefficients ---
@@ -387,17 +395,19 @@ with st.container(horizontal_alignment="center"):
                 AIDE_UNITE = """Toute unité cohérente convient pour les trois charges (ex. kN/m) :
                 seul le rapport P_L / P_s compte."""
                 c1, c2, c3 = st.columns(3)
+                # Seul le rapport P_L / P_s compte : aucune conversion, l'unité n'est qu'un repère
+                PRESSION = "lb/pi²" if iu.en_imperial() else "kPa"
                 p_l = c1.number_input(
-                    "$P_L$ (kPa)", min_value=0.0, value=None, key="kd_p_l",
+                    f"$P_L$ ({PRESSION})", min_value=0.0, value=None, key="kd_p_l",
                     help="Charge spécifiée de durée d'application continue (ex. charge permanente). "
                     + AIDE_UNITE,
                 )
                 neige = c2.number_input(
-                    "$S$ (kPa)", min_value=0.0, value=None, key="kd_s",
+                    f"$S$ ({PRESSION})", min_value=0.0, value=None, key="kd_s",
                     help="Charge de neige spécifiée. " + AIDE_UNITE,
                 )
                 surcharge = c3.number_input(
-                    "$L$ (kPa)", min_value=0.0, value=None, key="kd_l",
+                    f"$L$ ({PRESSION})", min_value=0.0, value=None, key="kd_l",
                     help="Surcharge spécifiée. " + AIDE_UNITE,
                 )
                 if p_l is None or not (neige or surcharge):
@@ -411,7 +421,7 @@ with st.container(horizontal_alignment="center"):
                     SOURCE_KD = "5.3.2.2"
                     p_s = art_5_3.P_s(CHARGES["snow"], CHARGES["live"])
                     kd_charges = general_design.load_duration("continue", **CHARGES)
-                    st.write(f"$P_s = {p_s:.2f}$ kPa ; $K_D = {kd_charges:.3f}$")
+                    st.write(f"$P_s = {p_s:.2f}$ {PRESSION} ; $K_D = {kd_charges:.3f}$")
                     if p_l <= p_s:
                         st.warning(
                             "$P_L \\leq P_s$ : la charge de durée continue ne domine pas. "
@@ -637,14 +647,14 @@ if "flexion" in ONGLETS:
                 COMP_EDGE = st.toggle(
                     "Rive supérieure maintenue",
                     help="""Rive comprimée maintenu par fixation directe du platelage ou par des solives
-                    dont l'espacement ne dépasse pas 610 mm""",
+                    dont l'espacement ne dépasse pas """ + iu.texte(610, "dimension", 0 if not iu.en_imperial() else 1),
                     value=subfloor,
                 )
                 BLOCK = st.toggle(
                     "Entremises",
                     help=f"""Présence d'entretoises ou d'entremises dont l'espacement ne dépasse pas
-                    huit fois la hauteur de la section de l'élément -> $8 \\cdot d = {8 * depth:.0f}$
-                    mm c/c""",
+                    huit fois la hauteur de la section de l'élément -> $8 \\cdot d =$
+                    {iu.texte(8 * depth, "dimension", 0 if not iu.en_imperial() else 1)} c/c""",
                 )
                 TEN_EDGE = st.toggle(
                     "Rive inférieure maintenue",
@@ -653,7 +663,8 @@ if "flexion" in ONGLETS:
                 PLIES_FASTENED = False
                 if built_up > 1:
                     PLIES_FASTENED = st.toggle(
-                        f"Plis fixés à au plus 4d = {4 * depth} mm c/c",
+                        f"Plis fixés à au plus 4d = "
+                        f"{iu.texte(4 * depth, 'dimension', 0 if not iu.en_imperial() else 1)} c/c",
                         help="""6.5.3.2.4 : poutre composée dont les plis sont solidement attachés les
                         uns aux autres à intervalles ne dépassant pas quatre fois la hauteur. Les
                         supports latéraux ci-dessus (6.5.3.2.3) ne s'appliquent pas aux poutres
@@ -679,20 +690,20 @@ if "flexion" in ONGLETS:
                 mr = None
                 kl_message = str(error)
             with col2:
-                mf = st.number_input(
-                    "$Mf: (kN \\cdot m)$",
-                    min_value=0.00,
-                    value=None,
+                mf = iu.champ(
+                    "$Mf: ({unite})$",
+                    "moment",
+                    key="flex_mf",
+                    min_value=0.0,
                     width=550,
                     placeholder="Moment pondéré",
-                    step=1.00,
                     icon=":material/input:",
                 )
                 if mr is None:
                     st.error(kl_message, width=650, icon=":material/error:")
                 else:
                     VERIF = general_design.limit_states_design(mf, mr)
-                    st.write(f"$Mr = {round(mr,2)} kN \\cdot m$")
+                    st.write(f"$Mr = {iu.latex(mr, 'moment')}$")
                     show_verification(VERIF)
                     NOTE["Flexion (6.5.3)"] = art_6_5_3.verifier_flexion(
                         b=width * built_up, d=depth, f_b=compute_resistance[0], plis=built_up,
@@ -734,31 +745,39 @@ if "cisaillement" in ONGLETS:
         with st.container(horizontal_alignment="center"):
             col1, col2 = st.columns(2, width=550)
             with col1:
-                notch_depth = st.number_input(
-                    "Profondeur de l'entaille, $d_n$ (mm)",
-                    min_value=0,
-                    max_value=int(0.25 * depth),
-                    value=None,
+                # d_n <= 0.25 d (6.5.4.4.2, p. 66) : borne métrique exacte, arrondie vers le bas en impérial
+                quart_de_d = 0.25 * depth
+                notch_depth = iu.champ(
+                    "Profondeur de l'entaille, $d_n$ ({unite})",
+                    "dimension",
+                    key="cis_d_n",
+                    min_value=0.0,
+                    max_value=quart_de_d,
                     placeholder="Optionnel",
-                    help=f"Ne doit pas dépasser $0.25 \\cdot d = {0.25 * depth:.1f}$ mm (6.5.4.4.2)",
+                    help=(
+                        f"Ne doit pas dépasser $0.25 \\cdot d = "
+                        f"{iu.vers_affichage(quart_de_d, 'dimension'):.{2 if iu.en_imperial() else 1}f}$ "
+                        f"{iu.unite('dimension')} (6.5.4.4.2)"
+                    ),
                     icon=":material/height:",
                 )
-                notch_length = st.number_input(
-                    "Longueur de l'entaille, $e$ (mm)",
-                    min_value=0,
-                    value=None,
+                notch_length = iu.champ(
+                    "Longueur de l'entaille, $e$ ({unite})",
+                    "dimension",
+                    key="cis_e",
+                    min_value=0.0,
                     placeholder="Optionnel",
                     icon=":material/arrow_range:",
                 )
 
             with col2:
-                vf = st.number_input(
-                    "$Vf: (kN)$",
-                    0.00,
-                    value=None,
+                vf = iu.champ(
+                    "$Vf: ({unite})$",
+                    "force",
+                    key="cis_vf",
+                    min_value=0.0,
                     width=550,
                     placeholder="Cisaillement pondéré",
-                    step=1.00,
                     icon=":material/input:",
                 )
 
@@ -791,9 +810,9 @@ if "cisaillement" in ONGLETS:
                 fr = fr / 1000
                 if 0 < fr < vr:
                     vr = fr
-                    st.write(f"$Fr = {round(vr,2)} kN$")
+                    st.write(f"$Fr = {iu.latex(vr, 'force')}$")
                 else:
-                    st.write(f"$Vr = {round(vr,2)} kN$")
+                    st.write(f"$Vr = {iu.latex(vr, 'force')}$")
                 VERIF = general_design.limit_states_design(vf, vr)
                 show_verification(VERIF)
 
@@ -870,11 +889,11 @@ if "compression_parallele" in ONGLETS:
 
                 col1, col2 = st.columns(2, width=550)
                 with col1:
-                    length = st.number_input(
-                        "Longueur de l'élément, $L$ (mm)",
-                        min_value=1,
-                        value=None,
-                        step=100,
+                    length = iu.champ(
+                        "Longueur de l'élément, $L$ ({unite})",
+                        "longueur",
+                        key="cpa_L",
+                        min_value=1.0,
                         placeholder="Requis",
                         help="Longueur réelle de l'élément, utilisée pour $K_{Zc}$ (6.5.5.2.4)",
                         icon=":material/straighten:",
@@ -886,14 +905,14 @@ if "compression_parallele" in ONGLETS:
                         ("d", "hauteur", ":material/fit_page_height:"),
                     ):
                         colonne_l, colonne_k = st.columns([2, 1])
-                        L_selon_axe = colonne_l.number_input(
+                        L_selon_axe = iu.champ(
                             f"Entraxe des appuis latéraux, flambage selon ${axe}$, "
-                            f"$L_{{({axe})}}$ (mm)",
-                            min_value=1,
-                            value=None,
-                            step=100,
-                            placeholder="Requis",
+                            f"$L_{{({axe})}}$ ({{unite}})",
+                            "longueur",
                             key=f"cpa_L_selon_{axe}",
+                            conteneur=colonne_l,
+                            min_value=1.0,
+                            placeholder="Requis",
                             help=f"""Entraxe des appuis latéraux pour le flambage selon la
                             {nom} ${axe}$ (6.5.5.1)""",
                             icon=icone,
@@ -924,13 +943,13 @@ if "compression_parallele" in ONGLETS:
                     le_d = art_6_5_5.L_e(K_e_selon_d, L_selon_d) if L_selon_d is not None else None
 
                 with col2:
-                    pf = st.number_input(
-                        "$Pf: (kN)$",
-                        min_value=0.00,
-                        value=None,
+                    pf = iu.champ(
+                        "$Pf: ({unite})$",
+                        "force",
+                        key="cpa_pf",
+                        min_value=0.0,
                         width=550,
                         placeholder="Charge axiale pondérée",
-                        step=1.00,
                         icon=":material/input:",
                     )
                     if length is None or le_b is None or le_d is None:
@@ -966,7 +985,7 @@ if "compression_parallele" in ONGLETS:
                         else:
                             axes = (axis_b, axis_d)
                             pr = min(axis_b[3], axis_d[3]) / 1000
-                            st.write(f"$Pr = {pr:.2f} kN$")
+                            st.write(f"$Pr = {iu.latex(pr, 'force')}$")
                             VERIF = general_design.limit_states_design(pf, pr)
                             show_verification(VERIF)
                             NOTE["Compression parallèle au fil (6.5.5)"] = (
@@ -985,18 +1004,29 @@ if "compression_parallele" in ONGLETS:
 
                 if axes:
                     with st.expander("Voir plus:", width=650):
-                        st.markdown(
-                            f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = {compute_resistance[2]} \\cdot "
-                            f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = {fc_modified:.3f}$ MPa"
-                        )
-                        st.markdown(f"$E_{{05}} = {e05}$ MPa, $K_{{SE}} = {kse}$")
+                        if iu.en_imperial():
+                            st.markdown(
+                                f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = "
+                                f"{iu.latex(compute_resistance[2], 'contrainte')} \\cdot "
+                                f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = "
+                                f"{iu.latex(fc_modified, 'contrainte')}$"
+                            )
+                            st.markdown(
+                                f"$E_{{05}} = {iu.latex(e05, 'contrainte')}$, $K_{{SE}} = {kse}$"
+                            )
+                        else:
+                            st.markdown(
+                                f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = {compute_resistance[2]} \\cdot "
+                                f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = {fc_modified:.3f}$ MPa"
+                            )
+                            st.markdown(f"$E_{{05}} = {e05}$ MPa, $K_{{SE}} = {kse}$")
                         for label, axis in zip(
                             ("Selon $b$", "Selon $d$"), axes
                         ):
                             cc, kzc, kc, pr_axis = axis
                             st.markdown(
                                 f"**{label}** : $C_c = {cc:.2f}$, $K_{{Zc}} = {kzc:.4f}$, "
-                                f"$K_C = {kc:.4f}$, $Pr = {pr_axis / 1000:.2f} kN$"
+                                f"$K_C = {kc:.4f}$, $Pr = {iu.latex(pr_axis / 1000, 'force')}$"
                             )
         with st.container(horizontal_alignment="center"):
             afficher_figures("Compression parallèle au fil (6.5.5)")
@@ -1057,8 +1087,9 @@ if "compression_perpendiculaire" in ONGLETS:
                 )
                 if fcp > fcp_table:
                     st.warning(
-                        f"""$f_{{cp}}$ calculé à partir de $G$ ({fcp:.2f} MPa) est plus élevé que la
-                        valeur des tableaux 6.4 à 6.9 ({fcp_table} MPa) : non conservateur.""",
+                        f"""$f_{{cp}}$ calculé à partir de $G$ ({iu.texte(fcp, "contrainte")}) est plus
+                        élevé que la valeur des tableaux 6.4 à 6.9 ({iu.texte(fcp_table, "contrainte")}) :
+                        non conservateur.""",
                         width=550,
                         icon=":material/warning:",
                     )
@@ -1070,13 +1101,13 @@ if "compression_perpendiculaire" in ONGLETS:
                 # Préremplie avec la largeur de l'élément, mise à jour quand l'élément change (retour #15)
                 if st.session_state.get("cp_largeur_element") != member_width:
                     st.session_state["cp_largeur_element"] = member_width
-                    st.session_state["cp_bearing_width"] = float(member_width)
-                bearing_width_input = st.number_input(
-                    "Largeur d'appui, $b$ (mm)",
-                    min_value=1.0,
-                    step=1.0,
-                    placeholder=f"Largeur de l'élément = {member_width} mm",
+                    iu.remplir("cp_bearing_width", float(member_width))
+                bearing_width_input = iu.champ(
+                    "Largeur d'appui, $b$ ({unite})",
+                    "dimension",
                     key="cp_bearing_width",
+                    min_value=1.0,
+                    placeholder=f"Largeur de l'élément = {iu.texte(member_width, 'dimension')}",
                     help="Par défaut, la largeur de l'élément. Si vide, la largeur de l'élément est utilisée.",
                     icon=":material/fit_page_width:",
                 )
@@ -1085,21 +1116,21 @@ if "compression_perpendiculaire" in ONGLETS:
                     bearing_width = min(bearing_width_input, member_width)
                     if bearing_width_input > member_width:
                         st.warning(
-                            f"La largeur d'appui est limitée à la largeur de l'élément ({member_width} mm).",
+                            "La largeur d'appui est limitée à la largeur de l'élément "
+                            f"({iu.texte(member_width, 'dimension')}).",
                             icon=":material/warning:",
                         )
-                support_length = st.number_input(
-                    "Longueur d'appui, $L_b$ (mm)",
-                    min_value=1.0,
-                    value=None,
-                    step=1.0,
-                    placeholder="Requis",
+                support_length = iu.champ(
+                    "Longueur d'appui, $L_b$ ({unite})",
+                    "dimension",
                     key="cp_support_length",
+                    min_value=1.0,
+                    placeholder="Requis",
                     help="Longueur d'appui parallèle au fil (6.5.6.2)",
                     icon=":material/arrow_range:",
                 )
                 support_far = st.checkbox(
-                    "Appui à au moins 75 mm de l'extrémité",
+                    f"Appui à au moins {iu.texte(75, 'dimension')} de l'extrémité",
                     key="cp_support_far",
                     help="Condition a) de 6.5.6.5 pour $K_B$",
                 )
@@ -1112,21 +1143,20 @@ if "compression_perpendiculaire" in ONGLETS:
                     "Charge à moins de $d$ du centre de l'appui",
                     key="cp_near_load",
                     help=f"""Charge appliquée à une distance du centre de l'appui inférieure ou égale
-                    à la hauteur de l'élément, $d = {depth}$ mm (6.5.6.3)""",
+                    à la hauteur de l'élément, $d$ = {iu.texte(depth, "dimension")} (6.5.6.3)""",
                 )
                 if near_load:
-                    load_length = st.number_input(
-                        "Longueur d'appui de la charge (mm)",
-                        min_value=1.0,
-                        value=None,
-                        step=1.0,
-                        placeholder="Requis",
+                    load_length = iu.champ(
+                        "Longueur d'appui de la charge ({unite})",
+                        "dimension",
                         key="cp_load_length",
+                        min_value=1.0,
+                        placeholder="Requis",
                         help="Longueur d'appui de la charge, parallèle au fil (6.5.6.3.2)",
                         icon=":material/arrow_range:",
                     )
                     load_far = st.checkbox(
-                        "Charge à au moins 75 mm de l'extrémité",
+                        f"Charge à au moins {iu.texte(75, 'dimension')} de l'extrémité",
                         key="cp_load_far",
                         help="Condition a) de 6.5.6.5 pour $K_B$",
                     )
@@ -1138,14 +1168,13 @@ if "compression_perpendiculaire" in ONGLETS:
 
             details = []
             with col2:
-                rf = st.number_input(
-                    "$Rf: (kN)$",
-                    min_value=0.00,
-                    value=None,
+                rf = iu.champ(
+                    "$Rf: ({unite})$",
+                    "force",
+                    key="cp_rf",
+                    min_value=0.0,
                     width=550,
                     placeholder="Réaction pondérée à l'appui",
-                    step=1.00,
-                    key="cp_rf",
                     icon=":material/input:",
                 )
                 if support_length is None:
@@ -1163,7 +1192,7 @@ if "compression_perpendiculaire" in ONGLETS:
                         sawn_lumber.bearing_resistance(fcp_modified, area, kb_support, kzcp)
                         / 1000
                     )
-                    st.write(f"$Qr = {qr:.2f} kN$")
+                    st.write(f"$Qr = {iu.latex(qr, 'force')}$")
                     show_verification(general_design.limit_states_design(rf, qr))
                     NOTE["Compression perpendiculaire au fil (6.5.6.2)"] = (
                         art_6_5_6.verifier_compression_perpendiculaire_au_fil(
@@ -1177,20 +1206,20 @@ if "compression_perpendiculaire" in ONGLETS:
                         )
                     )
                     details.append(
-                        f"Appui : $A_b = {bearing_width:g} \\cdot {support_length:g} = {area:.0f}$ mm², "
+                        f"Appui : $A_b = {iu.latex(bearing_width, 'dimension')} \\cdot "
+                        f"{iu.latex(support_length, 'dimension')} = {iu.latex(area, 'aire')}$, "
                         f"$K_B = {kb_support:.4f}$, "
-                        f"$Qr = {qr:.2f} kN$"
+                        f"$Qr = {iu.latex(qr, 'force')}$"
                     )
 
                 if near_load:
-                    pf_near = st.number_input(
-                        "$Pf: (kN)$ près de l'appui",
-                        min_value=0.00,
-                        value=None,
+                    pf_near = iu.champ(
+                        "$Pf: ({unite})$ près de l'appui",
+                        "force",
+                        key="cp_pf",
+                        min_value=0.0,
                         width=550,
                         placeholder="Charge pondérée près de l'appui",
-                        step=1.00,
-                        key="cp_pf",
                         icon=":material/input:",
                     )
                     if support_length is None or load_length is None:
@@ -1213,7 +1242,7 @@ if "compression_perpendiculaire" in ONGLETS:
                             )
                             / 1000
                         )
-                        st.write(f"$Q'r = {qr_near:.2f} kN$")
+                        st.write(f"$Q'r = {iu.latex(qr_near, 'force')}$")
                         show_verification(general_design.limit_states_design(pf_near, qr_near))
                         NOTE["Compression perpendiculaire près d'un appui (6.5.6.3)"] = (
                             art_6_5_6.verifier_compression_perpendiculaire_pres_d_un_appui(
@@ -1229,9 +1258,9 @@ if "compression_perpendiculaire" in ONGLETS:
                             )
                         )
                         details.append(
-                            f"Charge près de l'appui : $A'_b = {average_area:.0f}$ mm², "
+                            f"Charge près de l'appui : $A'_b = {iu.latex(average_area, 'aire')}$, "
                             f"$K_B = \\min({kb_support:.4f}, {kb_load:.4f}) = {kb_near:.4f}$, "
-                            f"$Q'r = {qr_near:.2f} kN$"
+                            f"$Q'r = {iu.latex(qr_near, 'force')}$"
                         )
 
             afficher_figures(
@@ -1241,10 +1270,17 @@ if "compression_perpendiculaire" in ONGLETS:
 
             if details:
                 with st.expander("Voir plus:", width=650):
-                    st.markdown(
-                        f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {fcp:.2f} \\cdot "
-                        f"({kd} \\cdot {kscp} \\cdot {kt}) = {fcp_modified:.3f}$ MPa"
-                    )
+                    if iu.en_imperial():
+                        st.markdown(
+                            f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {iu.latex(fcp, 'contrainte')} "
+                            f"\\cdot ({kd} \\cdot {kscp} \\cdot {kt}) = "
+                            f"{iu.latex(fcp_modified, 'contrainte')}$"
+                        )
+                    else:
+                        st.markdown(
+                            f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {fcp:.2f} \\cdot "
+                            f"({kd} \\cdot {kscp} \\cdot {kt}) = {fcp_modified:.3f}$ MPa"
+                        )
                     st.markdown(
                         f"$K_{{Zcp}} = {kzcp:.4f}$ (largeur/hauteur = "
                         f"{member_width}/{depth} = {member_width / depth:.2f})"
@@ -1288,7 +1324,15 @@ if acces.permis("note_pdf") and FAITES:
     st.divider()
     st.subheader("Résumé", anchor=False)
     with st.container(horizontal_alignment="center"):
-        lignes = [formater_ligne_du_resume(l) for l in resume([("", r) for r in FAITES.values()])]
+        lignes = []
+        for ligne in resume([("", r) for r in FAITES.values()]):
+            l = formater_ligne_du_resume(ligne)
+            # Interface : charges et résistances dans le système choisi (retour #10) ; la note PDF
+            # garde les deux unités
+            if iu.en_imperial() and ligne.grandeur:
+                l["charge"] = iu.texte_significatif(ligne.charge, ligne.grandeur)
+                l["resistance"] = iu.texte_significatif(ligne.resistance, ligne.grandeur)
+            lignes.append(l)
         tableau = [
             "| Vérification | Article | Charge pondérée | Résistance pondérée | Ratio | Statut |",
             "|---|---|---|---|--:|---|",

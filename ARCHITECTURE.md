@@ -361,6 +361,12 @@ la charge P_f, la longueur L et la section b × d.
 - La **note de calcul indique les deux unités** pour les données et les résultats, par exemple
   `b = 38 mm (1.50 po)` et `P_r = 12.62 kN (2837 lb)`. Les étapes intermédiaires restent en métrique,
   comme dans la norme.
+- **Interface Streamlit** (retour datum-retours#10) : la bascule « Unités » est dans la barre latérale ;
+  `interface_unites.py` (à la racine, couche d'interface) affiche les champs et les résultats dans le
+  système choisi et rend toujours des valeurs métriques au moteur (`champ()`, `texte()`, `latex()`),
+  avec les facteurs de `moteur/commun/unites.py`. Une valeur gardée à la bascule reste exacte en
+  métrique (pas d'erreur d'arrondi), et les bornes affichées sont arrondies vers l'intérieur (ex.
+  d_n ≤ 0.25 d). Les dimensions nominales (« 2x6 ») et les dimensions brutes restent en po.
 
 ## 9. Éditions de la norme
 
