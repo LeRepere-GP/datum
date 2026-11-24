@@ -178,6 +178,11 @@
       .flatten(),
   )
   text(size: 7pt, fill: gris)[En gras : la vérification qui gouverne (ratio le plus élevé).]
+  // Commentaires de l'ingénieur sur la page résumé seulement (décision de l'utilisateur, PR #93), en bas
+  // à gauche, à côté du sceau
+  if commentaires != "" {
+    place(bottom, float: true, clearance: 0.3cm, grid(columns: (1fr, 1fr), column-gutter: 0.6cm, bloc-commentaires))
+  }
   pagebreak()
 }
 
@@ -216,7 +221,8 @@
   // les étapes pour réserver l'espace : les calculs ne passent jamais dessous.
   // Commentaires de l'ingénieur en bas à gauche de la première page, à côté de la vérification et
   // du sceau (datum-retours #3) : la note tient le plus possible sur une seule page.
-  let avec-commentaires = i == 0 and commentaires != ""
+  // S'il y a une page résumé, les commentaires y sont déjà (PR #93) : pas sur la page de vérification.
+  let avec-commentaires = i == 0 and commentaires != "" and resume.len() == 0
   if r.verification != none or avec-commentaires {
     place(bottom, float: true, clearance: 0.3cm, grid(
       columns: (1fr, 1fr),

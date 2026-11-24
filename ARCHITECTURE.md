@@ -310,7 +310,8 @@ vérification (vérification, article, charge pondérée, résistance pondérée
 résistances en métrique seulement, pour garder le tableau compact), la vérification
 qui gouverne (ratio le plus élevé) en gras, et le renvoi à sa page. Les lignes viennent de
 `moteur/commun/resume.py` (aucun nouveau calcul) ; le même tableau est affiché dans l'interface, au-dessus
-de la note de calcul.
+de la note de calcul. Les commentaires de l'ingénieur vont sur la page résumé seulement (sinon, sur la
+page de la vérification).
 
 Les **formules sont écrites en LaTeX** dans la trace. Elles sont affichées avec KaTeX dans l'interface,
 et rendues proprement dans le PDF.

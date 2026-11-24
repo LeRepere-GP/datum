@@ -192,9 +192,9 @@ def donnees_de_la_note(
             (acces.py, issue #56).
         entete (EnTete): Champs de l'en-tête.
         apparence (Apparence, optional): Logo et couleurs. Default to ceux de la marque.
-        commentaires (str, optional): Commentaires de l'ingénieur, en bas à gauche de la première
-            page de vérification (après la page résumé, s'il y en a une), à côté de la vérification et
-            du sceau (datum-retours #3). Default to "" (aucun).
+        commentaires (str, optional): Commentaires de l'ingénieur, en bas à gauche, à côté du sceau
+            (datum-retours #3) : sur la page résumé seulement s'il y en a une (PR #93), sinon sur la
+            page de la vérification, à côté de la vérification. Default to "" (aucun).
 
     Returns:
         dict: Données sérialisables en JSON.
