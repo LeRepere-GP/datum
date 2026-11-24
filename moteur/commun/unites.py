@@ -275,7 +275,15 @@ class _Lecteur:
             exposant = self._unaire()
             if exposant.dimension != 0 or exposant.valeur != int(exposant.valeur):
                 raise ValueError("exposant invalide (nombre entier seulement)")
-            base = _Quantite(base.valeur ** exposant.valeur, base.dimension * int(exposant.valeur))
+            try:
+                valeur = base.valeur ** exposant.valeur
+            except OverflowError:
+                raise ValueError("nombre trop grand") from None
+            except ZeroDivisionError:
+                raise ValueError("division par zéro") from None
+            if not _math.isfinite(valeur):
+                raise ValueError("nombre trop grand")
+            base = _Quantite(valeur, base.dimension * int(exposant.valeur))
         return base
 
     def _unaire(self) -> "_Quantite":
@@ -395,13 +403,14 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
         resultat = lecteur.lire()
     except ValueError:
         raise
-    except (ZeroDivisionError, OverflowError):
-        raise ValueError("division par zéro ou nombre trop grand") from None
-    if resultat.dimension == 0:
-        return resultat.valeur * defaut
-    if resultat.dimension != 1:
+    except ZeroDivisionError:
+        raise ValueError("division par zéro") from None
+    except OverflowError:
+        raise ValueError("nombre trop grand") from None
+    if resultat.dimension != 0 and resultat.dimension != 1:
         raise ValueError(f"le résultat n'est pas {_NOMS[nom_grandeur]}")
-    return resultat.valeur
+    valeur = resultat.valeur * (defaut if resultat.dimension == 0 else 1.0)
+    return valeur + 0.0  # « -0 » -> 0.0 (pas de « -0.00 kN » à l'affichage)
 
 
 # --- Écriture des longueurs impériales (affichage) ---

@@ -266,3 +266,26 @@ def test_message_court_et_multiplication():
     (erreur,) = [e.value for e in at.error]
     assert erreur.startswith("« 2 po * 3 mm » : multiplication de deux unités différentes")
     assert len(erreur) < 150 and "Calculs permis" not in erreur
+
+
+def test_negatifs_et_zero_dans_la_page():
+    """
+    Calculs de base : valeurs positives seulement (CLAUDE.md). Une charge négative est refusée ; une
+    dimension doit être d'au moins 1 mm ; une charge nulle est permise ; aucune exception.
+    """
+    cas = [
+        ("$Rf", "-5", "La valeur ne peut pas être négative."),
+        ("$Mf", "-2 kN·m", "La valeur ne peut pas être négative."),
+        ("Profondeur de l'entaille", "-1 po", "La valeur ne peut pas être négative."),
+        ("Longueur d'appui", "5 - 10 po", "La valeur doit être d'au moins 1 mm (1/16 po)."),
+        ("Longueur d'appui", "0", "La valeur doit être d'au moins 1 mm (1/16 po)."),
+        ("Longueur de l'élément", "-8 pi", "La valeur doit être d'au moins 1 mm (0 pi 1/16 po)."),
+        ("$Vf", "5 kN / 0", "« 5 kN / 0 » : division par zéro. Exemples dans l'aide (?)."),
+        ("Longueur de l'élément", "10^400", "« 10^400 » : nombre trop grand. Exemples dans l'aide (?)."),
+    ]
+    for debut, texte, message in cas:
+        at = _entrer(_connecte("admin", "mot-admin"), debut, texte)
+        assert [e.value for e in at.error] == [message], (debut, texte)
+    # Charge nulle : permise, sans « -0 »
+    at = _entrer(_connecte("admin", "mot-admin"), "$Rf", "-0")
+    assert not at.error and "= 0.00 kN (0 lb)" in _conversions(at)

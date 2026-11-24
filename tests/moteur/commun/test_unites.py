@@ -327,3 +327,55 @@ def test_multiplication_meme_unite(texte, nom, attendu):
 def test_raison_du_refus(texte, nom, raison):
     with pytest.raises(ValueError, match=raison):
         lire_grandeur(texte, nom)
+
+
+# --- Cas limites : négatifs, zéro, division par zéro, grands nombres (PR #99) ---
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # Le moteur lit les négatifs ; c'est le champ qui les refuse (bornes de interface_unites.champ)
+        ("-5 po", "dimension", -127.0),
+        ("5 - 10 po", "dimension", -127.0),
+        ("--5 kN", "force", 5.0),
+        ("5 kN * -2", "force", -10.0),
+        ("(-2)^3 po", "dimension", -203.2),  # -8 po
+        ("50% de -4 po", "dimension", -50.8),
+        ("0", "dimension", 0.0),
+        ("0 kN", "force", 0.0),
+        ("2^-1 po", "dimension", 12.7),  # 0.5 po
+        (".5 po", "dimension", 12.7),
+        ("((((2))))", "dimension", 2.0),
+    ],
+)
+def test_negatifs_et_zero(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+def test_moins_zero_devient_zero():
+    """« -0 » -> 0.0, pas -0.0 (sinon « -0.00 kN » à l'affichage)."""
+    import math
+    assert math.copysign(1, lire_grandeur("-0", "force")) == 1
+
+
+@pytest.mark.parametrize(
+    ("texte", "raison"),
+    [
+        ("1/0", "division par zéro"),
+        ("5 kN / 0", "division par zéro"),
+        ("5/(2-2) kN", "division par zéro"),
+        ("0/0", "division par zéro"),
+        ("0^-1", "division par zéro"),
+        ("10^400", "nombre trop grand"),
+        ("()", "texte illisible"),
+        ("2..5", "texte illisible"),
+        ("1,2,3", "texte illisible"),
+        ("nan", "texte illisible"),
+        ("inf", "texte illisible"),
+        ("1e3", "texte illisible"),  # notation scientifique non offerte
+        ("5 kN kN", "texte illisible"),
+    ],
+)
+def test_refus_cas_limites(texte, raison):
+    with pytest.raises(ValueError, match=raison):
+        lire_grandeur(texte, "force")

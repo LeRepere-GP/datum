@@ -240,9 +240,12 @@ def champ(
     valeur = st.session_state[cle_metrique]
 
     if min_value is not None and valeur < min_value:
-        conteneur.error(
-            f"La valeur doit être d'au moins {texte(min_value, nom_grandeur)}.", icon=":material/error:"
+        # Calculs de base : valeurs positives seulement (CLAUDE.md)
+        message = (
+            "La valeur ne peut pas être négative." if min_value == 0 and valeur < 0
+            else f"La valeur doit être d'au moins {texte(min_value, nom_grandeur)}."
         )
+        conteneur.error(message, icon=":material/error:")
         return None
     if max_value is not None and valeur > max_value:
         conteneur.error(
