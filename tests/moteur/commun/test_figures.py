@@ -334,3 +334,91 @@ def test_icones_des_degres_de_retenue():
     icones = icones_des_degres_de_retenue(principale="#112233")
     assert len(icones) == len(art_A.TABLEAU_A_4) == 7
     assert all("#112233" in i and "#233614" not in i for i in icones)
+
+
+# --- Section de l'élément dans « Matériaux » plutôt que dans chaque onglet (retour #12) ---
+
+from moteur.commun.figures import largeur_de_la_vue, section_de_l_element  # noqa: E402
+
+_AVEC_LA_SECTION_DE_L_ELEMENT = ("6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5")
+
+
+def _x_du_pli(svg: str) -> int:
+    """Nombre de pièces vues en bout (rectangle à trait de 2.5 suivi de son X)."""
+    return svg.count("stroke-width='2.5'/><path")
+
+
+def test_figures_sans_la_section_de_l_element():
+    """Sans section : plus de pièce vue en bout, plus de cotes b et d ; l'élévation reste."""
+    elevation = {"6.5.3": ("Mf",), "6.5.4.3": ("Vf",), "6.5.4.4": ("dn", "e", "Vf"),
+                 "6.5.5": ("Pf", "L(b)", "Ke(b)", "L(d)", "Ke(d)", "L")}
+    for article in _AVEC_LA_SECTION_DE_L_ELEMENT:
+        avec = figure_avant_le_calcul(article, plis=3)
+        sans = figure_avant_le_calcul(article, plis=3, avec_section=False)
+        assert _x_du_pli(avec) == 3 and _x_du_pli(sans) == 0, article
+        texte = _texte(sans)
+        for symbole in elevation[article]:
+            assert symbole in texte, (article, symbole)
+        # Les cotes b et d sont les dernières étiquettes de la section : absentes sans la section
+        assert not re.search(r">[bd]</text>", sans), article
+        assert re.search(r">b</text>", avec) and re.search(r">d</text>", avec), article
+        assert largeur_de_la_vue(sans) < largeur_de_la_vue(avec), article
+
+
+def test_figure_avec_la_section_par_defaut():
+    """Note PDF : chaque page garde la section (décision de l'utilisateur, retour #12)."""
+    r = art_6_5_4.verifier_cisaillement(b=38, d=235, f_v=1.5)
+    assert figure(r) == figure(r, avec_section=True)
+    assert _x_du_pli(figure(r)) == 1
+    assert _x_du_pli(figure(r, avec_section=False)) == 0
+
+
+def test_figures_de_6_5_6_gardent_la_section_sur_l_appui():
+    """6.5.6 : la section montre la largeur d'appui b (6.5.6.2) ; elle reste dans l'onglet."""
+    for article in ("6.5.6.2", "6.5.6.3"):
+        assert (figure_avant_le_calcul(article, avec_section=False)
+                == figure_avant_le_calcul(article)), article
+    assert figure(_appui(), avec_section=False) == figure(_appui())
+
+
+def test_section_de_l_element():
+    for plis in (1, 2, 3, 4, 5):
+        svg = section_de_l_element(plis)
+        assert svg.startswith("<svg") and svg.endswith("</svg>")
+        assert _x_du_pli(svg) == plis
+        assert _texte(svg) == "bd"  # symboles seulement, aucun chiffre
+
+
+def test_section_de_l_element_b_sur_toute_la_largeur():
+    """b = largeur de l'élément (3.2, p. 35) : la cote b couvre tous les plis."""
+    # 1 pli : 40 unités ; 2 plis : 2 x 38 = 76 ; 5 plis : 5 x 16 = 80
+    def cote_b(svg: str, x: float) -> float:
+        """Longueur de la cote horizontale qui part de x (la cote b), en unités du SVG."""
+        fin = re.search(rf"M{x:g} [\d.]+ H([\d.]+) M{x:g} ", svg).group(1)
+        return float(fin) - x
+
+    for plis, largeur in ((1, 40), (2, 76), (5, 80)):
+        assert cote_b(section_de_l_element(plis), 0) == largeur, plis
+    # Les figures des vérifications (traces : b = largeur d'un pli) gardent la cote sur un pli :
+    # 2 plis de 38 unités, section à x = 240
+    assert cote_b(figure_avant_le_calcul("6.5.3", plis=2), 240) == 38
+
+
+def test_section_de_l_element_largeur_de_la_vue():
+    # 1 pli : 40 unités + 50 (cote d) = 90 ; 2 plis : 2 x 38 = 76 + 50 = 126 ;
+    # 5 plis : 76 / 5 = 15.2 < 16, donc 5 x 16 = 80 + 50 = 130
+    assert largeur_de_la_vue(section_de_l_element(1)) == 90
+    assert largeur_de_la_vue(section_de_l_element(2)) == 126
+    assert largeur_de_la_vue(section_de_l_element(5)) == 130
+
+
+def test_section_de_l_element_couleurs_du_compte():
+    svg = section_de_l_element(2, principale="#123456", accent="#ABCDEF")
+    assert "#123456" in svg and "#ABCDEF" in svg
+    assert "#233614" not in svg and "#9E5A00" not in svg
+
+
+def test_largeur_de_la_vue():
+    assert largeur_de_la_vue("<svg viewBox='-24 0 384 146'></svg>") == 384
+    with pytest.raises(ValueError):
+        largeur_de_la_vue("<svg></svg>")
