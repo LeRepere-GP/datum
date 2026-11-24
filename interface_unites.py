@@ -59,7 +59,7 @@ _EXEMPLES = {
     "moment": "Toute unité : ex. 4.5 kN·m, 4500 N·m, 40 000 lb·po, 3300 lb·pi.",
 }
 _CALCULATRICE = (
-    "Calculs permis : + - * / ^ %, parenthèses (ex. (2 + 3)/2 po, 8 pi + 36 po - 50 mm). "
+    "Calculs permis : + - * / ^ %, parenthèses (ex. (2 + 3)/2 po, 8 pi + 36 po - 50 mm, 50% de 4 po). "
     "« - » est toujours une soustraction : écrire 8' 6\" ou 2 1/4 po, sans tiret. Décimales avec un point "
     "ou une virgule (3.5 ou 3,5) ; milliers avec une espace (40 000)."
 )

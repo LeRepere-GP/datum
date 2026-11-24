@@ -264,3 +264,32 @@ def test_virgule_toujours_decimale():
     assert lire_grandeur("1,500 kN", "force") == pytest.approx(1.5)
     assert lire_grandeur("40,000 lb", "force") == pytest.approx(40 * LB / 1000)
     assert lire_grandeur("40 000 lb", "force") == pytest.approx(40000 * LB / 1000)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "attendu"),
+    [
+        # « de » (ou « of ») après un pourcentage veut dire « fois » (demande de l'utilisateur)
+        ("50% de 4 mm", "dimension", 2.0),
+        ("50 % de 4 po", "dimension", 50.8),  # 2 po
+        ("115% de 5 kN", "force", 5.75),
+        ("50% of 8 pi", "longueur", 1219.2),  # 4 pi
+        ("50% de (2+2) po", "dimension", 50.8),
+        ("25% de 50% de 16 po", "dimension", 50.8),  # 0.25 x 0.5 x 16 po = 2 po
+        ("50% de 4 + 1 po", "dimension", 76.2),  # 2 + 1 = 3 po
+    ],
+)
+def test_pourcentage_de(texte, nom, attendu):
+    assert lire_grandeur(texte, nom) == pytest.approx(attendu)
+
+
+def test_pourcentage_de_sans_unite():
+    """Exemple de l'utilisateur : « 50% de 4 » = 2, dans l'unité par défaut."""
+    assert lire_grandeur("50% de 4", "dimension") == pytest.approx(2.0)  # 2 mm
+    assert lire_grandeur("50% de 4", "dimension", True) == pytest.approx(50.8)  # 2 po
+
+
+@pytest.mark.parametrize("texte", ["2 de 4", "50% de", "de 4", "50% dé 4"])
+def test_de_seulement_apres_un_pourcentage(texte):
+    with pytest.raises(ValueError):
+        lire_grandeur(texte, "dimension")

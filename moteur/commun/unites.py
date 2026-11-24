@@ -158,6 +158,7 @@ class _Lecteur:
 
     def __init__(self, texte: str, famille: str, defaut: float):
         self.s, self.i, self.famille, self.defaut = texte, 0, famille, defaut
+        self.apres_un_pourcentage = False  # « 50% de 4 » : « de » veut dire « fois » après un %
         unites = _UNITES_D_ENTREE[famille]
         self.unites = [(u, unites[u]) for u in sorted(unites, key=len, reverse=True)]
 
@@ -230,11 +231,21 @@ class _Lecteur:
 
     def _produit(self) -> "_Quantite":
         gauche = self._puissance()
-        while self._voir() in ("*", "/", "×", "÷", "x"):
-            operateur = self.s[self.i]
-            if operateur == "x" and not _re.match(r"x\s*[\d.(\[]", self.s[self.i:]):
-                break  # « x » seulement comme « fois » devant un nombre
-            self.i += 1
+        while True:
+            c = self._voir()
+            # « 50% de 4 » = 50% x 4 (demande de l'utilisateur) : « de » ou « of », seulement après un %
+            m = _re.compile(r"(?:de|of)(?![a-z])").match(self.s, self.i) if self.apres_un_pourcentage else None
+            if m:
+                self.i = m.end()
+                operateur = "*"
+            elif c in ("*", "/", "×", "÷", "x"):
+                operateur = c
+                if operateur == "x" and not _re.match(r"x\s*[\d.(\[]", self.s[self.i:]):
+                    break  # « x » seulement comme « fois » devant un nombre
+                self.i += 1
+            else:
+                break
+            self.apres_un_pourcentage = False
             droite = self._puissance()
             if operateur in ("/", "÷"):
                 if droite.valeur == 0:
@@ -276,9 +287,11 @@ class _Lecteur:
             if valeur is None:
                 self._erreur()
             q = _Quantite(valeur, 0)
+        self.apres_un_pourcentage = False
         if self._voir() == "%":
             self.i += 1
             q = _Quantite(q.valeur / 100, q.dimension, q.facteur_de_saisie)
+            self.apres_un_pourcentage = True
         # Unité collée au nombre ou à la parenthèse : « 3 po », « (2 + 3) po »
         unite = self._unite() if q.dimension == 0 else None
         if unite is None:
@@ -308,6 +321,7 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
     - Décimales avec un point ou une virgule (« 3.5 » = « 3,5 ») ; la virgule est toujours décimale, même
       suivie de 3 chiffres (« 1,500 » = 1.5, décision de l'utilisateur). Milliers : une espace (« 40 000 »).
     - Opérations : + - * / (aussi × ÷), ^ (puissance entière), % (pourcentage), parenthèses ( ) et [ ].
+      « de » (ou « of ») après un pourcentage veut dire « fois » : « 50% de 4 » = 2.
       « - » est toujours une soustraction (décision de l'utilisateur) : « 8-6 » = 2.
     - Pieds, pouces et fractions : « 8' 6" », « 8 pi 6 po », « 8 pi 6 » (pouces après les pieds),
       « 3 pi 2 1/4 po », « 1/2 po », « 2 1/4" ».
