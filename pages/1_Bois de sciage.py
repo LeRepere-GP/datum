@@ -13,9 +13,11 @@ from moteur.commun.figures import (
 )
 from moteur.commun.note_de_calcul import (
     EnTete,
+    formater_ligne_du_resume,
     nom_du_pdf,
     produire_pdf,
 )
+from moteur.commun.resume import resume
 from moteur.normes.csa_o86_19.ch_5_conception_generale import (
     art_5_3_conditions_et_coefficients_influant_sur_la_resistance as art_5_3,
 )
@@ -1265,6 +1267,33 @@ FONCTION_DE_LA_VERIFICATION = {
 }
 # Seulement les vérifications faites (charge pondérée entrée) : pas de page inutile dans la note
 FAITES = {nom: r for nom, r in NOTE.items() if r.verification is not None}
+if acces.permis("note_pdf") and FAITES:
+    # Résumé des vérifications faites dans les onglets (issue #85) : mêmes valeurs que la page résumé
+    # de la note PDF ; la vérification qui gouverne (ratio le plus élevé) est en gras.
+    st.divider()
+    st.subheader("Résumé", anchor=False)
+    with st.container(horizontal_alignment="center"):
+        lignes = [formater_ligne_du_resume(l) for l in resume([("", r) for r in FAITES.values()])]
+        tableau = [
+            "| Vérification | Article | Charge pondérée | Résistance pondérée | Ratio | Statut |",
+            "|---|---|---|---|--:|---|",
+        ]
+        for l in lignes:
+            gras = "**" if l["gouverne"] else ""
+            statut = ":green[✔ Conforme]" if l["respecte"] else ":red[✖ Non conforme]"
+            cellules = [
+                l["titre"],
+                l["article"],
+                f"${l['symbole_charge']}$ = {l['charge']}",
+                f"${l['symbole_resistance']}$ = {l['resistance']}",
+                l["ratio"],
+            ]
+            tableau.append(
+                "| " + " | ".join(f"{gras}{c}{gras}" for c in cellules) + f" | {gras}{statut}{gras} |"
+            )
+        st.markdown("\n".join(tableau), width=900)
+        st.caption("En gras : la vérification qui gouverne (ratio le plus élevé).", width=900)
+
 if acces.permis("note_pdf"):
     st.divider()
     st.subheader("Note de calcul (PDF)", anchor=False)
