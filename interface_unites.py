@@ -109,15 +109,16 @@ def depuis_affichage(valeur: float, nom_grandeur: str) -> float:
 # --- Pieds et pouces ---
 
 _NOMBRE = r"\d+(?:\.\d+)?"
-_POUCES = rf"(?:{_NOMBRE}(?:\s+\d+/\d+)?|\d+/\d+)"  # 6, 6.5, 6 1/2 ou 1/2
+# Pouces : 6, 6.5, 6 1/2, 6-1/2 ou 1/2 (fractions de pouce, demande de l'utilisateur)
+_POUCES = rf"(?:{_NOMBRE}(?:(?:\s+|\s*-\s*)\d+/\d+)?|\d+/\d+)"
 _UNITE_PI = r"(?:'|pi|pieds?)"
 _UNITE_PO = r'(?:"|po|pouces?)'
 
 
 def _pouces(texte: str) -> float:
-    """« 6 1/2 » -> 6.5 ; « 1/2 » -> 0.5 ; « 6.5 » -> 6.5."""
+    """« 6 1/2 » ou « 6-1/2 » -> 6.5 ; « 1/2 » -> 0.5 ; « 6.5 » -> 6.5."""
     total = 0.0
-    for morceau in texte.split():
+    for morceau in texte.replace("-", " ").split():
         if "/" in morceau:
             numerateur, denominateur = morceau.split("/")
             if float(denominateur) == 0:
@@ -133,8 +134,9 @@ def lire_pieds_pouces(texte: str) -> float:
     Longueur entrée en pieds et pouces, en pieds.
 
     Formes acceptées (point décimal ou virgule) : « 8-6 », « 8 - 6 », « 8 6 », « 8'-6" », « 8' 6" »,
-    « 8 pi 6 po », « 8 pi - 6 1/2 po », « 8.5 » ou « 8 pi » (pieds seulement), « 6 po » ou « 6" »
-    (pouces seulement, l'unité est alors obligatoire).
+    « 8 pi 6 po », « 8 pi - 6 1/2 po », « 3 pi 2-1/4 po », « 3-2-1/4 », « 8.5 » ou « 8 pi » (pieds
+    seulement), « 6 po », « 6" » ou « 2-1/4 po » (pouces seulement, l'unité est alors obligatoire).
+    Sans unité, « 3-1/4 » se lit 3 pi 1/4 po ; avec l'unité, « 3-1/4 po » se lit 3 1/4 po.
 
     Raises:
         ValueError: Si le texte n'est pas une longueur en pieds et pouces.
@@ -163,7 +165,7 @@ def lire_pieds_pouces(texte: str) -> float:
 def ecrire_pieds_pouces(valeur_metrique: float) -> str:
     """
     Longueur métrique (mm) en pieds et pouces, au 1/16 po près. Ex. 2590.8 mm -> « 8 pi - 6 po » ;
-    2603.5 mm -> « 8 pi - 6 1/2 po ».
+    971.55 mm -> « 3 pi - 2-1/4 po ».
     """
     seiziemes = round(valeur_metrique / 25.4 * 16)  # 1 po = 25.4 mm
     pieds, seiziemes = divmod(seiziemes, 12 * 16)
@@ -171,7 +173,7 @@ def ecrire_pieds_pouces(valeur_metrique: float) -> str:
     pouces = str(entiers)
     if reste:
         fraction = Fraction(reste, 16)
-        pouces = f"{entiers} {fraction}" if entiers else f"{fraction}"
+        pouces = f"{entiers}-{fraction}" if entiers else f"{fraction}"
     return f"{pieds} pi - {pouces} po"
 
 
@@ -334,7 +336,7 @@ def _champ_pieds_pouces(
         st.session_state[cle_initiale] = st.session_state[cle_du_champ]
 
     aide = kwargs.pop("help", None)
-    exemples = "En pieds et pouces : ex. 8-6, 8' 6\", 8 pi 6 1/2 po, 8.5 (pieds) ou 6 po."
+    exemples = "En pieds et pouces : ex. 8-6, 8' 6\", 3 pi 2-1/4 po, 8.5 (pieds) ou 6 po."
     for inutile in ("step", "format", "min_value", "max_value"):
         kwargs.pop(inutile, None)
     valeur = conteneur.text_input(

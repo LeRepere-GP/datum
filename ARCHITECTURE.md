@@ -368,7 +368,7 @@ la charge P_f, la longueur L et la section b × d.
   `texte()`, `latex()`), avec les facteurs de `moteur/commun/unites.py`. On peut basculer en tout temps :
   les valeurs entrées sont gardées, exactes en métrique (pas d'erreur d'arrondi), et les bornes affichées
   sont arrondies vers l'intérieur (ex. d_n ≤ 0.25 d). En impérial, les longueurs (L, L_(b), L_(d))
-  s'entrent en **pieds-pouces** (ex. « 8-6 », « 8' 6" », « 8 pi 6 1/2 po ») et s'affichent au 1/16 po
+  s'entrent en **pieds-pouces** (ex. « 8-6 », « 8' 6" », « 3 pi 2-1/4 po ») et s'affichent au 1/16 po
   près. Les dimensions nominales (« 2x6 ») et les dimensions brutes restent en po.
 
 ## 9. Éditions de la norme

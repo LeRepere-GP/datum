@@ -198,3 +198,17 @@ def test_k_d_unite_de_pression():
     assert any(n.label == "$P_L$ (kPa)" for n in at.number_input)
     _basculer(at, CHARGES, "Impérial")
     assert any(n.label == "$P_L$ (lb/pi²)" for n in at.number_input)
+
+
+def test_fractions_de_pouce():
+    """
+    Exemple de l'utilisateur : 3 pi 2-1/4 po = 38.25 po x 25.4 mm/po = 971.55 mm, affiché 972 mm en
+    métrique, puis « 3 pi - 2-1/4 po » en impérial.
+    """
+    at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Impérial")
+    _texte(at, "Longueur de l'élément").set_value("3 pi 2-1/4 po").run()
+    assert not at.exception and not at.error
+    _basculer(at, DIMENSIONS, "Métrique")
+    assert _champ(at, "Longueur de l'élément").value == 972.0  # 971.55 mm
+    _basculer(at, DIMENSIONS, "Impérial")
+    assert _texte(at, "Longueur de l'élément").value == "3 pi - 2-1/4 po"
