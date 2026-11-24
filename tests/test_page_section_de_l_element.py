@@ -85,7 +85,7 @@ def test_element_compose_trace_avec_la_largeur_totale():
     [n for n in at.text_input if n.label == "$Vf: (kN)$"][0].set_value("1.0").run()  # kN
     assert not at.exception
     v_r_affiche = next(m.value for m in at.markdown if m.value.startswith("$Vr = "))
-    v_r_affiche = float(v_r_affiche.removeprefix("$Vr = ").split(" kN")[0])  # « 14.75 kN (3316 lb) »
+    v_r_affiche = float(v_r_affiche.removeprefix("$Vr = \\text{").split(" kN")[0])  # « 14.75 kN (3 316 lb) »
     (tableau,) = _resume(at)
     ligne = next(l for l in tableau.splitlines() if "6.5.4.3" in l)
     v_r_trace = float(re.search(r"\$V_r\$ = ([\d.]+) kN", ligne).group(1))

@@ -16,7 +16,7 @@ def test_pas_de_resume_sans_verification():
 def test_resume_de_deux_verifications():
     at = _connecte("admin", "mot-admin")
     for cle, valeur in (("cp_support_length", 89.0), ("cp_rf", 5.0)):  # mm ; kN
-        [n for n in at.text_input if n.key == cle][0].set_value(str(valeur))
+        [n for n in at.text_input if n.key == cle][0].set_value(f"{valeur} {'mm' if cle == 'cp_support_length' else 'kN'}")
     [n for n in at.text_input if n.label.startswith("$Vf")][0].set_value("1.0")  # kN
     at.run()
     assert not at.exception

@@ -237,13 +237,22 @@ _NOMBRE_SAISI = r"(?:\d{1,3}(?: \d{3})+|\d+)(?:\.\d+)?"
 _NOMBRE_ET_FRACTION = rf"(?:{_NOMBRE_SAISI}(?:(?:\s+|\s*-\s*)\d+/\d+)?|\d+/\d+)"
 
 
+def _premiere_unite(texte: str, famille: str) -> str | None:
+    """Première unité écrite dans un terme (ex. « 3 po » -> « po » ; « 8 pi 6 po » -> « pi »), ou None."""
+    unites = _UNITES_D_ENTREE[famille]
+    motif_unite = "|".join(f"(?:{u})" for u in sorted(unites, key=len, reverse=True))
+    m = _re.search(rf"{_NOMBRE_ET_FRACTION}\s*(?P<unite>{motif_unite})(?![a-z])", texte)
+    return m["unite"] if m else None
+
+
 def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = False) -> float:
     """
     Valeur entrée au clavier, en n'importe quelle unité, en unité métrique de la grandeur (mm, kN, kN·m).
 
     - Unités acceptées : longueurs (mm, cm, m, po, ", in, pi, ', ft), forces (N, kN, lb, kip), moments
       (kN·m, N·m, N·mm, lb·po, lb·pi, kip·pi, kip·po ; « · », « * », « . », « - » ou rien entre les deux).
-    - Les termes s'additionnent : « 8 pi 38 mm » = 8 x 304.8 mm + 38 mm = 2476.4 mm.
+    - Les termes s'additionnent : « 8 pi 38 mm » = 8 x 304.8 mm + 38 mm = 2476.4 mm. Avec « + », un
+      nombre sans unité prend l'unité du terme suivant : « 2 + 3 po » = 5 po (sinon l'unité par défaut).
     - Fractions de pouce et notation des plans : « 2-1/4 po », « 3 pi 2-1/4 po », « 8' 6" », « 8-6 ».
     - Un nombre sans unité prend l'unité par défaut : métrique (mm, kN, kN·m) ou impériale (po pour
       une dimension, pi-po pour une longueur, lb, lb·po), selon imperial_par_defaut.
@@ -266,6 +275,23 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
          .replace("”", '"').replace("″", '"').replace("''", '"').replace(" ", " "))
     if not s:
         raise ValueError("Valeur vide.")
+
+    # Somme avec « + » (« 2 + 3 po », « 8 pi + 38 mm ») : chaque terme est lu seul ; un terme sans unité
+    # prend l'unité du terme suivant qui en a une (« 2 + 3 po » = 5 po), sinon l'unité par défaut
+    if "+" in s:
+        termes = [t.strip() for t in s.split("+")]
+        if any(not t for t in termes):
+            raise ValueError(f"Valeur illisible : « {texte} ».")
+        total = 0.0
+        for i, t in enumerate(termes):
+            if _re.fullmatch(_NOMBRE_ET_FRACTION, t):
+                unite_suivante = next(
+                    (u for suivant in termes[i + 1:] if (u := _premiere_unite(suivant, famille))), None
+                )
+                if unite_suivante:
+                    t = f"{t} {unite_suivante}"
+            total += lire_grandeur(t, nom_grandeur, imperial_par_defaut)
+        return total
 
     # Nombre seul (« 89 », « 40 000 », « 3-1/2 ») : unité par défaut
     if _re.fullmatch(_NOMBRE_ET_FRACTION, s):

@@ -365,14 +365,17 @@ la charge P_f, la longueur L et la section b × d.
   `moteur/commun/unites.lire_grandeur(texte, grandeur, imperial_par_defaut)`, reçoit le texte entré
   (n'importe quelle unité, même mélangées : « 8 pi 38 mm », « 3-1/2 po », « 3 pi 2-1/4 po », « 8-6 »,
   « 5 kN », « 1124 lb », « 40 000 lb·po ») et rend la valeur métrique utilisée dans les calculs (mm, kN,
-  kN·m). Un nombre sans unité prend l'unité par défaut. `lire_imperial()`, `ecrire_pouces()` et
+  kN·m). Un nombre sans unité prend l'unité par défaut ; avec « + », il prend l'unité du terme suivant
+  (« 2 + 3 po » = 5 po). `lire_imperial()`, `ecrire_pouces()` et
   `ecrire_pieds_pouces()` traitent les pieds, pouces et fractions de pouce. Ces fonctions ne dépendent
   pas de l'interface : la future interface web les utilisera aussi.
 - **Interface Streamlit** : `interface_unites.py` (à la racine, couche d'interface). Chaque champ est un
   texte libre (`champ()`), qui garde le texte entré et affiche dessous la valeur retenue dans les deux
-  unités. Deux bascules dans la barre latérale (« Unité par défaut » : dimensions, charges) ne servent
-  qu'aux nombres sans unité ; une valeur déjà entrée garde son sens si on les change. Les résultats sont
-  affichés dans les deux unités (`texte()`, `latex()`), ex. « 14.34 kN (3224 lb) », « 38 mm (1-1/2 po) ».
+  unités. Deux bascules dans la barre latérale (« Unité par défaut » : dimensions, en impérial au départ ;
+  charges, en métrique au départ) ne servent qu'aux nombres sans unité ; une valeur déjà entrée garde son
+  sens si on les change. Les résultats sont affichés dans les deux unités (`texte()` ; `latex()` dans
+  `\text{}` pour garder les espaces), avec une espace insécable entre les milliers, ex.
+  « 14.34 kN (3 224 lb) », « 38 mm (1-1/2 po) ».
   Les dimensions nominales (« 2x6 ») et les dimensions brutes restent en po.
 
 ## 9. Éditions de la norme

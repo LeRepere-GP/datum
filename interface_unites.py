@@ -10,7 +10,8 @@ Décisions de l'utilisateur (PR #99) :
 - chaque champ accepte n'importe quelle unité, même mélangées : « 8 pi 38 mm » = 2476.4 mm, « 3-1/2 po »,
   « 5 kN », « 1124 lb », « 40 000 lb·po » ;
 - un nombre sans unité prend l'unité par défaut, choisie dans la barre latérale (deux bascules
-  indépendantes : dimensions et charges) ;
+  indépendantes : dimensions, en impérial au départ, et charges, en métrique au départ) ;
+- avec « + », un nombre sans unité prend l'unité du terme suivant : « 2 + 3 po » = 5 po ;
 - le champ garde le texte entré ; une ligne dessous donne la valeur retenue dans les deux unités ;
 - les résultats sont affichés dans les deux unités (ex. « 14.34 kN (3224 lb) »).
 
@@ -36,6 +37,9 @@ SYSTEMES = (METRIQUE, IMPERIAL)
 # Bascule de l'unité par défaut de chaque grandeur (clé de st.session_state)
 DIMENSIONS = "unites_dimensions"
 CHARGES = "unites_charges"
+# Unité par défaut au départ (décision de l'utilisateur, PR #99) : dimensions en impérial, charges en
+# métrique
+_DEPART = {DIMENSIONS: IMPERIAL, CHARGES: METRIQUE}
 _BASCULE = {
     "dimension": DIMENSIONS,
     "longueur": DIMENSIONS,
@@ -58,25 +62,26 @@ _EXEMPLES = {
 def choisir_systemes() -> None:
     """
     Bascules de l'unité par défaut (nombres entrés sans unité) dans la barre latérale : une pour les
-    dimensions, une pour les charges. Métrique par défaut ; gardées pour la séance.
+    dimensions (impérial au départ), une pour les charges (métrique au départ) ; gardées pour la séance.
     """
     aide = """Unité d'un nombre entré sans unité. On peut toujours écrire l'unité dans le champ
     (ex. 89 mm, 3-1/2 po, 5 kN, 1124 lb), même mélangées (8 pi 38 mm). Les calculs se font en
     métrique ; les résultats sont affichés dans les deux unités."""
     st.sidebar.markdown("**Unité par défaut**")
     st.sidebar.segmented_control(
-        "Dimensions", options=SYSTEMES, default=METRIQUE, key=DIMENSIONS, width="stretch",
+        "Dimensions", options=SYSTEMES, default=_DEPART[DIMENSIONS], key=DIMENSIONS, width="stretch",
         help="Métrique : mm. Impérial : po (dimensions) et pi-po (longueurs, ex. 8-6). " + aide,
     )
     st.sidebar.segmented_control(
-        "Charges", options=SYSTEMES, default=METRIQUE, key=CHARGES, width="stretch",
+        "Charges", options=SYSTEMES, default=_DEPART[CHARGES], key=CHARGES, width="stretch",
         help="Métrique : kN, kN·m. Impérial : lb, lb·po. " + aide,
     )
 
 
 def en_imperial(nom_grandeur: str) -> bool:
-    """True si l'unité par défaut de la grandeur est impériale."""
-    return st.session_state.get(_BASCULE[nom_grandeur]) == IMPERIAL
+    """True si l'unité par défaut de la grandeur est impériale (valeur de départ si rien n'est choisi)."""
+    cle = _BASCULE[nom_grandeur]
+    return (st.session_state.get(cle) or _DEPART[cle]) == IMPERIAL
 
 
 def unite(nom_grandeur: str) -> str:
@@ -91,14 +96,32 @@ def unite(nom_grandeur: str) -> str:
 
 # --- Textes des résultats : les deux unités ---
 
+_ESPACE_INSECABLE = "\u00a0"  # entre les milliers et entre le nombre et son unité : pas de coupure
+
+
+def nombre(valeur: float, decimales: int) -> str:
+    """
+    Nombre avec un point décimal et une espace insécable entre les milliers (ex. 150000 -> « 150 000 » ;
+    2476.4 -> « 2 476.4 »), comme dans les commentaires du code (CLAUDE.md).
+    """
+    return f"{valeur:,.{decimales}f}".replace(",", _ESPACE_INSECABLE)
+
+
+def _avec_milliers(texte_nombre: str) -> str:
+    """« 150000 » -> « 150 000 » ; « 2476.4 » -> « 2 476.4 » ; garde le nombre de décimales du texte."""
+    entier, _, decimales = texte_nombre.partition(".")
+    signe = "-" if entier.startswith("-") else ""
+    entier = f"{int(entier.lstrip('-')):,}".replace(",", _ESPACE_INSECABLE)
+    return signe + entier + (f".{decimales}" if decimales else "")
+
 def _metrique(valeur: float, nom_grandeur: str, decimales: int | None) -> str:
     g = grandeur(nom_grandeur)
     if decimales is None and nom_grandeur in ("dimension", "longueur"):
         # mm : au dixième, sans zéro inutile (ex. « 89 mm », « 88.9 mm », « 2476.4 mm »)
-        nombre = f"{valeur:.1f}".rstrip("0").rstrip(".")
+        texte_nombre = _avec_milliers(f"{valeur:.1f}".rstrip("0").rstrip("."))
     else:
-        nombre = f"{valeur:.{g.decimales_metrique if decimales is None else decimales}f}"
-    return f"{nombre} {g.unite_metrique}"
+        texte_nombre = nombre(valeur, g.decimales_metrique if decimales is None else decimales)
+    return f"{texte_nombre} {g.unite_metrique}"
 
 
 def _imperial(valeur: float, nom_grandeur: str) -> str:
@@ -107,7 +130,7 @@ def _imperial(valeur: float, nom_grandeur: str) -> str:
     if nom_grandeur == "dimension":
         return f"{ecrire_pouces(valeur)} po"  # au 1/16 po près
     g = grandeur(nom_grandeur)
-    return f"{vers_imperial(valeur, nom_grandeur):.{g.decimales_imperiale}f} {g.unite_imperiale}"
+    return f"{nombre(vers_imperial(valeur, nom_grandeur), g.decimales_imperiale)} {g.unite_imperiale}"
 
 
 def texte(valeur_metrique: float, nom_grandeur: str, decimales: int | None = None) -> str:
@@ -132,14 +155,17 @@ def texte_significatif(valeur_metrique: float, nom_grandeur: str) -> str:
     """
     g = grandeur(nom_grandeur)
     return (
-        f"{cs(valeur_metrique)} {g.unite_metrique} "
-        f"({cs(vers_imperial(valeur_metrique, nom_grandeur))} {g.unite_imperiale})"
+        f"{_avec_milliers(cs(valeur_metrique))} {g.unite_metrique} "
+        f"({_avec_milliers(cs(vers_imperial(valeur_metrique, nom_grandeur)))} {g.unite_imperiale})"
     )
 
 
 def latex(valeur_metrique: float, nom_grandeur: str, decimales: int | None = None) -> str:
-    """Comme texte(), pour une formule LaTeX (« · » devient « \\cdot »)."""
-    return texte(valeur_metrique, nom_grandeur, decimales).replace("·", " \\cdot ")
+    """
+    Comme texte(), pour une formule LaTeX : dans \\text{...}, qui garde les espaces et les unités droites
+    (ex. « \\text{22.51 kN (5 060 lb)} » ; sans lui, KaTeX affiche « 22.51kN(5060lb) »).
+    """
+    return "\\text{" + texte(valeur_metrique, nom_grandeur, decimales) + "}"
 
 
 # --- Champs ---

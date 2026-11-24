@@ -262,3 +262,29 @@ def test_lire_grandeur_sans_unite(texte, nom, metrique, imperial):
 def test_lire_grandeur_illisible(texte, nom):
     with pytest.raises(ValueError):
         lire_grandeur(texte, nom)
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom", "imperial", "attendu"),
+    [
+        # Avec « + », un nombre sans unité prend l'unité du terme suivant (exemple de l'utilisateur)
+        ("2 + 3 po", "dimension", False, 127.0),  # 5 po x 25.4 mm/po
+        ("2+3 po", "dimension", False, 127.0),
+        ("1 + 2 + 3 po", "dimension", False, 152.4),  # 6 po
+        ("2 + 3 po + 10 mm", "dimension", False, 137.0),  # 5 po + 10 mm
+        ("8 pi + 38 mm", "longueur", False, 2476.4),
+        ("2 + 3 kN", "force", False, 5.0),
+        ("1500 lb + 2 kN", "force", False, 1500 * 4.4482216152605 / 1000 + 2),  # 8.672 kN
+        # Aucune unité : l'unité par défaut
+        ("2 + 3", "dimension", False, 5.0),  # 5 mm
+        ("2 + 3", "dimension", True, 127.0),  # 5 po
+    ],
+)
+def test_lire_grandeur_somme(texte, nom, imperial, attendu):
+    assert lire_grandeur(texte, nom, imperial) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize("texte", ["2 +", "+ 3 po", "2 + + 3 po"])
+def test_lire_grandeur_somme_illisible(texte):
+    with pytest.raises(ValueError):
+        lire_grandeur(texte, "dimension")

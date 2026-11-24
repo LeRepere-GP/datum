@@ -3,7 +3,8 @@ Page Bois de sciage : saisie libre des unités et résultats dans les deux unit�
 LeRepere-GP/datum-retours#10, PR #99, interface_unites.py).
 
 Chaque champ accepte n'importe quelle unité (même mélangées) ; un nombre sans unité prend l'unité par
-défaut (deux bascules : dimensions et charges). Les calculs restent en métrique.
+défaut (deux bascules : dimensions, en impérial au départ, et charges, en métrique au départ). Les calculs
+restent en métrique. Les espaces insécables (milliers) sont remplacés par des espaces dans les tests.
 1 po = 25.4 mm ; 1 pi = 304.8 mm ; 1 lb = 4.4482216 N (moteur/commun/unites.py).
 2x6 S-P-F n° 1/n° 2 : f_cp = 5.3 MPa, K_D = K_Scp = K_T = K_B = K_Zcp = 1.00 (voir test_page_k_d.py).
 """
@@ -30,24 +31,25 @@ def _entrer(at, debut, texte):
 
 
 def _qr(at):
-    return [m.value for m in at.markdown if m.value.startswith("$Qr")]
+    return [m.value.replace("\u00a0", " ") for m in at.markdown if m.value.startswith("$Qr")]
 
 
 def _conversions(at):
-    return [c.value for c in at.caption if c.value.startswith("= ")]
+    return [c.value.replace("\u00a0", " ") for c in at.caption if c.value.startswith("= ")]
 
 
 def test_par_defaut():
+    """Au départ : dimensions en impérial, charges en métrique (décision de l'utilisateur)."""
     at = _connecte("admin", "mot-admin")
     assert not at.exception
-    for cle in (DIMENSIONS, CHARGES):
-        assert [b for b in at.sidebar.get("button_group") if b.key == cle][0].value == "Métrique"
+    bascule = {b.key: b.value for b in at.sidebar.get("button_group")}
+    assert bascule[DIMENSIONS] == "Impérial" and bascule[CHARGES] == "Métrique"
     libelles = [t.label for t in at.text_input]
     # Unité par défaut entre parenthèses
-    assert "Longueur d'appui, $L_b$ (mm)" in libelles
+    assert "Longueur d'appui, $L_b$ (po)" in libelles
+    assert "Longueur de l'élément, $L$ (pi-po)" in libelles
     assert "$Rf: (kN)$" in libelles
     assert "$Mf: (kN \\cdot m)$" in libelles
-    assert "Longueur de l'élément, $L$ (mm)" in libelles
     # Dimensions nettes dans les deux unités : 38 mm / 25.4 mm/po = 1.496 po -> 1-1/2 po ;
     # 140 mm / 25.4 mm/po = 5.512 po -> 5-1/2 po (au 1/16 po près)
     assert [m.value for m in at.metric] == ["38 mm (1-1/2 po)", "140 mm (5-1/2 po)"]
@@ -65,7 +67,7 @@ def test_element_compose():
 def test_unites_melangees():
     """Exemple de l'utilisateur : 8 pi 38 mm = 8 x 304.8 mm + 38 mm = 2476.4 mm (97.5 po = 8 pi 1-1/2 po)."""
     at = _entrer(_connecte("admin", "mot-admin"), "Longueur de l'élément", "8 pi 38 mm")
-    assert "= 2476.4 mm (8 pi - 1-1/2 po)" in _conversions(at)
+    assert "= 2 476.4 mm (8 pi - 1-1/2 po)" in _conversions(at)
 
 
 def test_toute_unite_dans_tout_champ():
@@ -78,46 +80,46 @@ def test_toute_unite_dans_tout_champ():
     _entrer(at, "Longueur d'appui", "3-1/2 po")
     _entrer(at, "$Rf", "1124 lb")
     assert "= 88.9 mm (3-1/2 po)" in _conversions(at)
-    assert "= 5.00 kN (1124 lb)" in _conversions(at)
-    assert _qr(at) == ["$Qr = 14.32 kN (3220 lb)$"]
+    assert "= 5.00 kN (1 124 lb)" in _conversions(at)
+    assert _qr(at) == ["$Qr = \\text{14.32 kN (3 220 lb)}$"]
     # Ratio : 5.00 kN / 14.32 kN = 34.91 %
     assert any("34.91%" in s.value for s in at.success)
 
 
 def test_nombre_sans_unite_dans_l_unite_par_defaut():
-    """Dimensions en impérial par défaut : « 3-1/2 » = 3.5 po = 88.9 mm ; charges en kN : « 5 » = 5 kN."""
-    at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Impérial")
+    """Dimensions en impérial au départ : « 3-1/2 » = 3.5 po = 88.9 mm ; charges en kN : « 5 » = 5 kN."""
+    at = _connecte("admin", "mot-admin")
     assert _champ(at, "Longueur d'appui").label == "Longueur d'appui, $L_b$ (po)"
     assert _champ(at, "Longueur de l'élément").label == "Longueur de l'élément, $L$ (pi-po)"
     assert _champ(at, "$Rf").label == "$Rf: (kN)$"  # bascules indépendantes
     _entrer(at, "Longueur d'appui", "3-1/2")
     _entrer(at, "$Rf", "5")
-    assert _qr(at) == ["$Qr = 14.32 kN (3220 lb)$"]
+    assert _qr(at) == ["$Qr = \\text{14.32 kN (3 220 lb)}$"]
     # Charges en impérial par défaut : « 1124 » = 1124 lb = 5.00 kN
     _basculer(at, CHARGES, "Impérial")
     assert _champ(at, "$Rf").label == "$Rf: (lb)$"
     assert _champ(at, "$Mf").label == "$Mf: (lb \\cdot po)$"
     _entrer(at, "$Rf", "1124")
-    assert "= 5.00 kN (1124 lb)" in _conversions(at)
+    assert "= 5.00 kN (1 124 lb)" in _conversions(at)
 
 
 def test_valeur_entree_garde_son_sens():
     """
-    « 89 » entré en mm (par défaut) reste 89 mm quand l'unité par défaut passe à l'impérial.
+    « 89 » entré en mm (unité par défaut choisie) reste 89 mm quand l'unité par défaut passe à l'impérial.
     Q_r = 0.8 x 5.3 MPa x (38 mm x 89 mm) = 14 340 N = 14.34 kN = 3224 lb.
     """
-    at = _connecte("admin", "mot-admin")
+    at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Métrique")
     _entrer(at, "Longueur d'appui", "89")
     _entrer(at, "$Rf", "5")
-    assert _qr(at) == ["$Qr = 14.34 kN (3224 lb)$"]
+    assert _qr(at) == ["$Qr = \\text{14.34 kN (3 224 lb)}$"]
     _basculer(at, DIMENSIONS, "Impérial")
     _basculer(at, CHARGES, "Impérial")
     assert _champ(at, "Longueur d'appui").value == "89"
-    assert _qr(at) == ["$Qr = 14.34 kN (3224 lb)$"]
+    assert _qr(at) == ["$Qr = \\text{14.34 kN (3 224 lb)}$"]
     assert "= 89 mm (3-1/2 po)" in _conversions(at)
     # Le texte modifié est relu avec la nouvelle unité par défaut : « 3-1/2 » = 88.9 mm
     _entrer(at, "Longueur d'appui", "3-1/2")
-    assert _qr(at) == ["$Qr = 14.32 kN (3220 lb)$"]
+    assert _qr(at) == ["$Qr = \\text{14.32 kN (3 220 lb)}$"]
 
 
 def test_methode_de_travail():
@@ -131,7 +133,7 @@ def test_methode_de_travail():
     _entrer(at, "Longueur d'appui", "3-1/2 po")
     _entrer(at, "Profondeur de l'entaille", "20 mm")
     _entrer(at, "Largeur d'appui", "1 1/4\"")
-    assert _qr(at)[0].startswith("$Qr = 11.97 kN")
+    assert _qr(at)[0].startswith("$Qr = \\text{11.97 kN")
     assert "= 31.8 mm (1-1/4 po)" in _conversions(at)  # 31.75 mm, au dixième de mm
     assert "= 20 mm (13/16 po)" in _conversions(at)  # 20 mm / 25.4 = 0.787 po -> 13/16 po
 
@@ -140,7 +142,7 @@ def test_longueur_en_pieds_et_pouces():
     """L = 8-6 = 8 pi 6 po = 102 po x 25.4 mm/po = 2590.8 mm ; 3 pi 2-1/4 po = 38.25 po = 971.55 mm."""
     at = _connecte("admin", "mot-admin")
     _entrer(at, "Longueur de l'élément", "8-6")
-    assert "= 2590.8 mm (8 pi - 6 po)" in _conversions(at)
+    assert "= 2 590.8 mm (8 pi - 6 po)" in _conversions(at)
     _entrer(at, "Longueur de l'élément", "3 pi 2-1/4 po")
     # 971.55 mm, au dixième de mm (arrondi binaire de 971.55 : 971.5 ou 971.6)
     assert any(c.endswith("mm (3 pi - 2-1/4 po)") and c.startswith("= 971.") for c in _conversions(at))
@@ -149,7 +151,7 @@ def test_longueur_en_pieds_et_pouces():
 def test_moments_en_toutes_unites():
     """M_f = 40 000 lb·po = 40 000 x 4.4482 N x 25.4 mm = 4 519 393 N·mm = 4.52 kN·m."""
     at = _entrer(_connecte("admin", "mot-admin"), "$Mf", "40 000 lb·po")
-    assert "= 4.52 kN·m (40000 lb·po)" in _conversions(at)
+    assert "= 4.52 kN·m (40 000 lb·po)" in _conversions(at)
 
 
 def test_valeur_illisible():
@@ -166,7 +168,7 @@ def test_entaille_a_la_limite():
     1-3/8 po = 34.925 mm est accepté.
     """
     at = _connecte("admin", "mot-admin")
-    _entrer(at, "Longueur de l'entaille", "100")
+    _entrer(at, "Longueur de l'entaille", "100 mm")
     _entrer(at, "$Vf", "1")
     _entrer(at, "Profondeur de l'entaille", "35 mm")
     assert [m.value for m in at.markdown if m.value.startswith("$Fr")]
@@ -198,3 +200,25 @@ def test_k_d_unite_de_pression():
     assert any(n.label == "$P_L$ (kPa)" for n in at.number_input)
     _basculer(at, CHARGES, "Impérial")
     assert any(n.label == "$P_L$ (lb/pi²)" for n in at.number_input)
+
+
+def test_somme_avec_plus():
+    """
+    « 2 + 3 po » = 5 po x 25.4 mm/po = 127 mm (un nombre sans unité prend l'unité du terme suivant) ;
+    « 1500 lb + 2 kN » = 1500 x 4.4482 N + 2000 N = 8672.3 N = 8.67 kN.
+    """
+    at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Métrique")  # même en mm par défaut
+    _entrer(at, "Longueur d'appui", "2 + 3 po")
+    assert "= 127 mm (5 po)" in _conversions(at)
+    _entrer(at, "$Rf", "1500 lb + 2 kN")
+    assert "= 8.67 kN (1 950 lb)" in _conversions(at)
+
+
+def test_resultats_lisibles():
+    """Résultats dans \\text{} (espaces et unités droites) et milliers séparés (« 5 060 lb »)."""
+    at = _connecte("admin", "mot-admin")
+    _entrer(at, "Longueur d'appui", "3-1/2")
+    _entrer(at, "$Rf", "5")
+    (qr,) = [m.value for m in at.markdown if m.value.startswith("$Qr")]
+    # Espace insécable entre les milliers : 14 323.6 N / 4.4482 N/lb = 3220 lb -> « 3 220 lb »
+    assert qr == "$Qr = \\text{14.32 kN (3\u00a0220 lb)}$"
