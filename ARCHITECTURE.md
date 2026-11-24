@@ -515,7 +515,9 @@ les tests le prouvent. L'application en ligne doit fonctionner après chaque PR.
 
 **Phase 3 : nouvelle interface web**
 9. Interface web pour le bois de sciage, avec au moins les fonctions de Streamlit, sur ordinateur et
-   mobile, avec figures 2D. Mise en ligne gratuite.
+   mobile, avec figures 2D. Mise en ligne gratuite, chez un hébergeur qui accepte le domaine
+   personnalisé `datum-calc.com` avec HTTPS (issue #86 ; d'ici là, le domaine redirige vers l'app
+   Streamlit).
 10. Note de calcul PDF.
 11. Retrait de Streamlit.
 
