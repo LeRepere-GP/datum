@@ -5,12 +5,19 @@ import streamlit as st
 import acces
 import config
 import datetime
-from moteur.commun.figures import figure, figure_avant_le_calcul
+from moteur.commun.figures import (
+    figure,
+    figure_avant_le_calcul,
+    icone_de_l_article,
+    icones_des_degres_de_retenue,
+)
 from moteur.commun.note_de_calcul import (
     EnTete,
+    formater_ligne_du_resume,
     nom_du_pdf,
     produire_pdf,
 )
+from moteur.commun.resume import resume
 from moteur.normes.csa_o86_19.ch_5_conception_generale import (
     art_5_3_conditions_et_coefficients_influant_sur_la_resistance as art_5_3,
 )
@@ -22,6 +29,9 @@ from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances
     art_6_5_4_resistance_au_cisaillement as art_6_5_4,
     art_6_5_5_resistance_a_la_compression_parallele_au_fil as art_6_5_5,
     art_6_5_6_resistance_a_la_compression_perpendiculaire_au_fil as art_6_5_6,
+)
+from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.art_A_6_bois_de_sciage import (  # noqa: E501
+    art_A_6_5_5_1_coefficient_de_longueur_effective as art_A_6_5_5_1,
 )
 import sawn_lumber
 import general_design
@@ -480,6 +490,78 @@ def afficher_figures(*noms: str, largeur: int = 440) -> None:
             st.image(svg, width=largeur)
 
 
+def afficher_titre_de_l_onglet(titre: str, article: str) -> None:
+    """
+    Titre d'un onglet, précédé d'une seule petite icône (issue #89, retour de la PR #91), dans les
+    couleurs du compte. Streamlit n'accepte pas d'image dans le nom d'un onglet : l'icône va en haut
+    de l'onglet. Un article sans icône (ex. compression oblique) n'en affiche pas.
+    """
+    apparence = config.apparence_du_compte(st.session_state.get("compte", ""))
+    svg = icone_de_l_article(article, apparence.principale, apparence.accent)
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        if svg:
+            st.image(svg, width=44)
+        st.markdown(f"**{titre}**")
+
+
+def _choisir(cle: str, valeur: int | None) -> None:
+    st.session_state[cle] = valeur
+
+
+def choisir_les_degres_de_retenue() -> dict[str, str | None]:
+    """
+    Choix du degré de retenue aux extrémités pour le flambage selon b et selon d (tableau A.4, annexe A
+    informative, p. 303-304 ; issue #90) : une rangée des 7 icônes du tableau, avec un bouton sous
+    chacune (son K_e), et « Autre » pour entrer K_e. Streamlit n'accepte pas d'image dans une liste.
+    Par défaut : translation fixe et rotation libre aux deux extrémités (K_e = 1.00).
+
+    Returns:
+        dict[str, str | None]: Degré de retenue choisi pour chaque axe ("b", "d"), texte exact du
+            tableau A.4 ; None pour « Autre » (K_e entré par l'utilisateur).
+    """
+    degres = art_A_6_5_5_1.degres_de_retenue()
+    apparence = config.apparence_du_compte(st.session_state.get("compte", ""))
+    icones = icones_des_degres_de_retenue(apparence.principale, apparence.accent)
+    par_defaut = degres.index("Translation fixe et rotation libre aux deux extrémités")
+    choix = {}
+    for axe, nom in (("b", "largeur"), ("d", "hauteur")):
+        cle = f"cpa_degre_selon_{axe}"
+        st.session_state.setdefault(cle, par_defaut)
+        st.markdown(f"Conditions d'appui, flambage selon la {nom} ${axe}$ (tableau A.4)", width=650)
+        # Une case par icône (icône centrée au-dessus de son bouton) ; les cases passent à la ligne sur
+        # un écran étroit (cellulaire), au lieu de s'empiler en colonne comme st.columns
+        with st.container(horizontal=True, wrap=True, gap="small", width=650):
+            for i, (degre, svg) in enumerate(zip(degres, icones)):
+                with st.container(width=68, horizontal_alignment="center", gap="small"):
+                    st.image(svg, width=56)
+                    st.button(
+                        f"{art_A_6_5_5_1.K_e(degre):.2f}",
+                        key=f"{cle}_{i}",
+                        help=degre,
+                        type="primary" if st.session_state[cle] == i else "secondary",
+                        on_click=_choisir,
+                        args=(cle, i),
+                        width="stretch",
+                    )
+            with st.container(width=68, height="stretch", vertical_alignment="bottom"):
+                st.button(
+                    "Autre",
+                    key=f"{cle}_autre",
+                    help="Entrer $K_e$",
+                    type="primary" if st.session_state[cle] is None else "secondary",
+                    on_click=_choisir,
+                    args=(cle, None),
+                    width="stretch",
+                )
+        choix[axe] = None if st.session_state[cle] is None else degres[st.session_state[cle]]
+    return choix
+
+
+def source_du_K_e(degre_de_retenue: str | None) -> str:
+    """Source de K_e pour la note de calcul (issue #90) : tableau A.4, ou None pour « Autre »."""
+    return "Tableau A.4" if degre_de_retenue is not None else "Entré par l'utilisateur"
+
+
 # Onglets offerts au compte connecté (acces.py, ACCES_GROUPE_LANTIER.md ; issue #56)
 ONGLETS_POSSIBLES = {
     "flexion": "Moment de flexion",
@@ -499,6 +581,7 @@ if not OFFERTS:
 
 if "flexion" in ONGLETS:
     with ONGLETS["flexion"]:
+        afficher_titre_de_l_onglet("Moment de flexion (6.5.3)", "6.5.3")
         acces.avertir_si_en_test("flexion")
         kd, ksb, kt, kh, kzb = sawn_lumber.modification_factors(
             width=width,
@@ -609,6 +692,7 @@ if "flexion" in ONGLETS:
 
 if "cisaillement" in ONGLETS:
     with ONGLETS["cisaillement"]:
+        afficher_titre_de_l_onglet("Cisaillement (6.5.4)", "6.5.4.3")
         acces.avertir_si_en_test("cisaillement")
         kd, ksv, kt, kh, kzv = sawn_lumber.modification_factors(
             width=width,
@@ -719,6 +803,7 @@ if "cisaillement" in ONGLETS:
 
 if "compression_parallele" in ONGLETS:
     with ONGLETS["compression_parallele"]:
+        afficher_titre_de_l_onglet("Compression parallèle au fil (6.5.5)", "6.5.5")
         acces.avertir_si_en_test("compression_parallele")
         with st.container(horizontal_alignment="center"):
             if built_up > 1:
@@ -762,6 +847,12 @@ if "compression_parallele" in ONGLETS:
                 e05 = compute_resistance[6]
                 axes = None
 
+                # Degré de retenue aux extrémités pour chaque axe (tableau A.4, annexe A informative ;
+                # issue #90, retour #16) : une rangée d'icônes, avec un bouton (K_e) sous chacune, et
+                # « Autre » pour entrer K_e. Par défaut : translation fixe et rotation libre aux deux
+                # extrémités (K_e = 1.00). Aucun avertissement avec « Autre » : choix de l'ingénieur.
+                degres = choisir_les_degres_de_retenue()
+
                 col1, col2 = st.columns(2, width=550)
                 with col1:
                     length = st.number_input(
@@ -773,38 +864,45 @@ if "compression_parallele" in ONGLETS:
                         help="Longueur réelle de l'élément, utilisée pour $K_{Zc}$ (6.5.5.2.4)",
                         icon=":material/straighten:",
                     )
-                    # Entraxe des appuis latéraux et K_e de chaque axe (6.5.5.1 : L_e = K_e L ; K_e en
-                    # chiffre, valeurs recommandées au tableau A.4, annexe A informative)
+                    # Entraxe des appuis latéraux et K_e de chaque axe (6.5.5.1 : L_e = K_e L)
                     entraxes = {}
                     for axe, nom, icone in (
                         ("b", "largeur", ":material/fit_page_width:"),
                         ("d", "hauteur", ":material/fit_page_height:"),
                     ):
                         colonne_l, colonne_k = st.columns([2, 1])
-                        entraxes[axe] = (
-                            colonne_l.number_input(
-                                f"Entraxe des appuis latéraux, flambage selon ${axe}$, "
-                                f"$L_{{({axe})}}$ (mm)",
-                                min_value=1,
-                                value=None,
-                                step=100,
-                                placeholder="Requis",
-                                key=f"cpa_L_selon_{axe}",
-                                help=f"""Entraxe des appuis latéraux pour le flambage selon la
-                                {nom} ${axe}$ (6.5.5.1)""",
-                                icon=icone,
-                            ),
-                            colonne_k.number_input(
+                        L_selon_axe = colonne_l.number_input(
+                            f"Entraxe des appuis latéraux, flambage selon ${axe}$, "
+                            f"$L_{{({axe})}}$ (mm)",
+                            min_value=1,
+                            value=None,
+                            step=100,
+                            placeholder="Requis",
+                            key=f"cpa_L_selon_{axe}",
+                            help=f"""Entraxe des appuis latéraux pour le flambage selon la
+                            {nom} ${axe}$ (6.5.5.1)""",
+                            icon=icone,
+                        )
+                        if degres[axe] is None:  # « Autre » : K_e entré par l'utilisateur
+                            K_e_selon_axe = colonne_k.number_input(
                                 f"$K_{{e({axe})}}$",
                                 min_value=0.10,
                                 value=1.00,
                                 step=0.05,
                                 format="%.2f",
                                 key=f"cpa_K_e_selon_{axe}",
-                                help="""Coefficient de longueur effective, $L_e = K_e L$ (6.5.5.1) ;
-                                valeurs recommandées selon les conditions d'appui : tableau A.4""",
-                            ),
-                        )
+                                help="Coefficient de longueur effective, $L_e = K_e L$ (6.5.5.1)",
+                            )
+                        else:
+                            K_e_selon_axe = art_A_6_5_5_1.K_e(degres[axe])
+                            colonne_k.number_input(
+                                f"$K_{{e({axe})}}$",
+                                value=K_e_selon_axe,
+                                format="%.2f",
+                                disabled=True,
+                                help=f"Tableau A.4 : {degres[axe]}",
+                            )
+                        entraxes[axe] = (L_selon_axe, K_e_selon_axe)
                     # Pas de L_b ni de L_d : L_b est la longueur d'appui dans la norme (6.5.6)
                     (L_selon_b, K_e_selon_b), (L_selon_d, K_e_selon_d) = entraxes["b"], entraxes["d"]
                     le_b = art_6_5_5.L_e(K_e_selon_b, L_selon_b) if L_selon_b is not None else None
@@ -861,6 +959,9 @@ if "compression_parallele" in ONGLETS:
                                     b=width, d=depth, L=length,
                                     L_selon_b=L_selon_b, L_selon_d=L_selon_d,
                                     K_e_selon_b=K_e_selon_b, K_e_selon_d=K_e_selon_d,
+                                    # K_e du tableau A.4 ou entré (« Autre ») ; issue #90
+                                    source_K_e_selon_b=source_du_K_e(degres["b"]),
+                                    source_K_e_selon_d=source_du_K_e(degres["d"]),
                                     f_c=compute_resistance[2], E_05=e05,
                                     K_D=kd, K_H=kh, K_Sc=ksc, K_T=kt, K_SE=kse, P_f=pf,
                                     source_resistances=SOURCE, source_K_D=SOURCE_KD,
@@ -887,6 +988,7 @@ if "compression_parallele" in ONGLETS:
 
 if "compression_perpendiculaire" in ONGLETS:
     with ONGLETS["compression_perpendiculaire"]:
+        afficher_titre_de_l_onglet("Compression perpendiculaire au fil (6.5.6)", "6.5.6.3")
         acces.avertir_si_en_test("compression_perpendiculaire")
         with st.container(horizontal_alignment="center"):
             kd, kscp, kt, _, _ = sawn_lumber.modification_factors(
@@ -1137,16 +1239,19 @@ if "compression_perpendiculaire" in ONGLETS:
 
 if "compression_oblique" in ONGLETS:
     with ONGLETS["compression_oblique"]:
+        afficher_titre_de_l_onglet("Compression oblique par rapport au fil (6.5.7)", "6.5.7")
         with st.container(horizontal_alignment="center"):
             st.warning("Fonctionnalité à venir.", width=200)
 
 if "traction" in ONGLETS:
     with ONGLETS["traction"]:
+        afficher_titre_de_l_onglet("Traction parallèle au fil (6.5.8)", "6.5.8")
         with st.container(horizontal_alignment="center"):
             st.warning("Fonctionnalité à venir.", width=200)
 
 if "flexion_et_charge_axiale" in ONGLETS:
     with ONGLETS["flexion_et_charge_axiale"]:
+        afficher_titre_de_l_onglet("Flexion et charge axiale combinées (6.5.9)", "6.5.9")
         with st.container(horizontal_alignment="center"):
             st.warning("Fonctionnalité à venir.", width=200)
 
@@ -1162,6 +1267,33 @@ FONCTION_DE_LA_VERIFICATION = {
 }
 # Seulement les vérifications faites (charge pondérée entrée) : pas de page inutile dans la note
 FAITES = {nom: r for nom, r in NOTE.items() if r.verification is not None}
+if acces.permis("note_pdf") and FAITES:
+    # Résumé des vérifications faites dans les onglets (issue #85) : mêmes valeurs que la page résumé
+    # de la note PDF ; la vérification qui gouverne (ratio le plus élevé) est en gras.
+    st.divider()
+    st.subheader("Résumé", anchor=False)
+    with st.container(horizontal_alignment="center"):
+        lignes = [formater_ligne_du_resume(l) for l in resume([("", r) for r in FAITES.values()])]
+        tableau = [
+            "| Vérification | Article | Charge pondérée | Résistance pondérée | Ratio | Statut |",
+            "|---|---|---|---|--:|---|",
+        ]
+        for l in lignes:
+            gras = "**" if l["gouverne"] else ""
+            statut = ":green[✔ Conforme]" if l["respecte"] else ":red[✖ Non conforme]"
+            cellules = [
+                l["titre"],
+                l["article"],
+                f"${l['symbole_charge']}$ = {l['charge']}",
+                f"${l['symbole_resistance']}$ = {l['resistance']}",
+                l["ratio"],
+            ]
+            tableau.append(
+                "| " + " | ".join(f"{gras}{c}{gras}" for c in cellules) + f" | {gras}{statut}{gras} |"
+            )
+        st.markdown("\n".join(tableau), width=900)
+        st.caption("En gras : la vérification qui gouverne (ratio le plus élevé).", width=900)
+
 if acces.permis("note_pdf"):
     st.divider()
     st.subheader("Note de calcul (PDF)", anchor=False)

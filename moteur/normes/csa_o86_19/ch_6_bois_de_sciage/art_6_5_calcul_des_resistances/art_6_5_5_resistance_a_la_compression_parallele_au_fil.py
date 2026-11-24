@@ -183,6 +183,8 @@ def verifier_compression_parallele_au_fil(
     P_f: float | None = None,
     source_resistances: str = "Tableaux 6.4 à 6.9",
     source_K_D: str = "Tableau 5.1",
+    source_K_e_selon_b: str = "Tableau A.4",
+    source_K_e_selon_d: str = "Tableau A.4",
 ) -> Resultat:
     """
     6.5.5.2 Résistance pondérée à la compression parallèle au fil d'un élément simple, selon les
@@ -205,6 +207,9 @@ def verifier_compression_parallele_au_fil(
             calcul (voir art_6_3.tableau_des_resistances()). Default to "Tableaux 6.4 à 6.9".
         source_K_D (str, optional): Source de K_D pour la note de calcul : « Tableau 5.1 », ou
             « 5.3.2.2 » si K_D est calculé à partir des charges. Default to "Tableau 5.1".
+        source_K_e_selon_b, source_K_e_selon_d (str, optional): Source de K_e(b) et de K_e(d) pour la
+            note de calcul : « Tableau A.4 », ou « Entré par l'utilisateur » (issue #90). Default to
+            "Tableau A.4".
 
     Returns:
         Resultat: Trace du calcul. P_r de chaque axe en N ; vérification en kN.
@@ -221,10 +226,8 @@ def verifier_compression_parallele_au_fil(
                "longueur"),
         Donnee("L_{(d)}", "Entraxe des appuis latéraux, flambage selon d", L_selon_d, "mm",
                "longueur"),
-        Donnee("K_{e(b)}", "Coefficient de longueur effective, flambage selon b", K_e_selon_b,
-               source="Tableau A.4"),
-        Donnee("K_{e(d)}", "Coefficient de longueur effective, flambage selon d", K_e_selon_d,
-               source="Tableau A.4"),
+        Donnee("K_{e(b)}", "Coefficient de longueur effective", K_e_selon_b, source=source_K_e_selon_b),
+        Donnee("K_{e(d)}", "Coefficient de longueur effective", K_e_selon_d, source=source_K_e_selon_d),
         Donnee("f_c", "Résistance prévue en compression parallèle au fil", f_c, "MPa", "contrainte",
                source_resistances),
         Donnee("E_{05}", "Module d'élasticité pour les éléments en compression", E_05, "MPa",

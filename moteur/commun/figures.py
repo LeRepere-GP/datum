@@ -9,7 +9,9 @@ données (demande de l'utilisateur, issue #62).
 Aucune logique de calcul ici : les valeurs viennent telles quelles de la trace.
 """
 
+import re
 from html import escape
+from pathlib import Path
 
 from moteur.commun.resultat import Donnee, Resultat
 
@@ -525,3 +527,82 @@ def figure_avant_le_calcul(
         donnees=[Donnee("", "Nombre de plis", plis)],  # pas de symbole dans la norme
     )
     return figure(resultat, principale, accent)
+
+
+# --- Petites icônes des types de calcul (issue #89) ---
+# Dessinées au trait (64 x 64, sans texte) dans marque/icones/, aux couleurs de Le Repère : elles prennent
+# celles du compte, comme les grandes figures.
+DOSSIER_ICONES = Path(__file__).resolve().parents[2] / "marque" / "icones"
+
+# Icône de chaque vérification, selon l'article de la trace (CSA O86:19, 6.5)
+_ICONES = {
+    "6.5.3": "flexion",
+    "6.5.4.3": "cisaillement",
+    "6.5.4.4": "cisaillement_entaille",
+    "6.5.5": "compression_parallele",
+    "6.5.6.2": "compression_perpendiculaire",
+    "6.5.6.3": "compression_pres_appui",
+    "6.5.8": "traction",
+    "6.5.9": "flexion_et_charge_axiale",
+}
+
+
+def icone(nom: str, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT) -> str:
+    """
+    Petite icône d'un type de calcul (marque/icones/<nom>.svg), dans les couleurs du compte.
+
+    Args:
+        nom (str): Nom du fichier, sans l'extension (ex. "flexion").
+        principale (str, optional): Couleur de l'élément et des appuis. Default to celle de la marque.
+        accent (str, optional): Couleur des charges. Default to celle de la marque.
+
+    Returns:
+        str: SVG de l'icône.
+
+    Raises:
+        FileNotFoundError: Si l'icône n'existe pas.
+    """
+    svg = (DOSSIER_ICONES / f"{nom}.svg").read_text(encoding="utf-8")
+    # Les couleurs de la marque sont remplacées ensemble (un remplacement ne touche pas l'autre)
+    return re.sub(
+        "#233614|#9E5A00",
+        lambda m: principale if m.group(0).upper() == COULEUR_PRINCIPALE else accent,
+        svg,
+        flags=re.IGNORECASE,
+    )
+
+
+def icone_de_l_article(
+    article: str, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+) -> str | None:
+    """
+    Petite icône d'une vérification, selon son article (même icône dans l'interface et la note PDF).
+
+    Args:
+        article (str): Article de la vérification (ex. "6.5.6.2").
+        principale (str, optional): Couleur de l'élément et des appuis. Default to celle de la marque.
+        accent (str, optional): Couleur des charges. Default to celle de la marque.
+
+    Returns:
+        str | None: SVG de l'icône, ou None si la vérification n'a pas d'icône.
+    """
+    nom = _ICONES.get(article)
+    return icone(nom, principale, accent) if nom else None
+
+
+def icones_des_degres_de_retenue(
+    principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT
+) -> list[str]:
+    """
+    Icônes des degrés de retenue aux extrémités du tableau A.4 (CSA O86:19, annexe A, p. 303-304),
+    dans l'ordre de la norme (issue #90) : marque/icones/conditions_d_appui/<n>_ke_<K_e>.svg.
+
+    Args:
+        principale (str, optional): Couleur de l'élément et des appuis. Default to celle de la marque.
+        accent (str, optional): Couleur d'accent. Default to celle de la marque.
+
+    Returns:
+        list[str]: SVG des 7 icônes, une par ligne du tableau A.4.
+    """
+    fichiers = sorted((DOSSIER_ICONES / "conditions_d_appui").glob("*_ke_*.svg"))
+    return [icone(f"conditions_d_appui/{f.stem}", principale, accent) for f in fichiers]
