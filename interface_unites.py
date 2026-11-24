@@ -1,16 +1,25 @@
 """
-Bascule métrique / impérial de l'interface Streamlit (retour LeRepere-GP/datum-retours#10).
+Bascules métrique / impérial de l'interface Streamlit (retour LeRepere-GP/datum-retours#10).
 
 Tous les calculs se font en métrique (CLAUDE.md, ARCHITECTURE.md section 8). Ce module sert UNIQUEMENT à
 l'affichage : il présente chaque champ et chaque résultat dans le système choisi dans la barre latérale,
 et rend toujours au moteur des valeurs métriques (mm, kN, kN·m). Les conversions viennent de
 moteur/commun/unites.py ; aucune formule de la norme ici.
 
+Deux bascules indépendantes (demande de l'utilisateur, PR #99) :
+- « Dimensions » : dimensions (mm / po), longueurs (mm / pi-po) et aires ;
+- « Charges » : forces (kN / lb), moments (kN·m / lb·po) et contraintes (MPa / psi).
+
+On peut basculer en tout temps : les valeurs entrées sont gardées (en métrique, exactes) et réaffichées
+dans l'autre système. Les longueurs en impérial s'entrent en pieds et pouces (ex. « 8-6 » = 8 pi 6 po).
+
 Les dimensions nominales (ex. « 2x6 ») et les dimensions brutes restent en po dans les deux systèmes
 (décision de l'utilisateur, retour #10).
 """
 
 import math
+import re
+from fractions import Fraction
 
 import streamlit as st
 
@@ -21,64 +30,152 @@ METRIQUE = "Métrique"
 IMPERIAL = "Impérial"
 SYSTEMES = (METRIQUE, IMPERIAL)
 
-# Format et pas des champs, par grandeur et par système (unités de moteur/commun/unites.py)
+# Bascule de chaque grandeur (clé de st.session_state)
+DIMENSIONS = "unites_dimensions"
+CHARGES = "unites_charges"
+_BASCULE = {
+    "dimension": DIMENSIONS,
+    "longueur": DIMENSIONS,
+    "aire": DIMENSIONS,
+    "force": CHARGES,
+    "moment": CHARGES,
+    "contrainte": CHARGES,
+    "pression": CHARGES,  # charges du K_D (5.3.2.2) : unité seulement, aucune conversion
+}
+
+# Format et pas des champs numériques, par grandeur et par système (unités de moteur/commun/unites.py).
+# Les longueurs en impérial s'entrent en pieds-pouces (champ texte, voir _champ_pieds_pouces()).
 _FORMAT_ET_PAS = {
     ("dimension", METRIQUE): ("%.0f", 1.0),  # mm
     ("dimension", IMPERIAL): ("%.2f", 0.25),  # po
     ("longueur", METRIQUE): ("%.0f", 100.0),  # mm
-    ("longueur", IMPERIAL): ("%.2f", 0.5),  # pi
     ("force", METRIQUE): ("%.2f", 1.0),  # kN
     ("force", IMPERIAL): ("%.0f", 100.0),  # lb
     ("moment", METRIQUE): ("%.2f", 1.0),  # kN·m
     ("moment", IMPERIAL): ("%.0f", 1000.0),  # lb·po
 }
 
+_PI_PO = "pi-po"  # unité affichée des longueurs en impérial
 
-def choisir_systeme() -> str:
+
+def choisir_systemes() -> None:
     """
-    Bascule « Unités » dans la barre latérale, gardée pour la séance (st.session_state["unites"]).
+    Bascules « Dimensions » et « Charges » dans la barre latérale, gardées pour la séance.
     Métrique par défaut.
-
-    Returns:
-        str: METRIQUE ou IMPERIAL.
     """
+    aide = """Unités des entrées et des résultats affichés. On peut changer en tout temps : les valeurs
+    entrées sont gardées. Les calculs se font toujours en métrique, comme dans la norme ; la note de
+    calcul donne les deux unités."""
     st.sidebar.segmented_control(
-        "Unités",
-        options=SYSTEMES,
-        default=METRIQUE,
-        key="unites",
-        width="stretch",
-        help="""Unités des entrées et des résultats affichés. Les calculs se font toujours en
-        métrique, comme dans la norme ; la note de calcul donne les deux unités.""",
+        "Dimensions", options=SYSTEMES, default=METRIQUE, key=DIMENSIONS, width="stretch",
+        help="Dimensions (mm / po) et longueurs (mm / pi-po). " + aide,
     )
-    return systeme()
+    st.sidebar.segmented_control(
+        "Charges", options=SYSTEMES, default=METRIQUE, key=CHARGES, width="stretch",
+        help="Charges, résistances et moments (kN / lb, kN·m / lb·po) et contraintes (MPa / psi). " + aide,
+    )
 
 
-def systeme() -> str:
-    """Système d'unités choisi (METRIQUE si rien n'est choisi)."""
-    return IMPERIAL if st.session_state.get("unites") == IMPERIAL else METRIQUE
+def systeme(nom_grandeur: str) -> str:
+    """Système choisi pour la grandeur (METRIQUE si rien n'est choisi)."""
+    return IMPERIAL if st.session_state.get(_BASCULE[nom_grandeur]) == IMPERIAL else METRIQUE
 
 
-def en_imperial() -> bool:
-    """True si l'interface affiche l'impérial."""
-    return systeme() == IMPERIAL
+def en_imperial(nom_grandeur: str) -> bool:
+    """True si la grandeur est affichée en impérial."""
+    return systeme(nom_grandeur) == IMPERIAL
 
 
 def unite(nom_grandeur: str) -> str:
     """Unité d'affichage de la grandeur dans le système choisi (ex. « mm » ou « po »)."""
+    if nom_grandeur == "pression":
+        return "lb/pi²" if en_imperial(nom_grandeur) else "kPa"
     g = grandeur(nom_grandeur)
-    return g.unite_imperiale if en_imperial() else g.unite_metrique
+    return g.unite_imperiale if en_imperial(nom_grandeur) else g.unite_metrique
 
 
 def vers_affichage(valeur_metrique: float, nom_grandeur: str) -> float:
     """Valeur métrique (unités de moteur/commun/unites.py) dans le système choisi."""
-    return vers_imperial(valeur_metrique, nom_grandeur) if en_imperial() else valeur_metrique
+    if en_imperial(nom_grandeur):
+        return vers_imperial(valeur_metrique, nom_grandeur)
+    return valeur_metrique
 
 
 def depuis_affichage(valeur: float, nom_grandeur: str) -> float:
     """Valeur du système choisi, ramenée en métrique pour le moteur."""
-    return vers_metrique(valeur, nom_grandeur) if en_imperial() else valeur
+    return vers_metrique(valeur, nom_grandeur) if en_imperial(nom_grandeur) else valeur
 
+
+# --- Pieds et pouces ---
+
+_NOMBRE = r"\d+(?:\.\d+)?"
+_POUCES = rf"(?:{_NOMBRE}(?:\s+\d+/\d+)?|\d+/\d+)"  # 6, 6.5, 6 1/2 ou 1/2
+_UNITE_PI = r"(?:'|pi|pieds?)"
+_UNITE_PO = r'(?:"|po|pouces?)'
+
+
+def _pouces(texte: str) -> float:
+    """« 6 1/2 » -> 6.5 ; « 1/2 » -> 0.5 ; « 6.5 » -> 6.5."""
+    total = 0.0
+    for morceau in texte.split():
+        if "/" in morceau:
+            numerateur, denominateur = morceau.split("/")
+            if float(denominateur) == 0:
+                raise ValueError("division par zéro")
+            total += float(numerateur) / float(denominateur)
+        else:
+            total += float(morceau)
+    return total
+
+
+def lire_pieds_pouces(texte: str) -> float:
+    """
+    Longueur entrée en pieds et pouces, en pieds.
+
+    Formes acceptées (point décimal ou virgule) : « 8-6 », « 8 - 6 », « 8 6 », « 8'-6" », « 8' 6" »,
+    « 8 pi 6 po », « 8 pi - 6 1/2 po », « 8.5 » ou « 8 pi » (pieds seulement), « 6 po » ou « 6" »
+    (pouces seulement, l'unité est alors obligatoire).
+
+    Raises:
+        ValueError: Si le texte n'est pas une longueur en pieds et pouces.
+    """
+    s = (texte.strip().lower().replace(",", ".").replace("’", "'").replace("′", "'")
+         .replace("”", '"').replace("″", '"').replace("''", '"'))
+    if not s:
+        raise ValueError("vide")
+    # Pouces seulement : l'unité est obligatoire (« 6 1/2 po »)
+    m = re.fullmatch(rf"(?P<po>{_POUCES})\s*{_UNITE_PO}", s)
+    if m:
+        return _pouces(m["po"]) / 12
+    # Pieds seulement : « 8.5 », « 8 pi », « 8' »
+    m = re.fullmatch(rf"(?P<pi>{_NOMBRE})\s*{_UNITE_PI}?", s)
+    if m:
+        return float(m["pi"])
+    # Pieds et pouces : « 8-6 », « 8' 6" », « 8 pi - 6 1/2 po »
+    m = re.fullmatch(
+        rf"(?P<pi>{_NOMBRE})\s*(?:{_UNITE_PI}\s*-?\s*|-\s*|\s+)(?P<po>{_POUCES})\s*{_UNITE_PO}?", s
+    )
+    if m:
+        return float(m["pi"]) + _pouces(m["po"]) / 12
+    raise ValueError(f"longueur illisible : « {texte} »")
+
+
+def ecrire_pieds_pouces(valeur_metrique: float) -> str:
+    """
+    Longueur métrique (mm) en pieds et pouces, au 1/16 po près. Ex. 2590.8 mm -> « 8 pi - 6 po » ;
+    2603.5 mm -> « 8 pi - 6 1/2 po ».
+    """
+    seiziemes = round(valeur_metrique / 25.4 * 16)  # 1 po = 25.4 mm
+    pieds, seiziemes = divmod(seiziemes, 12 * 16)
+    entiers, reste = divmod(seiziemes, 16)
+    pouces = str(entiers)
+    if reste:
+        fraction = Fraction(reste, 16)
+        pouces = f"{entiers} {fraction}" if entiers else f"{fraction}"
+    return f"{pieds} pi - {pouces} po"
+
+
+# --- Textes des résultats ---
 
 def texte(valeur_metrique: float, nom_grandeur: str, decimales: int | None = None) -> str:
     """
@@ -92,9 +189,11 @@ def texte(valeur_metrique: float, nom_grandeur: str, decimales: int | None = Non
         nom_grandeur (str): Grandeur de moteur/commun/unites.py.
         decimales (int | None, optional): Décimales imposées. Default to celles de la grandeur.
     """
+    if nom_grandeur == "longueur" and en_imperial(nom_grandeur):
+        return ecrire_pieds_pouces(valeur_metrique)
     g = grandeur(nom_grandeur)
     if decimales is None:
-        decimales = g.decimales_imperiale if en_imperial() else g.decimales_metrique
+        decimales = g.decimales_imperiale if en_imperial(nom_grandeur) else g.decimales_metrique
     return f"{vers_affichage(valeur_metrique, nom_grandeur):.{decimales}f} {unite(nom_grandeur)}"
 
 
@@ -111,6 +210,18 @@ def latex(valeur_metrique: float, nom_grandeur: str, decimales: int | None = Non
     return texte(valeur_metrique, nom_grandeur, decimales).replace("·", " \\cdot ")
 
 
+# --- Champs ---
+
+def _cles(key: str, imperial: bool) -> tuple[str, str, str, str]:
+    """Clés du champ affiché, du champ de l'autre système, de la valeur métrique et de la valeur initiale."""
+    return (
+        f"{key}__imperial" if imperial else key,
+        key if imperial else f"{key}__imperial",
+        f"_{key}__metrique",  # valeur métrique gardée pour la séance
+        f"_{key}__initiale",  # valeur affichée à la bascule (pour éviter la dérive d'arrondi)
+    )
+
+
 def champ(
     libelle: str,
     nom_grandeur: str,
@@ -121,13 +232,14 @@ def champ(
     **kwargs,
 ) -> float | None:
     """
-    Champ numérique dans le système choisi, qui rend une valeur métrique (ou None s'il est vide).
+    Champ dans le système choisi, qui rend une valeur métrique (ou None s'il est vide).
 
     La valeur entrée est gardée en métrique pour la séance : à la bascule, le champ affiche la même
-    valeur dans l'autre système. Une valeur non modifiée après la bascule garde sa valeur métrique
-    exacte (pas d'erreur d'arrondi : 89 mm -> 3.50 po -> 89 mm).
+    valeur dans l'autre système, aussi souvent qu'on veut. Une valeur non modifiée après la bascule garde
+    sa valeur métrique exacte (pas d'erreur d'arrondi : 89 mm -> 3.50 po -> 89 mm).
 
     En métrique, la clé du champ est `key` (tests et code existants) ; en impérial, `key + "__imperial"`.
+    Les longueurs en impérial s'entrent en pieds-pouces (champ texte, ex. « 8-6 »).
 
     Args:
         libelle (str): Libellé ; « {unite} » y est remplacé par l'unité (ex. « $L_b$ ({unite}) »).
@@ -140,12 +252,11 @@ def champ(
     Returns:
         float | None: Valeur en métrique (mm, kN, kN·m), ou None.
     """
-    imperial = en_imperial()
-    cle_du_champ = f"{key}__imperial" if imperial else key
-    cle_de_l_autre = key if imperial else f"{key}__imperial"
-    cle_metrique = f"_{key}__metrique"  # valeur métrique gardée pour la séance
-    cle_initiale = f"_{key}__initiale"  # valeur affichée à la bascule (pour éviter la dérive d'arrondi)
-    format_, pas = _FORMAT_ET_PAS[(nom_grandeur, systeme())]
+    imperial = en_imperial(nom_grandeur)
+    if nom_grandeur == "longueur" and imperial:
+        return _champ_pieds_pouces(libelle, key, conteneur, min_value, max_value, **kwargs)
+    cle_du_champ, cle_de_l_autre, cle_metrique, cle_initiale = _cles(key, imperial)
+    format_, pas = _FORMAT_ET_PAS[(nom_grandeur, systeme(nom_grandeur))]
 
     def affichee(valeur_metrique):
         if valeur_metrique is None:
@@ -201,6 +312,58 @@ def champ(
         st.session_state[cle_metrique] = depuis_affichage(valeur, nom_grandeur)
         st.session_state[cle_initiale] = None  # modifiée : la valeur entrée fait foi
     return st.session_state[cle_metrique]
+
+
+def _champ_pieds_pouces(
+    libelle: str,
+    key: str,
+    conteneur,
+    min_value: float | None,
+    max_value: float | None,
+    **kwargs,
+) -> float | None:
+    """
+    Longueur en impérial : champ texte en pieds et pouces (ex. « 8-6 » = 8 pi 6 po = 8.5 pi), qui rend
+    une valeur en mm. Mêmes règles que champ() pour la bascule et les valeurs gardées.
+    """
+    cle_du_champ, cle_de_l_autre, cle_metrique, cle_initiale = _cles(key, True)
+    st.session_state.pop(cle_de_l_autre, None)
+    if cle_du_champ not in st.session_state:
+        metrique = st.session_state.get(cle_metrique)
+        st.session_state[cle_du_champ] = "" if metrique is None else ecrire_pieds_pouces(metrique)
+        st.session_state[cle_initiale] = st.session_state[cle_du_champ]
+
+    aide = kwargs.pop("help", None)
+    exemples = "En pieds et pouces : ex. 8-6, 8' 6\", 8 pi 6 1/2 po, 8.5 (pieds) ou 6 po."
+    for inutile in ("step", "format", "min_value", "max_value"):
+        kwargs.pop(inutile, None)
+    valeur = conteneur.text_input(
+        libelle.replace("{unite}", _PI_PO),
+        key=cle_du_champ,
+        help=f"{aide} {exemples}" if aide else exemples,
+        **kwargs,
+    )
+    if not valeur.strip():
+        st.session_state[cle_metrique] = None
+    elif valeur != st.session_state.get(cle_initiale) or st.session_state.get(cle_metrique) is None:
+        try:
+            metrique = vers_metrique(lire_pieds_pouces(valeur), "longueur")
+        except ValueError:
+            conteneur.error(
+                f"Longueur illisible : « {valeur} ». {exemples}", icon=":material/error:"
+            )
+            st.session_state[cle_metrique] = None
+            return None
+        st.session_state[cle_metrique] = metrique
+        st.session_state[cle_initiale] = None  # modifiée : la valeur entrée fait foi
+    metrique = st.session_state[cle_metrique]
+    if metrique is not None and (
+        (min_value is not None and metrique < min_value)
+        or (max_value is not None and metrique > max_value)
+    ):
+        conteneur.error("Longueur hors des limites permises.", icon=":material/error:")
+        return None
+    return metrique
 
 
 def remplir(key: str, valeur_metrique: float | None) -> None:

@@ -55,8 +55,9 @@ def show_verification(message: str) -> None:
 # ---- en-tête ----
 config.configurer_page("Bois de sciage")
 EDITION = config.choisir_edition()  # une seule pour l'instant : CSA O86:19 (issue #72)
-# Bascule métrique / impérial (retour #10) : affichage seulement, les calculs restent en métrique
-iu.choisir_systeme()
+# Bascules métrique / impérial des dimensions et des charges (retour #10, PR #99) : affichage
+# seulement, les calculs restent en métrique
+iu.choisir_systemes()
 st.title(config.TITLE, anchor=False)
 st.caption(config.SOUS_TITRE)
 st.header(
@@ -325,7 +326,7 @@ with st.container(horizontal_alignment="center"):
             col1, col2 = st.columns([3, 1])
             col1.text(f"{display_resistance[i][0]}:")
             valeur = (
-                iu.latex(compute_resistance[i], "contrainte") if iu.en_imperial()
+                iu.latex(compute_resistance[i], "contrainte") if iu.en_imperial("contrainte")
                 else f"{compute_resistance[i]} MPa"
             )
             col2.markdown(f"{display_resistance[i][1]} $= {valeur}$")
@@ -396,7 +397,7 @@ with st.container(horizontal_alignment="center"):
                 seul le rapport P_L / P_s compte."""
                 c1, c2, c3 = st.columns(3)
                 # Seul le rapport P_L / P_s compte : aucune conversion, l'unité n'est qu'un repère
-                PRESSION = "lb/pi²" if iu.en_imperial() else "kPa"
+                PRESSION = iu.unite("pression")
                 p_l = c1.number_input(
                     f"$P_L$ ({PRESSION})", min_value=0.0, value=None, key="kd_p_l",
                     help="Charge spécifiée de durée d'application continue (ex. charge permanente). "
@@ -647,14 +648,14 @@ if "flexion" in ONGLETS:
                 COMP_EDGE = st.toggle(
                     "Rive supérieure maintenue",
                     help="""Rive comprimée maintenu par fixation directe du platelage ou par des solives
-                    dont l'espacement ne dépasse pas """ + iu.texte(610, "dimension", 0 if not iu.en_imperial() else 1),
+                    dont l'espacement ne dépasse pas """ + iu.texte(610, "dimension", 0 if not iu.en_imperial("dimension") else 1),
                     value=subfloor,
                 )
                 BLOCK = st.toggle(
                     "Entremises",
                     help=f"""Présence d'entretoises ou d'entremises dont l'espacement ne dépasse pas
                     huit fois la hauteur de la section de l'élément -> $8 \\cdot d =$
-                    {iu.texte(8 * depth, "dimension", 0 if not iu.en_imperial() else 1)} c/c""",
+                    {iu.texte(8 * depth, "dimension", 0 if not iu.en_imperial("dimension") else 1)} c/c""",
                 )
                 TEN_EDGE = st.toggle(
                     "Rive inférieure maintenue",
@@ -664,7 +665,7 @@ if "flexion" in ONGLETS:
                 if built_up > 1:
                     PLIES_FASTENED = st.toggle(
                         f"Plis fixés à au plus 4d = "
-                        f"{iu.texte(4 * depth, 'dimension', 0 if not iu.en_imperial() else 1)} c/c",
+                        f"{iu.texte(4 * depth, 'dimension', 0 if not iu.en_imperial("dimension") else 1)} c/c",
                         help="""6.5.3.2.4 : poutre composée dont les plis sont solidement attachés les
                         uns aux autres à intervalles ne dépassant pas quatre fois la hauteur. Les
                         supports latéraux ci-dessus (6.5.3.2.3) ne s'appliquent pas aux poutres
@@ -756,7 +757,7 @@ if "cisaillement" in ONGLETS:
                     placeholder="Optionnel",
                     help=(
                         f"Ne doit pas dépasser $0.25 \\cdot d = "
-                        f"{iu.vers_affichage(quart_de_d, 'dimension'):.{2 if iu.en_imperial() else 1}f}$ "
+                        f"{iu.vers_affichage(quart_de_d, 'dimension'):.{2 if iu.en_imperial("dimension") else 1}f}$ "
                         f"{iu.unite('dimension')} (6.5.4.4.2)"
                     ),
                     icon=":material/height:",
@@ -1004,7 +1005,7 @@ if "compression_parallele" in ONGLETS:
 
                 if axes:
                     with st.expander("Voir plus:", width=650):
-                        if iu.en_imperial():
+                        if iu.en_imperial("contrainte"):
                             st.markdown(
                                 f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = "
                                 f"{iu.latex(compute_resistance[2], 'contrainte')} \\cdot "
@@ -1270,7 +1271,7 @@ if "compression_perpendiculaire" in ONGLETS:
 
             if details:
                 with st.expander("Voir plus:", width=650):
-                    if iu.en_imperial():
+                    if iu.en_imperial("contrainte"):
                         st.markdown(
                             f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {iu.latex(fcp, 'contrainte')} "
                             f"\\cdot ({kd} \\cdot {kscp} \\cdot {kt}) = "
@@ -1329,7 +1330,7 @@ if acces.permis("note_pdf") and FAITES:
             l = formater_ligne_du_resume(ligne)
             # Interface : charges et résistances dans le système choisi (retour #10) ; la note PDF
             # garde les deux unités
-            if iu.en_imperial() and ligne.grandeur:
+            if ligne.grandeur and iu.en_imperial(ligne.grandeur):
                 l["charge"] = iu.texte_significatif(ligne.charge, ligne.grandeur)
                 l["resistance"] = iu.texte_significatif(ligne.resistance, ligne.grandeur)
             lignes.append(l)
