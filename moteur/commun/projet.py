@@ -18,6 +18,7 @@ import json
 import math
 from dataclasses import asdict, dataclass, field, fields
 
+from moteur import VERSION
 from moteur.commun import registre
 from moteur.commun.note_de_calcul import EnTete
 from moteur.commun.resultat import Resultat
@@ -80,6 +81,7 @@ def vers_json(projet: Projet) -> str:
     contenu = {
         "type": TYPE_DE_FICHIER,
         "format": FORMAT,
+        "version": VERSION,  # version de Datum qui a écrit le fichier (information seulement)
         "en_tete": asdict(projet.en_tete),
         "elements": [
             {"nom": e.nom, "edition": e.edition, "entrees": dict(e.entrees)} for e in projet.elements
@@ -117,6 +119,10 @@ def depuis_json(texte: str | bytes) -> Projet:
         )
     if version < 1:
         raise FichierInvalide(f"Format de fichier inconnu : {version}.")
+    # Version de Datum qui a écrit le fichier : information seulement (les calculs sont toujours refaits
+    # avec la version actuelle, option A). Facultative : absente des fichiers écrits avant la 0.1.0.
+    if not isinstance(contenu.get("version", ""), str):
+        raise FichierInvalide("Version de Datum invalide dans le fichier.")
 
     en_tete = contenu.get("en_tete", {})
     champs = {f.name for f in fields(EnTete)}

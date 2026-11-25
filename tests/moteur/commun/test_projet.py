@@ -5,6 +5,7 @@ import math
 
 import pytest
 
+from moteur import VERSION
 from moteur.commun.note_de_calcul import EnTete
 from moteur.commun.projet import (
     FORMAT,
@@ -48,8 +49,9 @@ def test_aller_retour_fichier_projet_fichier():
 def test_fichier_sans_resultats():
     """Option A : seulement les données d'entrée, jamais de résultat (ni ratio, ni trace)."""
     contenu = json.loads(vers_json(_projet()))
-    assert set(contenu) == {"type", "format", "en_tete", "elements"}
+    assert set(contenu) == {"type", "format", "version", "en_tete", "elements"}
     assert contenu["format"] == FORMAT == 1
+    assert contenu["version"] == VERSION == "0.1.0"  # version de Datum qui a écrit le fichier (PR #106)
     assert all(set(e) == {"nom", "edition", "entrees"} for e in contenu["elements"])
     assert contenu["elements"][0]["edition"] == "csa_o86_19"
     assert "°" in vers_json(_projet())  # accents gardés tels quels (UTF-8), fichier lisible
@@ -77,6 +79,7 @@ def _contenu(**changements):
     (_contenu(format=True), "n'indique pas son format"),
     (_contenu(format=FORMAT + 1), "version plus récente"),
     (_contenu(format=0), "Format de fichier inconnu"),
+    (_contenu(version=1), "Version de Datum invalide"),
     (_contenu(en_tete={"inconnu": "x"}), "En-tête du projet invalide"),
     (_contenu(en_tete={"client": 3}), "chaque champ doit être un texte"),
     (_contenu(elements={}), "Liste des éléments invalide"),
@@ -152,3 +155,10 @@ def test_resume_dans_un_element_ratio_exactement_1():
 
 def test_resume_vide():
     assert resume_du_projet([]) == []
+
+
+def test_fichier_sans_version_accepte():
+    """La version est une information seulement : un fichier sans elle s'ouvre quand même."""
+    contenu = json.loads(vers_json(_projet()))
+    del contenu["version"]
+    assert depuis_json(json.dumps(contenu)) == _projet()
