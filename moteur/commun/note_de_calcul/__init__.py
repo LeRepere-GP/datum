@@ -17,6 +17,7 @@ from pathlib import Path
 
 import typst
 
+from moteur import VERSION
 from moteur.commun.figures import figure, icone_de_l_article
 from moteur.commun.resultat import Resultat, Verification
 from moteur.commun.resume import LigneDuResume, resume
@@ -206,6 +207,7 @@ def donnees_de_la_note(
     indices = [i for i, (_, r, *_) in enumerate(resultats) if r.verification is not None]
     note = {
         "entete": {**vars(entete), "norme": ", ".join(normes)},
+        "version": VERSION,  # version de Datum, au pied de chaque page
         "apparence": {
             "logo": list(apparence.logo) if apparence.logo else None,  # octets, pour Typst
             "principale": apparence.principale,

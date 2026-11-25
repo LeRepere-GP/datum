@@ -9,6 +9,7 @@ import streamlit as st
 
 import acces
 import retours
+from moteur import VERSION
 from moteur.commun import registre
 from moteur.commun.note_de_calcul import Apparence
 
@@ -160,6 +161,7 @@ def configurer_page(titre_page: str) -> None:
     if paires:
         st.html(_SCRIPT_COULEURS % json.dumps(paires), unsafe_allow_javascript=True)
     retours.formulaire(titre_page)
+    st.sidebar.caption(f"{TITLE} {VERSION}")  # version de l'application (moteur/__init__.py)
 
 
 def choisir_edition() -> str:

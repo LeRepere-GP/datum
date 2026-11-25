@@ -31,7 +31,7 @@ def _entrer(at, debut, texte):
 
 
 def _qr(at):
-    return [m.value.replace("\u00a0", " ") for m in at.markdown if m.value.startswith("$Qr")]
+    return [m.value.replace("\u00a0", " ") for m in at.markdown if m.value.startswith("$Q_r")]
 
 
 def _conversions(at):
@@ -48,8 +48,8 @@ def test_par_defaut():
     # Unité par défaut entre parenthèses
     assert "Longueur d'appui, $L_b$ (po)" in libelles
     assert "Longueur de l'élément, $L$ (pi)" in libelles
-    assert "$Rf: (kN)$" in libelles
-    assert "$Mf: (kN \\cdot m)$" in libelles
+    assert "$R_f: (kN)$" in libelles
+    assert "$M_f: (kN \\cdot m)$" in libelles
     # Dimensions nettes dans les deux unités : 38 mm / 25.4 mm/po = 1.496 po -> 1 1/2 po ;
     # 140 mm / 25.4 mm/po = 5.512 po -> 5 1/2 po (au 1/16 po près)
     assert [m.value for m in at.metric] == ["38 mm (1 1/2 po)", "140 mm (5 1/2 po)"]
@@ -73,15 +73,15 @@ def test_unites_melangees():
 def test_toute_unite_dans_tout_champ():
     """
     L_b = 3 1/2 po = 88.9 mm ; R_f = 1124 lb = 1124 x 4.4482 N = 5000 N = 5.00 kN.
-    Q_r = 0.8 x 5.3 MPa x (38 mm x 88.9 mm) = 0.8 x 5.3 MPa x 3378.2 mm² = 14 323.6 N = 14.32 kN ;
-    14 323.6 N / 4.4482 N/lb = 3220 lb.
+    Q_r = 0.8 x 5.3 MPa x (38 mm x 88.9 mm) = 0.8 x 5.3 MPa x 3378.2 mm² = 14 323.6 N -> 14.3 kN ;
+    14 323.6 N / 4.4482 N/lb = 3220 lb (3 chiffres significatifs, comme le Résumé et la note PDF : issue #98).
     """
     at = _connecte("admin", "mot-admin")
     _entrer(at, "Longueur d'appui", "3 1/2 po")
-    _entrer(at, "$Rf", "1124 lb")
+    _entrer(at, "$R_f", "1124 lb")
     assert "= 88.9 mm (3 1/2 po)" in _conversions(at)
     assert "= 5.00 kN (1 124 lb)" in _conversions(at)
-    assert _qr(at) == ["$Qr = \\text{14.32 kN (3 220 lb)}$"]
+    assert _qr(at) == ["$Q_r = \\text{14.3 kN (3 220 lb)}$"]
     # Ratio : 5.00 kN / 14.32 kN = 34.91 %
     assert any("34.91%" in s.value for s in at.success)
 
@@ -91,49 +91,54 @@ def test_nombre_sans_unite_dans_l_unite_par_defaut():
     at = _connecte("admin", "mot-admin")
     assert _champ(at, "Longueur d'appui").label == "Longueur d'appui, $L_b$ (po)"
     assert _champ(at, "Longueur de l'élément").label == "Longueur de l'élément, $L$ (pi)"
-    assert _champ(at, "$Rf").label == "$Rf: (kN)$"  # bascules indépendantes
+    assert _champ(at, "$R_f").label == "$R_f: (kN)$"  # bascules indépendantes
     _entrer(at, "Longueur d'appui", "3 1/2")
-    _entrer(at, "$Rf", "5")
-    assert _qr(at) == ["$Qr = \\text{14.32 kN (3 220 lb)}$"]
+    _entrer(at, "$R_f", "5")
+    assert _qr(at) == ["$Q_r = \\text{14.3 kN (3 220 lb)}$"]
     # Charges en impérial par défaut : « 1124 » = 1124 lb = 5.00 kN
     _basculer(at, CHARGES, "Impérial")
-    assert _champ(at, "$Rf").label == "$Rf: (lb)$"
-    assert _champ(at, "$Mf").label == "$Mf: (lb \\cdot po)$"
-    _entrer(at, "$Rf", "1124")
+    assert _champ(at, "$R_f").label == "$R_f: (lb)$"
+    assert _champ(at, "$M_f").label == "$M_f: (lb \\cdot po)$"
+    _entrer(at, "$R_f", "1124")
     assert "= 5.00 kN (1 124 lb)" in _conversions(at)
 
 
 def test_valeur_entree_garde_son_sens():
     """
     « 89 » entré en mm (unité par défaut choisie) reste 89 mm quand l'unité par défaut passe à l'impérial.
-    Q_r = 0.8 x 5.3 MPa x (38 mm x 89 mm) = 14 340 N = 14.34 kN = 3224 lb.
+    Q_r = 0.8 x 5.3 MPa x (38 mm x 89 mm) = 14 340 N -> 14.3 kN (3 220 lb) ; 5 kN / 14.340 kN = 34.87 %.
+    Avec 88.9 mm : Q_r = 14 323.6 N -> 14.3 kN aussi ; 5 kN / 14.3236 kN = 34.91 % (le ratio les distingue).
     """
     at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Métrique")
     _entrer(at, "Longueur d'appui", "89")
-    _entrer(at, "$Rf", "5")
-    assert _qr(at) == ["$Qr = \\text{14.34 kN (3 224 lb)}$"]
+    _entrer(at, "$R_f", "5")
+    assert _qr(at) == ["$Q_r = \\text{14.3 kN (3 220 lb)}$"]
     _basculer(at, DIMENSIONS, "Impérial")
     _basculer(at, CHARGES, "Impérial")
     assert _champ(at, "Longueur d'appui").value == "89"
-    assert _qr(at) == ["$Qr = \\text{14.34 kN (3 224 lb)}$"]
+    assert _qr(at) == ["$Q_r = \\text{14.3 kN (3 220 lb)}$"]
+    assert any("34.87%" in s.value for s in at.success)
     assert "= 89 mm (3 1/2 po)" in _conversions(at)
     # Le texte modifié est relu avec la nouvelle unité par défaut : « 3 1/2 » = 88.9 mm
     _entrer(at, "Longueur d'appui", "3 1/2")
-    assert _qr(at) == ["$Qr = \\text{14.32 kN (3 220 lb)}$"]
+    assert _qr(at) == ["$Q_r = \\text{14.3 kN (3 220 lb)}$"]
+    assert any("34.91%" in s.value for s in at.success)
 
 
 def test_methode_de_travail():
     """
     Exemple de l'utilisateur : longueur d'appui en po, entaille en mm, largeur d'appui en po.
     L_b = 3 1/2 po = 88.9 mm ; d_n = 20 mm ; b = 1 1/4 po = 31.75 mm.
-    Q_r = 0.8 x 5.3 MPa x (31.75 mm x 88.9 mm) = 0.8 x 5.3 MPa x 2822.6 mm² = 11 967.7 N = 11.97 kN
+    Q_r = 0.8 x 5.3 MPa x (31.75 mm x 88.9 mm) = 0.8 x 5.3 MPa x 2822.6 mm² = 11 967.7 N -> 12.0 kN ;
+    5 kN / 11.9677 kN = 41.78 %
     """
     at = _connecte("admin", "mot-admin")
-    _entrer(at, "$Rf", "5 kN")
+    _entrer(at, "$R_f", "5 kN")
     _entrer(at, "Longueur d'appui", "3 1/2 po")
     _entrer(at, "Profondeur de l'entaille", "20 mm")
     _entrer(at, "Largeur d'appui", "1 1/4\"")
-    assert _qr(at)[0].startswith("$Qr = \\text{11.97 kN")
+    assert _qr(at)[0].startswith("$Q_r = \\text{12.0 kN")
+    assert any("41.78%" in s.value for s in at.success)
     assert "= 31.8 mm (1 1/4 po)" in _conversions(at)  # 31.75 mm, au dixième de mm
     assert "= 20 mm (13/16 po)" in _conversions(at)  # 20 mm / 25.4 = 0.787 po -> 13/16 po
 
@@ -150,7 +155,7 @@ def test_longueur_en_pieds_et_pouces():
 
 def test_moments_en_toutes_unites():
     """M_f = 40 000 lb·po = 40 000 x 4.4482 N x 25.4 mm = 4 519 393 N·mm = 4.52 kN·m."""
-    at = _entrer(_connecte("admin", "mot-admin"), "$Mf", "40 000 lb·po")
+    at = _entrer(_connecte("admin", "mot-admin"), "$M_f", "40 000 lb·po")
     assert "= 4.52 kN·m (40 000 lb·po)" in _conversions(at)
 
 
@@ -158,7 +163,7 @@ def test_valeur_illisible():
     at = _connecte("admin", "mot-admin")
     _entrer(at, "Longueur d'appui", "trois")
     assert any("« trois » : texte illisible" in e.value for e in at.error)
-    _entrer(at, "$Rf", "5 mm")  # unité d'une autre grandeur
+    _entrer(at, "$R_f", "5 mm")  # unité d'une autre grandeur
     assert any("« 5 mm » : texte illisible, ou unité qui ne convient pas à une force" in e.value
                for e in at.error)
 
@@ -170,15 +175,15 @@ def test_entaille_a_la_limite():
     """
     at = _connecte("admin", "mot-admin")
     _entrer(at, "Longueur de l'entaille", "100 mm")
-    _entrer(at, "$Vf", "1")
+    _entrer(at, "$V_f", "1")
     _entrer(at, "Profondeur de l'entaille", "35 mm")
-    assert [m.value for m in at.markdown if m.value.startswith("$Fr")]
+    assert [m.value for m in at.markdown if m.value.startswith("$F_r")]
     _entrer(at, "Profondeur de l'entaille", "1.38 po")
     assert any("ne doit pas dépasser 35 mm (1.378 po)" in e.value for e in at.error)
-    assert not [m.value for m in at.markdown if m.value.startswith("$Fr")]
+    assert not [m.value for m in at.markdown if m.value.startswith("$F_r")]
     _entrer(at, "Profondeur de l'entaille", "1 3/8 po")
     assert not at.error
-    assert [m.value for m in at.markdown if m.value.startswith("$Fr")]
+    assert [m.value for m in at.markdown if m.value.startswith("$F_r")]
 
 
 def test_longueur_d_appui_au_moins_1_mm():
@@ -188,7 +193,7 @@ def test_longueur_d_appui_au_moins_1_mm():
 
 def test_resume_dans_les_deux_unites():
     """1 kN = 1000 N / 4.4482 N/lb = 224.8 lb -> « 225 lb » (3 chiffres significatifs)."""
-    at = _entrer(_connecte("admin", "mot-admin"), "$Vf", "1 kN")
+    at = _entrer(_connecte("admin", "mot-admin"), "$V_f", "1 kN")
     (tableau,) = [m.value for m in at.markdown if m.value.startswith("| Vérification")]
     assert "$V_f$ = 1.00 kN (225 lb)" in tableau.splitlines()[2]
 
@@ -211,7 +216,7 @@ def test_somme_avec_plus():
     at = _basculer(_connecte("admin", "mot-admin"), DIMENSIONS, "Métrique")  # même en mm par défaut
     _entrer(at, "Longueur d'appui", "2 + 3 po")
     assert "= 127 mm (5 po)" in _conversions(at)
-    _entrer(at, "$Rf", "1500 lb + 2 kN")
+    _entrer(at, "$R_f", "1500 lb + 2 kN")
     assert "= 8.67 kN (1 950 lb)" in _conversions(at)
 
 
@@ -219,10 +224,10 @@ def test_resultats_lisibles():
     """Résultats dans \\text{} (espaces et unités droites) et milliers séparés (« 5 060 lb »)."""
     at = _connecte("admin", "mot-admin")
     _entrer(at, "Longueur d'appui", "3 1/2")
-    _entrer(at, "$Rf", "5")
-    (qr,) = [m.value for m in at.markdown if m.value.startswith("$Qr")]
+    _entrer(at, "$R_f", "5")
+    (qr,) = [m.value for m in at.markdown if m.value.startswith("$Q_r")]
     # Espace insécable entre les milliers : 14 323.6 N / 4.4482 N/lb = 3220 lb -> « 3 220 lb »
-    assert qr == "$Qr = \\text{14.32 kN (3\u00a0220 lb)}$"
+    assert qr == "$Q_r = \\text{14.3 kN (3\u00a0220 lb)}$"
 
 
 def test_calculatrice():
@@ -241,7 +246,7 @@ def test_calculatrice():
     assert "= 3 302.8 mm (10 pi 10 1/16 po)" in _conversions(at)
     _entrer(at, "Longueur de l'élément", "8-6")
     assert "= 609.6 mm (2 pi 0 po)" in _conversions(at)
-    _entrer(at, "$Rf", "3*4 kN")
+    _entrer(at, "$R_f", "3*4 kN")
     assert "= 12.00 kN (2 698 lb)" in _conversions(at)  # 12 000 N / 4.4482 N/lb = 2697.7 lb
 
 
@@ -250,7 +255,7 @@ def test_virgule_decimale():
     at = _connecte("admin", "mot-admin")
     _entrer(at, "Longueur d'appui", "3,5 po")
     assert "= 88.9 mm (3 1/2 po)" in _conversions(at)
-    _entrer(at, "$Rf", "4,5 kN")
+    _entrer(at, "$R_f", "4,5 kN")
     assert "= 4.50 kN (1 012 lb)" in _conversions(at)
 
 
@@ -274,18 +279,18 @@ def test_negatifs_et_zero_dans_la_page():
     dimension doit être d'au moins 1 mm ; une charge nulle est permise ; aucune exception.
     """
     cas = [
-        ("$Rf", "-5", "La valeur ne peut pas être négative."),
-        ("$Mf", "-2 kN·m", "La valeur ne peut pas être négative."),
+        ("$R_f", "-5", "La valeur ne peut pas être négative."),
+        ("$M_f", "-2 kN·m", "La valeur ne peut pas être négative."),
         ("Profondeur de l'entaille", "-1 po", "La valeur ne peut pas être négative."),
         ("Longueur d'appui", "5 - 10 po", "La valeur doit être d'au moins 1 mm (1/16 po)."),
         ("Longueur d'appui", "0", "La valeur doit être d'au moins 1 mm (1/16 po)."),
         ("Longueur de l'élément", "-8 pi", "La valeur doit être d'au moins 1 mm (0 pi 1/16 po)."),
-        ("$Vf", "5 kN / 0", "« 5 kN / 0 » : division par zéro. Exemples dans l'aide (?)."),
+        ("$V_f", "5 kN / 0", "« 5 kN / 0 » : division par zéro. Exemples dans l'aide (?)."),
         ("Longueur de l'élément", "10^400", "« 10^400 » : nombre trop grand. Exemples dans l'aide (?)."),
     ]
     for debut, texte, message in cas:
         at = _entrer(_connecte("admin", "mot-admin"), debut, texte)
         assert [e.value for e in at.error] == [message], (debut, texte)
     # Charge nulle : permise, sans « -0 »
-    at = _entrer(_connecte("admin", "mot-admin"), "$Rf", "-0")
+    at = _entrer(_connecte("admin", "mot-admin"), "$R_f", "-0")
     assert not at.error and "= 0.00 kN (0 lb)" in _conversions(at)
