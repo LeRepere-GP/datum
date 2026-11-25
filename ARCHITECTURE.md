@@ -44,6 +44,8 @@ moteur/                     ← moteur de calcul Python (aucune dépendance à l
     resultat.py             ← trace d'une vérification (section 8)
     registre.py             ← catalogue des calculs offerts par édition (section 9)
     resume.py               ← résumé des vérifications faites (section 8, issue #85)
+    unites.py               ← conversions d'affichage et saisie des champs (section 8)
+    calculatrice.py         ← calculatrice d'unités, outil indépendant (section 8, issue #100)
   normes/
     csa_o86_19/             ← bois, édition 2019 (section 5)
     csa_o86_24/             ← bois, édition suivante (plus tard)
@@ -377,6 +379,13 @@ la charge P_f, la longueur L et la section b × d.
   Analyse par descente récursive, sans `eval()`. `ecrire_pouces()` et `ecrire_pieds_pouces()` écrivent les
   longueurs au 1/16 po près, sans tiret (« 8 pi 6 1/2 po »). Ces fonctions ne dépendent pas de
   l'interface : la future interface web et une future calculatrice d'unités les utiliseront aussi.
+- **Calculatrice d'unités** (issue #100) : `moteur/commun/calculatrice.calculer(texte)`, outil indépendant des
+  calculs de la norme. Mêmes règles de saisie que les champs, avec une analyse dimensionnelle complète
+  (exposants de longueur et de force ; unités de base mm et N) : aires, volumes, moments d'inertie, forces,
+  moments, charges réparties, pressions et contraintes, poids volumiques. Les produits sont permis
+  (« 3 pi * 4 pi » = 12 pi²), « sur » divise par tout le produit qui suit (« 400 lb sur 3 po x 3 1/4 po »),
+  l'unité de sortie s'écrit à la fin (« en kPa », « -> m² ») et sa dimension est vérifiée. Les champs des
+  calculs gardent `lire_grandeur()` et ses vérifications.
 - **Interface Streamlit** : `interface_unites.py` (à la racine, couche d'interface). Chaque champ est un
   texte libre (`champ()`), qui garde le texte entré et affiche dessous la valeur retenue dans les deux
   unités. Deux bascules dans la barre latérale (« Unité par défaut » : dimensions, en impérial au départ ;
