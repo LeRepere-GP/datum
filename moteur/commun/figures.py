@@ -495,6 +495,39 @@ def compression_parallele(
     )
 
 
+def traction(
+    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT,
+    avec_section: bool = True,
+) -> str:
+    """
+    Figure de 6.5.8 (résistance à la traction parallèle au fil) : élément tiré à ses deux bouts par la
+    charge de traction axiale pondérée T_f (T_f ≤ T_r), comme l'icône « traction ». À droite, la
+    section : chaque pli avec son X, b (largeur de l'élément, plis compris) et d.
+
+    Args:
+        resultat (Resultat): Trace de verifier_traction().
+        principale, accent (str, optional): Couleurs de l'élément et des charges. Default to celles
+            de la marque.
+        avec_section (bool, optional): Dessiner la section à droite. Default to True (note PDF) ;
+            l'interface la montre une seule fois, dans « Matériaux » (retour #12).
+
+    Returns:
+        str: SVG de la figure.
+    """
+    plis = int(_sans_symbole(resultat, "Nombre de plis") or 1)
+    elevation = (
+        f"<rect x='46' y='32' width='128' height='36' stroke='{principale}' stroke-width='2.5'/>"
+        + f"<path d='M42 50 H8 M16 42 L8 50 L16 58 M178 50 H212 M204 42 L212 50 L204 58' "
+          f"stroke='{accent}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>"
+        + _etiquette(24, 30, "T_f")
+        + _etiquette(196, 30, "T_f")
+    )
+    return (
+        _svg("0 0 360 124", "0 0 220 124", avec_section)
+        + f"{elevation}{_section_seule(240, 26, plis, principale, accent) if avec_section else ''}</svg>"
+    )
+
+
 # Figure de chaque vérification, selon l'article de la trace
 _FIGURES = {
     "6.5.3": flexion,
@@ -503,12 +536,13 @@ _FIGURES = {
     "6.5.5": compression_parallele,
     "6.5.6.2": compression_perpendiculaire,
     "6.5.6.3": compression_pres_d_un_appui,
+    "6.5.8": traction,
 }
 
 
 # Figures qui dessinent la section de l'élément (b, d) à droite de l'élévation. Celles de 6.5.6 dessinent
 # plutôt la section sur son appui, avec la largeur d'appui b : elles la gardent toujours (retour #12).
-_FIGURES_AVEC_LA_SECTION_DE_L_ELEMENT = {"6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5"}
+_FIGURES_AVEC_LA_SECTION_DE_L_ELEMENT = {"6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5", "6.5.8"}
 
 
 def figure(
