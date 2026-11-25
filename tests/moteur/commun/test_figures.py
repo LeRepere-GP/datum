@@ -46,7 +46,7 @@ def test_couleurs_du_compte():
 
 
 def test_verification_sans_figure():
-    assert figure(Resultat("CSA O86:19", "6.5.8", "Traction")) is None  # pas encore de figure
+    assert figure(Resultat("CSA O86:19", "6.5.9", "Flexion et charge axiale")) is None  # pas encore de figure
 
 
 def test_bois_de_bout_avec_un_x():
@@ -225,6 +225,7 @@ def test_figure_avant_le_calcul_de_chaque_verification():
         "6.5.5": ("Pf", "L(b)", "Ke(b)", "L(d)", "Ke(d)", "b", "d"),
         "6.5.6.2": ("Lb", "Rf", "b", "d"),
         "6.5.6.3": ("Lb1", "Lb2", "Pf", "b", "d"),
+        "6.5.8": ("Tf", "b", "d"),
     }
     for article, attendus in symboles.items():
         svg = figure_avant_le_calcul(article)
@@ -259,7 +260,7 @@ def test_figure_avant_le_calcul_couleurs_du_compte():
 
 
 def test_figure_avant_le_calcul_article_sans_figure():
-    assert figure_avant_le_calcul("6.5.8") is None
+    assert figure_avant_le_calcul("6.5.9") is None
     assert figure_avant_le_calcul("") is None
 
 
@@ -421,3 +422,28 @@ def test_largeur_de_la_vue():
     assert largeur_de_la_vue("<svg viewBox='-24 0 384 146'></svg>") == 384
     with pytest.raises(ValueError):
         largeur_de_la_vue("<svg></svg>")
+
+
+# --- 6.5.8 Traction parallèle au fil
+
+def test_traction_symboles_sans_valeurs():
+    from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances.art_6_5_8_resistance_a_la_traction_parallele_au_fil import (  # noqa: E501
+        verifier_traction,
+    )
+
+    r = verifier_traction(b=38, d=140, f_t=5.5, K_Zt=1.3, T_f=20)
+    svg = figure(r)
+    texte = _texte(svg)
+    assert texte.count("Tf") == 2  # T_f aux deux bouts
+    assert "b" in texte and "d" in texte
+    assert not re.search(r"\d", texte)  # symboles seulement, pas de valeurs
+    # Interface : sans la section (montrée une seule fois dans « Matériaux », retour #12)
+    assert "viewBox='0 0 220 124'" in figure(r, avec_section=False)
+
+
+def test_traction_element_compose():
+    # 3 plis : 3 pièces vues en bout, chacune avec un X (2 de plus qu'avec 1 pli)
+    motif = "stroke-width='2.5'/><path"
+    un_pli = figure_avant_le_calcul("6.5.8").count(motif)
+    assert figure_avant_le_calcul("6.5.8", plis=3).count(motif) == un_pli + 2
+
