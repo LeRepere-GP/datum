@@ -154,6 +154,11 @@ Dépôt : **`LeRepere-GP/datum`** (organisation Le Repère).
 6. **Issues** : créer des issues pour les bogues, les écarts avec la norme et les améliorations repérés,
    avec une **solution proposée**. Ne pas les régler sans accord quand elles touchent une interprétation
    de la norme.
+7. **Version de Datum** (`VERSION` dans `moteur/__init__.py`, format MAJEUR.MINEUR.CORRECTIF) : Claude
+   l'ajuste lui-même dans ses PR au fil des avancements (ex. 0.1.1 pour un correctif, 0.2.0 pour une
+   nouvelle vérification) ; l'utilisateur commente au besoin. Les versions **majeures** (1.0.0, 2.0.0…)
+   sont décidées par l'utilisateur seulement : Claude peut proposer le moment où elles seraient
+   pertinentes (PR #109).
 
 ## Être proactif
 

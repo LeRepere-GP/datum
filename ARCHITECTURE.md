@@ -420,7 +420,7 @@ la charge P_f, la longueur L et la section b × d.
   coefficients déduits** (K_D, K_H, K_Z…) : ils sont recherchés de nouveau dans les tableaux à
   l'ouverture, pour qu'un correctif profite aux projets rouverts. Une valeur entrée par l'ingénieur
   lui-même (ex. K_e avec « Autre ») est gardée telle quelle. Le fichier note aussi la version de Datum
-  (`moteur.VERSION`, PR #106) une fois cette PR mergée.
+  (`moteur.VERSION`, PR #106), pour information seulement : les calculs sont toujours refaits.
   **Confidentialité** (décision de l'utilisateur, PR #105) : le fichier est **téléchargé** sur l'ordinateur
   de l'utilisateur, à l'endroit qu'il choisit, et **rouvert** à partir de là. L'application **ne garde
   aucune copie** des projets ni de leurs données, qui peuvent être confidentielles : le fichier téléversé
