@@ -79,3 +79,40 @@ def test_mode_brut():
     assert dimension_nette(3.5, brut=True) == 89
     # Dimension absente : 11 po x 25.4 mm/po = 279.4 mm -> 279 mm
     assert dimension_nette(11, brut=True) == 279
+
+
+# Cas déplacés de l'ancien sawn_lumber._tests() (fonction sizes), retirée avec la migration de la
+# section Matériau de la page vers le nouveau moteur (feuille de route, étape 7)
+@pytest.mark.parametrize(
+    ("nominale", "vert", "brut", "gros_bois", "attendu"),
+    [
+        (5, True, False, False, 117),  # grande face 5 po verte, bois de dimension (ex. 2x5) : 117 mm
+        (5, True, False, True, 114),  # gros bois vert (ex. 5x5) : 114 mm
+        (6, True, False, True, 140),  # gros bois vert (ex. 6x6) : 140 mm (et non 143 mm)
+        (8, True, False, True, 191),  # gros bois vert (ex. 8x8) : 191 mm (et non 190 mm)
+        (16, True, False, True, 394),  # gros bois vert : 394 mm (et non 393 mm)
+        (16, False, False, True, 387),  # gros bois sec : 387 mm, dimension sèche du bois de dimension
+        (8, False, False, False, 184),  # 8 po sec : 184 mm
+        (2, False, True, False, 51),  # brut sec : 51 mm (convention de l'utilisateur)
+        (2, True, True, False, 53),  # brut vert : 53 mm (convention de l'utilisateur)
+        (7, False, True, False, 178),  # 7 po : 7 po x 25.4 mm/po = 177.8 mm -> 178 mm (brut seulement)
+        (9, True, True, False, 235),  # 9 po brut vert : 235 mm (convention de l'utilisateur)
+        (5.5, False, True, False, 140),  # brut hors tableau : 5.5 po x 25.4 mm/po = 139.7 mm -> 140 mm
+    ],
+)
+def test_dimension_nette_autres_cas(nominale, vert, brut, gros_bois, attendu):
+    assert dimension_nette(nominale, vert=vert, brut=brut, gros_bois=gros_bois) == attendu
+
+
+@pytest.mark.parametrize(
+    ("nominale", "vert", "gros_bois", "message"),
+    [
+        (18, False, False, "n'est pas offerte"),  # 18 po : absent du tableau A.3
+        (5.5, False, False, "n'est pas offerte"),  # 5.5 po : pas une dimension nominale
+        (7, False, True, "seulement pour le gros bois vert"),  # gros bois sec : rien au tableau A.3
+        (9, False, True, "seulement pour le gros bois vert"),
+    ],
+)
+def test_dimension_nette_refusee(nominale, vert, gros_bois, message):
+    with pytest.raises(ValueError, match=message):
+        dimension_nette(nominale, vert=vert, gros_bois=gros_bois)

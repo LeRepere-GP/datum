@@ -59,12 +59,8 @@ import math
 from sqlalchemy import orm, create_engine, Column, TEXT, REAL, INTEGER
 from moteur.normes.csa_o86_19.base_de_donnees import CHEMIN as _CHEMIN_BD
 from moteur.normes.csa_o86_19.ch_6_bois_de_sciage import (
-    art_6_2_materiaux as _art_6_2,
     art_6_3_resistances_prevues_et_modules_d_elasticite as _art_6_3,
     art_6_4_coefficients_de_correction as _art_6_4,
-)
-from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.tableaux import (  # noqa: E501
-    tableau_A_3_dimensions_minimales_apres_rabotage_du_bois_d_oeuvre as _tableau_A_3,
 )
 import general_design
 
@@ -94,57 +90,7 @@ class SawnLumberStrengths(orm.declarative_base()):
     session = Session()
 
 
-@dataclass
-class LumberSizes(orm.declarative_base()):
-    """
-    Se connecte à la table lumber_sizes de csa_o86_19.db.
-
-    """
-
-    __tablename__ = "lumber_sizes"
-    nominal: int = Column("nominal", INTEGER, primary_key=True)  # type: ignore
-    dry: int = Column("dry", INTEGER)  # type: ignore
-    green: int = Column("green", INTEGER)  # type: ignore
-    green_timber: int = Column("green_timber", INTEGER)  # type: ignore
-    dry_brut: int = Column("dry_brut", INTEGER)  # type: ignore
-    green_brut: int = Column("green_brut", INTEGER)  # type: ignore
-    engine = create_engine(f"sqlite:///{_CHEMIN_BD}")
-    Session = orm.sessionmaker(engine)
-    session = Session()
-
-
 # CODE
-def lumber_category(
-    width: int,
-    depth: int,
-    is_msr: bool = False,
-    is_mel: bool = False,
-    light_framing: bool = False,
-) -> str:
-    """
-    6.2 Matériaux. Déplacé dans le nouveau moteur (art_6_2_materiaux.categorie_de_bois).
-
-    light_framing : classes du tableau 6.5 (Const., Std.) au lieu du tableau 6.4 pour une section de
-    38 à 89 mm x 38 à 89 mm (issue #34) ; tableau 6.4 par défaut.
-
-    Garde l'ancien comportement pour l'interface : au-delà de 412 mm, retourne le message
-    « Valider la disponibilité du bois chez les fournisseurs. » au lieu de lever une erreur.
-
-    Raises:
-        ValueError: Si les dimensions sont plus petites que 38 mm.
-    """
-    if min(width, depth) >= 38 and max(width, depth) > _art_6_2.DIMENSION_MAXIMALE:
-        return "Valider la disponibilité du bois chez les fournisseurs."
-    return _art_6_2.categorie_de_bois(
-        width, depth, msr=is_msr, mel=is_mel, charpente_legere=light_framing
-    )
-
-
-def admits_light_framing(width: float, depth: float) -> bool:
-    """Tableau 6.3 : section de 38 à 89 mm x 38 à 89 mm (art_6_2_materiaux.admet_charpente_legere)."""
-    return _art_6_2.admet_charpente_legere(width, depth)
-
-
 def specified_strengths(
     category: str, specie: str, grade: str, side: bool = False
 ) -> tuple[float, float, float, float, float, float, float]:
@@ -214,26 +160,6 @@ _PROPRIETES_6_4 = {
     "trac": _art_6_4.TRACTION_PARALLELE,
     "moe": _art_6_4.MODULE_D_ELASTICITE,
 }
-
-
-def nominal_sizes() -> list[int]:
-    """Tableau A.3. Déplacé dans le nouveau moteur (tableau_A_3.dimensions_nominales)."""
-    return _tableau_A_3.dimensions_nominales()
-
-
-def is_timber(width: float, depth: float) -> bool:
-    """Tableau A.3 Gros bois. Déplacé dans le nouveau moteur (tableau_A_3.est_gros_bois)."""
-    return _tableau_A_3.est_gros_bois(width, depth)
-
-
-def sizes(
-    dimension: float,
-    green: bool = False,
-    brut: bool = False,
-    timber: bool = False,
-) -> int:
-    """Tableau A.3 Dimension nette, mm. Déplacé dans le nouveau moteur (tableau_A_3.dimension_nette)."""
-    return _tableau_A_3.dimension_nette(dimension, vert=green, brut=brut, gros_bois=timber)
 
 
 # 6.5.5 ET 6.5.6 : DÉPLACÉS DANS LE NOUVEAU MOTEUR (moteur/normes/csa_o86_19/)
@@ -810,18 +736,6 @@ def _tests():
     Tests pour les calculs de bois de sciage.
 
     """
-    # Test lumber_category
-    test_lumber_category = lumber_category(
-        width=38,
-        depth=140,
-        is_msr=False,
-        is_mel=False,
-    )
-    expected_result = "Lumber"
-    assert (
-        test_lumber_category == expected_result
-    ), f"lumber_category -> FAILED\n {expected_result = }\n {test_lumber_category = }"
-
     # Test specified_strengths
     test_specified_strengths = specified_strengths(
         category="Beam",
@@ -903,25 +817,6 @@ def _tests():
     kz_test = modification_factors(38, 235, "cis_v", "normale", "MSR")[4]
     assert kz_test == 1.1, f"modification_factors KZv MSR 2x10 -> FAILED {kz_test = }"
 
-    # Test lumber_category : frontière poteaux / poutres (tableaux 6.6 et 6.7, note 1)
-    for width, depth, expected_result in (
-        (140, 191, "Post"),  # 6x8 vert gros bois : écart = 51 mm -> au plus 51 -> poteau
-        (140, 192, "Beam"),  # écart = 52 mm -> plus de 51 -> poutre
-        (140, 184, "Post"),  # 6x8 sec : écart = 44 mm
-        (140, 241, "Beam"),  # 6x10
-        (114, 114, "Post"),
-        (89, 140, "Lumber"),
-        (38, 64, "Lumber"),  # tableau 6.4 par défaut (issue #34)
-    ):
-        test_category = lumber_category(width=width, depth=depth)
-        assert (
-            test_category == expected_result
-        ), f"lumber_category({width}, {depth}) -> FAILED {expected_result = } {test_category = }"
-    # Tableau 6.5 au choix pour 38 à 89 mm x 38 à 89 mm (issue #34)
-    assert lumber_category(38, 64, light_framing=True) == "Light"
-    assert lumber_category(89, 89, light_framing=True) == "Light"
-    assert lumber_category(38, 140, light_framing=True) == "Lumber"  # 140 mm > 89 mm
-
     # Test modification_factors : KH selon le tableau 6.12 (6.4.4.1 à 6.4.4.3, issue #7)
     # (catégorie, 3 éléments <= 610 mm, revêtement, composé, propriété, KH attendu)
     kh_cases = [
@@ -951,60 +846,6 @@ def _tests():
             f"modification_factors KH {category, spacing, sheathing, built_up, prop} -> FAILED "
             f"{kh_test = } {expected_kh = }"
         )
-
-    # Test sizes (tableau A.3)
-    # (nominal, vert, brut, gros bois, attendu)
-    sizes_cases = [
-        (2, False, False, False, 38),
-        (2, True, False, False, 40),
-        (6, False, False, False, 140),
-        (6, True, False, False, 143),  # bois de dimension vert (ex. 2x6)
-        (5, True, False, False, 117),  # grande face 114 vert, bois de dimension (ex. 2x5)
-        (5, True, False, True, 114),  # gros bois vert (ex. 5x5) : 114
-        (6, True, False, True, 140),  # gros bois vert (ex. 6x6) : 140 (et non 143)
-        (8, True, False, True, 191),  # gros bois vert (ex. 8x8) : 191 (et non 190)
-        (10, True, False, True, 241),
-        (12, True, False, True, 292),
-        (14, True, False, True, 343),
-        (16, True, False, True, 394),  # gros bois vert : 394 (et non 393)
-        (16, False, False, True, 387),  # gros bois sec : dimension sèche du bois de dimension
-        (8, False, False, False, 184),
-        (2, False, True, False, 51),  # brut : convention de l'utilisateur
-        (2, True, True, False, 53),
-        (7, False, True, False, 178),  # 7 po : mode brut seulement
-        (9, True, True, False, 235),  # 9 po : mode brut seulement
-        (5.5, False, True, False, 140),  # brut hors table : 5,5 x 25,4 = 139,7 -> 140
-        (7, True, False, True, 165),  # gros bois vert 7 po (tableau A.3)
-        (9, True, False, True, 216),  # gros bois vert 9 po (tableau A.3)
-    ]
-    for nominal, green, brut, timber, expected_result in sizes_cases:
-        test_sizes = sizes(dimension=nominal, green=green, brut=brut, timber=timber)
-        assert (
-            test_sizes == expected_result
-        ), f"sizes{nominal, green, brut, timber} -> FAILED {expected_result = } {test_sizes = }"
-    # Refusés : hors tableau, et 7 ou 9 po hors gros bois vert (sec, ou bois de dimension)
-    for kwargs in (
-        {"dimension": 1},
-        {"dimension": 11},
-        {"dimension": 13},
-        {"dimension": 15},
-        {"dimension": 18},
-        {"dimension": 5.5},
-        {"dimension": 7},
-        {"dimension": 9},
-        {"dimension": 7, "timber": True},  # gros bois sec : pas de valeur au tableau A.3
-        {"dimension": 9, "timber": True},
-        {"dimension": 7, "green": True},  # vert, mais bois de dimension
-        {"dimension": 9, "green": True},
-    ):
-        try:
-            sizes(**kwargs)
-            raise AssertionError(f"sizes({kwargs}) aurait dû lever ValueError")
-        except ValueError:
-            pass
-    assert nominal_sizes() == [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16], "nominal_sizes -> FAILED"
-    assert is_timber(5, 5) and is_timber(6, 8) and is_timber(8, 6), "is_timber -> FAILED"
-    assert not is_timber(4, 6) and not is_timber(2, 12), "is_timber -> FAILED"
 
     # Test bending_moment
     test_bending_moment = Resistances(
