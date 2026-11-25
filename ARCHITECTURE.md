@@ -542,6 +542,14 @@ les tests le prouvent. L'application en ligne doit fonctionner après chaque PR.
 6. Chapitre 5 et annexes A et B.
 7. Retirer `sawn_lumber.py` et `general_design.py`, devenus vides. Streamlit utilise alors le nouveau moteur.
 
+**Fin de la phase 1 : revue complète du code** (demande de l'utilisateur, 25 novembre 2026), une fois
+toutes les fonctions à jour avec la nouvelle architecture, avant la phase 2 :
+- refaire une vérification complète du code et le réviser en détail ;
+- valider que tout est bien documenté (docstrings, commentaires, noms clairs), bien présenté et bien
+  formaté, et que l'ensemble se tient comme un code professionnel ;
+- puis mettre à jour au complet les directives et les documents `.md` (`CLAUDE.md`, `ARCHITECTURE.md`,
+  etc.) pour continuer sur ces bonnes bases.
+
 **Phase 2 : API**
 8. FastAPI : catalogue des calculs par édition, et un appel par vérification. Tests.
 
