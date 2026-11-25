@@ -400,6 +400,11 @@ la charge P_f, la longueur L et la section b × d.
 - **Tests par édition** : chaque édition a ses propres tests. Les anciennes éditions restent testées.
 - Un **projet sauvegardé** garde l'édition utilisée, ainsi que les **entrées** (pas les résultats) : les
   résultats sont recalculés avec la même édition.
+- **Fichier `.datum`** (issue #85, étape 2, option A) : `moteur/commun/projet.py`. Un `Projet` (en-tête de
+  la note, liste d'`Element`) est écrit en JSON (`vers_json()`) avec un numéro de format, et relu
+  (`depuis_json()`) avec validation complète : un fichier invalide est refusé au complet. Chaque `Element`
+  garde son nom, son édition et ses données d'entrée seulement. `resume_du_projet()` donne une ligne par
+  élément (sa vérification qui gouverne), à partir des traces recalculées.
 
 ---
 
