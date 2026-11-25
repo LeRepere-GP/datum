@@ -17,7 +17,7 @@ def test_resume_de_deux_verifications():
     at = _connecte("admin", "mot-admin")
     for cle, valeur in (("cp_support_length", 89.0), ("cp_rf", 5.0)):  # mm ; kN
         [n for n in at.text_input if n.key == cle][0].set_value(f"{valeur} {'mm' if cle == 'cp_support_length' else 'kN'}")
-    [n for n in at.text_input if n.label.startswith("$Vf")][0].set_value("1.0")  # kN
+    [n for n in at.text_input if n.label.startswith("$V_f")][0].set_value("1.0")  # kN
     at.run()
     assert not at.exception
     (tableau,) = _resume(at)
@@ -35,7 +35,7 @@ def test_resume_dans_les_deux_unites():
     V_f = 1.00 kN = 1000 N / 4.4482 N/lb = 224.8 lb -> « 225 lb » (3 chiffres significatifs).
     """
     at = _connecte("admin", "mot-admin")
-    [n for n in at.text_input if n.label.startswith("$Vf")][0].set_value("1.0")  # kN
+    [n for n in at.text_input if n.label.startswith("$V_f")][0].set_value("1.0")  # kN
     at.run()
     (tableau,) = _resume(at)
     ligne = tableau.splitlines()[2]

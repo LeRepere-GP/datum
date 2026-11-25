@@ -7,8 +7,8 @@ def _qr(at):
     """Q_r affichée, partie métrique seulement (les résultats sont dans les deux unités, PR #99)."""
     import re
     return [
-        re.sub(r"^\$Qr = \\text\{(.*?) \(.*\)\}\$$", r"$Qr = \1$", m.value)
-        for m in at.markdown if m.value.startswith("$Qr")
+        re.sub(r"^\$Q_r = \\text\{(.*?) \(.*\)\}\$$", r"$Q_r = \1$", m.value)
+        for m in at.markdown if m.value.startswith("$Q_r")
     ]
 
 
@@ -33,7 +33,7 @@ def test_k_d_par_les_charges():
     # 2x6 S-P-F n° 1/n° 2 (f_cp = 5.3 MPa), appui 38 mm x 89 mm, K_B = K_Zcp = 1.00 :
     # Q_r = 0.8 x 5.3 MPa x 0.96041 x 3382 mm² = 13 772 N -> 13.8 kN
     # (3 chiffres significatifs, comme le Résumé et la note PDF : issue #98)
-    assert _qr(at) == ["$Qr = 13.8 kN$"]
+    assert _qr(at) == ["$Q_r = 13.8 kN$"]
 
 
 def test_charge_continue_qui_ne_domine_pas():
@@ -43,7 +43,7 @@ def test_charge_continue_qui_ne_domine_pas():
     assert any("K_D = 1.000" in m.value for m in at.markdown)
     assert any("ne domine pas" in w.value for w in at.warning)
     # Q_r = 0.8 x 5.3 MPa x 1.00 x 3382 mm² = 14 340 N -> 14.3 kN
-    assert _qr(at) == ["$Qr = 14.3 kN$"]
+    assert _qr(at) == ["$Q_r = 14.3 kN$"]
 
 
 def test_sans_charges_tableau_5_1():
@@ -57,7 +57,7 @@ def test_sans_charges_tableau_5_1():
     assert not at.exception
     assert any("tableau 5.1" in i.value for i in at.info)
     # Q_r = 0.8 x 5.3 MPa x 0.65 x 3382 mm² = 9 321 N -> 9.32 kN
-    assert _qr(at) == ["$Qr = 9.32 kN$"]
+    assert _qr(at) == ["$Q_r = 9.32 kN$"]
 
 
 
@@ -178,7 +178,7 @@ def _compression_parallele(at):
     [n for n in at.text_input if n.key == "cpa_L_selon_b"][0].set_value("1500 mm")  # mm
     [n for n in at.text_input if n.key == "cpa_L_selon_d"][0].set_value("3000 mm")  # mm
     at.run()
-    [n for n in at.text_input if n.label.startswith("$Pf")][0].set_value("5.0")  # kN
+    [n for n in at.text_input if n.label.startswith("$P_f")][0].set_value("5.0")  # kN
     return at.run()
 
 

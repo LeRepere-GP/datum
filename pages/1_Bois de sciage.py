@@ -709,7 +709,7 @@ if "flexion" in ONGLETS:
                 kl_message = str(error)
             with col2:
                 mf = iu.champ(
-                    "$Mf: ({unite})$",
+                    "$M_f: ({unite})$",
                     "moment",
                     key="flex_mf",
                     min_value=0.0,
@@ -721,7 +721,7 @@ if "flexion" in ONGLETS:
                     st.error(kl_message, width=650, icon=":material/error:")
                 else:
                     VERIF = general_design.limit_states_design(mf, mr)
-                    st.write(f"$Mr = {iu.latex_significatif(mr, 'moment')}$")
+                    st.write(f"$M_r = {iu.latex_significatif(mr, 'moment')}$")
                     show_verification(VERIF)
                     NOTE["Flexion (6.5.3)"] = art_6_5_3.verifier_flexion(
                         b=width * built_up, d=depth, f_b=compute_resistance[0], plis=built_up,
@@ -778,7 +778,7 @@ if "cisaillement" in ONGLETS:
 
             with col2:
                 vf = iu.champ(
-                    "$Vf: ({unite})$",
+                    "$V_f: ({unite})$",
                     "force",
                     key="cis_vf",
                     min_value=0.0,
@@ -935,7 +935,7 @@ if "compression_parallele" in ONGLETS:
 
                 with col2:
                     pf = iu.champ(
-                        "$Pf: ({unite})$",
+                        "$P_f: ({unite})$",
                         "force",
                         key="cpa_pf",
                         min_value=0.0,
@@ -945,7 +945,7 @@ if "compression_parallele" in ONGLETS:
                     )
                     if length is None or le_b is None or le_d is None:
                         st.info(
-                            "Spécifiez $L$, $L_{(b)}$ et $L_{(d)}$ pour calculer $Pr$",
+                            "Spécifiez $L$, $L_{(b)}$ et $L_{(d)}$ pour calculer $P_r$",
                             width=650,
                             icon=":material/info:",
                         )
@@ -976,7 +976,7 @@ if "compression_parallele" in ONGLETS:
                         else:
                             axes = (axis_b, axis_d)
                             pr = min(axis_b[3], axis_d[3]) / 1000
-                            st.write(f"$Pr = {iu.latex_significatif(pr, 'force')}$")
+                            st.write(f"$P_r = {iu.latex_significatif(pr, 'force')}$")
                             VERIF = general_design.limit_states_design(pf, pr)
                             show_verification(VERIF)
                             NOTE["Compression parallèle au fil (6.5.5)"] = (
@@ -1007,7 +1007,7 @@ if "compression_parallele" in ONGLETS:
                             cc, kzc, kc, pr_axis = axis
                             st.markdown(
                                 f"**{label}** : $C_c = {cc:.2f}$, $K_{{Zc}} = {kzc:.4f}$, "
-                                f"$K_C = {kc:.4f}$, $Pr = {iu.latex_significatif(pr_axis / 1000, 'force')}$"
+                                f"$K_C = {kc:.4f}$, $P_r = {iu.latex_significatif(pr_axis / 1000, 'force')}$"
                             )
         with st.container(horizontal_alignment="center"):
             afficher_figures("Compression parallèle au fil (6.5.5)")
@@ -1150,7 +1150,7 @@ if "compression_perpendiculaire" in ONGLETS:
             details = []
             with col2:
                 rf = iu.champ(
-                    "$Rf: ({unite})$",
+                    "$R_f: ({unite})$",
                     "force",
                     key="cp_rf",
                     min_value=0.0,
@@ -1160,7 +1160,7 @@ if "compression_perpendiculaire" in ONGLETS:
                 )
                 if support_length is None:
                     st.info(
-                        "Spécifiez la longueur d'appui pour calculer $Qr$",
+                        "Spécifiez la longueur d'appui pour calculer $Q_r$",
                         width=650,
                         icon=":material/info:",
                     )
@@ -1173,7 +1173,7 @@ if "compression_perpendiculaire" in ONGLETS:
                         sawn_lumber.bearing_resistance(fcp_modified, area, kb_support, kzcp)
                         / 1000
                     )
-                    st.write(f"$Qr = {iu.latex_significatif(qr, 'force')}$")
+                    st.write(f"$Q_r = {iu.latex_significatif(qr, 'force')}$")
                     show_verification(general_design.limit_states_design(rf, qr))
                     NOTE["Compression perpendiculaire au fil (6.5.6.2)"] = (
                         art_6_5_6.verifier_compression_perpendiculaire_au_fil(
@@ -1190,12 +1190,12 @@ if "compression_perpendiculaire" in ONGLETS:
                         f"Appui : $A_b = {iu.latex(bearing_width, 'dimension')} \\cdot "
                         f"{iu.latex(support_length, 'dimension')} = {iu.latex_significatif(area, 'aire')}$, "
                         f"$K_B = {kb_support:.4f}$, "
-                        f"$Qr = {iu.latex_significatif(qr, 'force')}$"
+                        f"$Q_r = {iu.latex_significatif(qr, 'force')}$"
                     )
 
                 if near_load:
                     pf_near = iu.champ(
-                        "$Pf: ({unite})$ près de l'appui",
+                        "$P_f: ({unite})$ près de l'appui",
                         "force",
                         key="cp_pf",
                         min_value=0.0,
@@ -1205,7 +1205,7 @@ if "compression_perpendiculaire" in ONGLETS:
                     )
                     if support_length is None or load_length is None:
                         st.info(
-                            "Spécifiez les deux longueurs d'appui pour calculer $Q'r$",
+                            "Spécifiez les deux longueurs d'appui pour calculer $Q'_r$",
                             width=650,
                             icon=":material/info:",
                         )
@@ -1223,7 +1223,7 @@ if "compression_perpendiculaire" in ONGLETS:
                             )
                             / 1000
                         )
-                        st.write(f"$Q'r = {iu.latex_significatif(qr_near, 'force')}$")
+                        st.write(f"$Q'_r = {iu.latex_significatif(qr_near, 'force')}$")
                         show_verification(general_design.limit_states_design(pf_near, qr_near))
                         NOTE["Compression perpendiculaire près d'un appui (6.5.6.3)"] = (
                             art_6_5_6.verifier_compression_perpendiculaire_pres_d_un_appui(
@@ -1241,7 +1241,7 @@ if "compression_perpendiculaire" in ONGLETS:
                         details.append(
                             f"Charge près de l'appui : $A'_b = {iu.latex_significatif(average_area, 'aire')}$, "
                             f"$K_B = \\min({kb_support:.4f}, {kb_load:.4f}) = {kb_near:.4f}$, "
-                            f"$Q'r = {iu.latex_significatif(qr_near, 'force')}$"
+                            f"$Q'_r = {iu.latex_significatif(qr_near, 'force')}$"
                         )
 
             afficher_figures(
