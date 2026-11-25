@@ -24,6 +24,7 @@ from moteur.commun.resume import resume
 from moteur.normes.csa_o86_19.ch_5_conception_generale import (
     art_5_3_conditions_et_coefficients_influant_sur_la_resistance as art_5_3,
 )
+from moteur.normes.csa_o86_19.ch_6_bois_de_sciage import art_6_2_materiaux as art_6_2
 from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_3_resistances_prevues_et_modules_d_elasticite import (  # noqa: E501
     tableau_des_resistances,
 )
@@ -35,6 +36,9 @@ from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances
 )
 from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.art_A_6_bois_de_sciage import (  # noqa: E501
     art_A_6_5_5_1_coefficient_de_longueur_effective as art_A_6_5_5_1,
+)
+from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.tableaux import (  # noqa: E501
+    tableau_A_3_dimensions_minimales_apres_rabotage_du_bois_d_oeuvre as tableau_A_3,
 )
 import sawn_lumber
 import general_design
@@ -112,7 +116,7 @@ with st.container(horizontal_alignment="center"):
                 icon=":material/fit_page_height:",
             )
         else:
-            NOMINAL_SIZES = sawn_lumber.nominal_sizes()
+            NOMINAL_SIZES = tableau_A_3.dimensions_nominales()
             width_input = st.selectbox(
                 "Largeur nominale de l'élément, $b$ (po)",
                 options=NOMINAL_SIZES,
@@ -133,10 +137,14 @@ with st.container(horizontal_alignment="center"):
         )
 
     with col2:
-        TIMBER = not BRUT and sawn_lumber.is_timber(width_input, depth_input)
+        TIMBER = not BRUT and tableau_A_3.est_gros_bois(width_input, depth_input)
         try:
-            width = sawn_lumber.sizes(width_input, GREEN, BRUT, TIMBER)
-            depth = sawn_lumber.sizes(depth_input, GREEN, BRUT, TIMBER)
+            width = tableau_A_3.dimension_nette(
+                width_input, vert=GREEN, brut=BRUT, gros_bois=TIMBER
+            )
+            depth = tableau_A_3.dimension_nette(
+                depth_input, vert=GREEN, brut=BRUT, gros_bois=TIMBER
+            )
         except ValueError as error:
             st.error(str(error), icon=":material/error:")
             st.stop()
@@ -169,7 +177,7 @@ with st.container(horizontal_alignment="center"):
         elif msr_mel == "MEL":
             MEL = True
         LIGHT_FRAMING = False
-        if not (MSR or MEL) and sawn_lumber.admits_light_framing(width, depth):
+        if not (MSR or MEL) and art_6_2.admet_charpente_legere(width, depth):
             LIGHT_FRAMING = col2.toggle(
                 "Charpente légère (Const., Std.)",
                 help="""Tableau 6.3 : une section de 38 à 89 mm x 38 à 89 mm peut prendre les classes
@@ -177,20 +185,17 @@ with st.container(horizontal_alignment="center"):
                 celles du tableau 6.5 (Construction, Standard).""",
             )
 
-    # --- calcul pour déterminer la catégorie ---
-    CATEGORY = sawn_lumber.lumber_category(
-        width=width,
-        depth=depth,
-        is_msr=MSR,
-        is_mel=MEL,
-        light_framing=LIGHT_FRAMING,
-    )
-    if CATEGORY == "Valider la disponibilité du bois chez les fournisseurs.":
-        col1.warning(
-            "Valider la disponibilité du bois chez les fournisseurs.",
-            width=550,
-            icon=":material/person_alert:",
+    # --- calcul pour déterminer la catégorie (6.2.2, tableau 6.3) ---
+    # Grande face de plus de 412 mm : avertissement, puis catégorie « Beam » (comportement conservé)
+    try:
+        CATEGORY = art_6_2.categorie_de_bois(
+            width, depth, msr=MSR, mel=MEL, charpente_legere=LIGHT_FRAMING
         )
+    except ValueError as error:
+        if min(width, depth) < 38 or max(width, depth) <= art_6_2.DIMENSION_MAXIMALE:
+            st.error(str(error), icon=":material/error:")
+            st.stop()
+        col1.warning(str(error), width=550, icon=":material/person_alert:")
         CATEGORY = "Beam"
         MSR, MEL = False, False
 
