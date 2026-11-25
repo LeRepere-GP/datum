@@ -8,8 +8,9 @@ A_n : aire de la section transversale nette (5.3.8, p. 44) ; elle ne doit en auc
 à 75 % de la section brute (5.3.8.2).
 
 Réduction de la section (décision de l'utilisateur, PR #107) : par défaut, aucune réduction (A_n = A_g).
-Sinon, l'utilisateur indique ce qui est retiré de b, de d ou des deux, et la section nette reste un
-rectangle : A_n = (b - réduction de b) (d - réduction de d). Ces réductions n'ont pas de symbole dans
+Sinon, l'utilisateur indique ce qui est retiré de b, de d ou des deux, et A_n est calculée avec la
+section résiduelle : A_n = (b - réduction de b) (d - réduction de d) (confirmé dans la PR #107 : un 2x6
+de 1.5 po x 5.5 po dont on retire 0.5 po de b et 0.5 po de d donne une section de 1 po x 5 po). Ces réductions n'ont pas de symbole dans
 la norme.
 """
 
