@@ -31,8 +31,9 @@ def test_k_d_par_les_charges():
     assert not at.exception
     assert any("P_s = 2.50" in m.value and "K_D = 0.960" in m.value for m in at.markdown)
     # 2x6 S-P-F n° 1/n° 2 (f_cp = 5.3 MPa), appui 38 mm x 89 mm, K_B = K_Zcp = 1.00 :
-    # Q_r = 0.8 x 5.3 MPa x 0.96041 x 3382 mm² = 13 772 N = 13.77 kN
-    assert _qr(at) == ["$Qr = 13.77 kN$"]
+    # Q_r = 0.8 x 5.3 MPa x 0.96041 x 3382 mm² = 13 772 N -> 13.8 kN
+    # (3 chiffres significatifs, comme le Résumé et la note PDF : issue #98)
+    assert _qr(at) == ["$Qr = 13.8 kN$"]
 
 
 def test_charge_continue_qui_ne_domine_pas():
@@ -41,8 +42,8 @@ def test_charge_continue_qui_ne_domine_pas():
     assert not at.exception
     assert any("K_D = 1.000" in m.value for m in at.markdown)
     assert any("ne domine pas" in w.value for w in at.warning)
-    # Q_r = 0.8 x 5.3 MPa x 1.00 x 3382 mm² = 14 340 N = 14.34 kN
-    assert _qr(at) == ["$Qr = 14.34 kN$"]
+    # Q_r = 0.8 x 5.3 MPa x 1.00 x 3382 mm² = 14 340 N -> 14.3 kN
+    assert _qr(at) == ["$Qr = 14.3 kN$"]
 
 
 def test_sans_charges_tableau_5_1():
@@ -55,7 +56,7 @@ def test_sans_charges_tableau_5_1():
     at.run()
     assert not at.exception
     assert any("tableau 5.1" in i.value for i in at.info)
-    # Q_r = 0.8 x 5.3 MPa x 0.65 x 3382 mm² = 9 321 N = 9.32 kN
+    # Q_r = 0.8 x 5.3 MPa x 0.65 x 3382 mm² = 9 321 N -> 9.32 kN
     assert _qr(at) == ["$Qr = 9.32 kN$"]
 
 

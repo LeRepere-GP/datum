@@ -173,6 +173,14 @@ def latex(valeur_metrique: float, nom_grandeur: str, decimales: int | None = Non
     return "\\text{" + texte(valeur_metrique, nom_grandeur, decimales) + "}"
 
 
+def latex_significatif(valeur_metrique: float, nom_grandeur: str) -> str:
+    """
+    Comme texte_significatif(), pour une formule LaTeX (voir latex()). Sert aux résistances pondérées
+    affichées dans les onglets : mêmes chiffres significatifs que le Résumé et la note PDF (issue #98).
+    """
+    return "\\text{" + texte_significatif(valeur_metrique, nom_grandeur) + "}"
+
+
 # --- Champs ---
 
 def _cle_metrique(key: str) -> str:
