@@ -62,7 +62,7 @@ def test_section_suit_le_nombre_de_plis():
 def test_figures_apres_le_calcul_sans_section():
     """Une fois la vérification faite (V_f entré), la figure tirée de la trace reste sans section."""
     at = _connecte("admin", "mot-admin")
-    [n for n in at.text_input if n.label == "$Vf: (kN)$"][0].set_value("5.0").run()  # kN
+    [n for n in at.text_input if n.label == "$V_f: (kN)$"][0].set_value("5.0").run()  # kN
     assert not at.exception
     svgs = _svg_affiches(at._tree)
     cisaillement = next(s for s in svgs if "Vf" in _texte(s) and "dn" not in _texte(s))
@@ -77,18 +77,17 @@ def _resume(at):
 def test_element_compose_trace_avec_la_largeur_totale():
     """
     Issue #95 : la page passe b = largeur de l'élément (3.2), tous les plis compris, au nouveau moteur.
-    Avec 2 plis, V_r de la trace (résumé) est égal à V_r de l'ancien module affiché dans l'onglet :
-    même largeur totale, 2 x 38 mm = 76 mm.
+    Avec 2 plis : V_r = 0.9 x 1.5 MPa x 1.10 x 2/3 x (76 mm x 140 mm) x 1.4 = 14 747 N -> 14.7 kN, dans
+    l'onglet et dans le Résumé (même trace, issue #98). Avec la largeur d'un pli seulement (38 mm), la
+    trace donnerait environ la moitié (7.4 kN).
     """
     at = _connecte("admin", "mot-admin")
     [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(2).run()
-    [n for n in at.text_input if n.label == "$Vf: (kN)$"][0].set_value("1.0").run()  # kN
+    [n for n in at.text_input if n.label == "$V_f: (kN)$"][0].set_value("1.0").run()  # kN
     assert not at.exception
-    v_r_affiche = next(m.value for m in at.markdown if m.value.startswith("$Vr = "))
-    v_r_affiche = float(v_r_affiche.removeprefix("$Vr = \\text{").split(" kN")[0])  # « 14.75 kN (3 316 lb) »
+    v_r_affiche = next(m.value for m in at.markdown if m.value.startswith("$V_r = "))
+    v_r_affiche = float(v_r_affiche.removeprefix("$V_r = \\text{").split(" kN")[0])  # « 14.7 kN (3 310 lb) »
     (tableau,) = _resume(at)
     ligne = next(l for l in tableau.splitlines() if "6.5.4.3" in l)
     v_r_trace = float(re.search(r"\$V_r\$ = ([\d.]+) kN", ligne).group(1))
-    # Résumé à 3 chiffres significatifs (14.7 kN), onglet à 2 décimales (14.75 kN). Avec la largeur
-    # d'un pli seulement (38 mm), la trace donnerait environ la moitié (7.4 kN).
-    assert abs(v_r_trace - v_r_affiche) < 0.06  # kN (écart d'arrondi seulement)
+    assert v_r_affiche == v_r_trace == 14.7  # kN

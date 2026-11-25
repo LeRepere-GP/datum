@@ -336,6 +336,17 @@ class _Lecteur:
         return q
 
 
+def normaliser_saisie(texte: str) -> str:
+    """
+    Texte entré, prêt à lire : minuscules, virgule décimale en point, apostrophes et guillemets
+    typographiques en ' et ", espaces insécables et tabulations en espaces, signe moins typographique en -.
+    Sert aux champs (lire_grandeur) et à la calculatrice d'unités (calculatrice.calculer).
+    """
+    return (texte.strip().lower().replace(",", ".").replace("’", "'").replace("′", "'")
+            .replace("”", '"').replace("″", '"').replace("''", '"').replace(" ", " ")
+            .replace(" ", " ").replace("−", "-").replace("\t", " "))
+
+
 def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = False) -> float:
     """
     Valeur entrée au clavier, comme dans une calculatrice, en unité métrique de la grandeur (mm, kN, kN·m).
@@ -379,9 +390,7 @@ def lire_grandeur(texte: str, nom_grandeur: str, imperial_par_defaut: bool = Fal
     if nom_grandeur not in _FAMILLE:
         raise ValueError(f"Saisie libre non offerte pour la grandeur {nom_grandeur!r}.")
     famille = _FAMILLE[nom_grandeur]
-    s = (texte.strip().lower().replace(",", ".").replace("’", "'").replace("′", "'")
-         .replace("”", '"').replace("″", '"').replace("''", '"').replace(" ", " ")
-         .replace(" ", " ").replace("−", "-").replace("\t", " "))
+    s = normaliser_saisie(texte)
     if not s:
         raise ValueError("valeur vide")
     if imperial_par_defaut:
