@@ -8,6 +8,7 @@ from moteur.normes.csa_o86_19.ch_5_conception_generale.art_5_3_conditions_et_coe
     K_D,
     K_D_charge_continue,
     P_s,
+    verifier_section_nette,
 )
 
 
@@ -61,3 +62,23 @@ def test_P_s_maximum_des_quatre_combinaisons():
 def test_K_D_avec_P_s_calcule():
     # P_L = 3 kPa, S = 2 kPa, L = 1 kPa : P_s = 2.5 kPa ; K_D = 1 - 0.5 log(1.2) = 0.96041
     assert K_D_charge_continue(3.0, P_s(2.0, 1.0)) == pytest.approx(0.96041, abs=1e-5)
+
+
+# --- 5.3.8.2 Limite de la section nette (p. 44) : A_n >= 0,75 A_g
+
+def test_section_nette_acceptee():
+    verifier_section_nette(5320, 5320)  # A_n = A_g : aucune réduction
+    verifier_section_nette(4500, 5320)  # 4500 mm² / 5320 mm² = 0.846
+    verifier_section_nette(3990, 5320)  # seuil exact : 0.75 x 5320 mm² = 3990 mm²
+
+
+def test_section_nette_trop_petite():
+    with pytest.raises(ValueError, match="0.75 Ag = 3990 mm²"):
+        verifier_section_nette(3989.9, 5320)  # 3989.9 mm² < 3990 mm²
+
+
+def test_section_nette_invalide():
+    with pytest.raises(ValueError, match="positive"):
+        verifier_section_nette(0, 5320)
+    with pytest.raises(ValueError, match="dépasser"):
+        verifier_section_nette(5321, 5320)  # 5321 mm² > A_g = 5320 mm²
