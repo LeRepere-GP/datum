@@ -56,6 +56,20 @@ def show_verification(message: str) -> None:
         st.info(message, width=650, icon=":material/info:")
 
 
+def afficher_resistance_et_verification(resultat, symbole: str) -> None:
+    """
+    Affiche la résistance pondérée (en N dans la trace, affichée en kN) et la vérification, tirées de la
+    trace du nouveau moteur (issue #98). Mêmes chiffres significatifs que le Résumé et la note PDF.
+    """
+    etape = resultat.etape(symbole)
+    assert etape.unite == "N", f"{symbole} : unité {etape.unite!r} inattendue (N attendu)"
+    st.write(f"${symbole} = {iu.latex_significatif(etape.valeur / 1000, 'force')}$")
+    if resultat.verification is None:
+        show_verification(general_design.limit_states_design(None, etape.valeur))
+    else:
+        show_verification(resultat.verification.message())
+
+
 # ---- en-tête ----
 config.configurer_page("Bois de sciage")
 EDITION = config.choisir_edition()  # une seule pour l'instant : CSA O86:19 (issue #72)
@@ -695,7 +709,7 @@ if "flexion" in ONGLETS:
                 kl_message = str(error)
             with col2:
                 mf = iu.champ(
-                    "$Mf: ({unite})$",
+                    "$M_f: ({unite})$",
                     "moment",
                     key="flex_mf",
                     min_value=0.0,
@@ -707,7 +721,7 @@ if "flexion" in ONGLETS:
                     st.error(kl_message, width=650, icon=":material/error:")
                 else:
                     VERIF = general_design.limit_states_design(mf, mr)
-                    st.write(f"$Mr = {iu.latex(mr, 'moment')}$")
+                    st.write(f"$M_r = {iu.latex_significatif(mr, 'moment')}$")
                     show_verification(VERIF)
                     NOTE["Flexion (6.5.3)"] = art_6_5_3.verifier_flexion(
                         b=width * built_up, d=depth, f_b=compute_resistance[0], plis=built_up,
@@ -738,14 +752,6 @@ if "cisaillement" in ONGLETS:
             connected_subfloor=subfloor,
             built_up_beam=PLIS,
         )
-        beam_shear = sawn_lumber.Resistances(
-            b=width,
-            d=depth,
-            kd=kd,
-            kh=kh,
-            kt=kt,
-            ply=built_up,
-        )
         with st.container(horizontal_alignment="center"):
             col1, col2 = st.columns(2, width=550)
             with col1:
@@ -772,7 +778,7 @@ if "cisaillement" in ONGLETS:
 
             with col2:
                 vf = iu.champ(
-                    "$Vf: ({unite})$",
+                    "$V_f: ({unite})$",
                     "force",
                     key="cis_vf",
                     min_value=0.0,
@@ -781,9 +787,21 @@ if "cisaillement" in ONGLETS:
                     icon=":material/input:",
                 )
 
-                ksf = 1
-                if notch_depth and notch_length:
-                    kd, ksf, kt, kh, kzf = sawn_lumber.modification_factors(
+                # Résistances calculées par le nouveau moteur seulement (issue #98) : l'onglet, le
+                # Résumé et la note PDF affichent donc les mêmes valeurs.
+                entaille = bool(notch_depth and notch_length)
+                cisaillement = art_6_5_4.verifier_cisaillement(
+                    b=width * built_up, d=depth, f_v=compute_resistance[1], plis=built_up,
+                    d_n=notch_depth if entaille else 0,
+                    K_D=kd, K_H=kh, K_Sv=ksv, K_T=kt, K_Zv=kzv,
+                    V_f=vf, source_resistances=SOURCE, source_K_D=SOURCE_KD,
+                )
+                NOTE["Cisaillement (6.5.4.3)"] = cisaillement
+                afficher_resistance_et_verification(cisaillement, "V_r")
+                if entaille:
+                    # Cisaillement par fissuration : K_H de la ligne « Autre propriété » du tableau 6.12
+                    # (1.00), K_Sf du tableau 6.10 (décision de l'utilisateur, issue #98).
+                    kd_f, ksf, kt_f, kh_f, _ = sawn_lumber.modification_factors(
                         width=width,
                         depth=depth,
                         prop="cis_f",
@@ -797,39 +815,12 @@ if "cisaillement" in ONGLETS:
                         connected_subfloor=subfloor,
                         built_up_beam=PLIS,
                     )
-
-                vr, fr = beam_shear.shear(
-                    fv=compute_resistance[1],
-                    ksv=ksv,
-                    ksf=ksf,
-                    kzv=kzv,
-                    dn=notch_depth,
-                    e=notch_length,
-                )
-                vr = vr / 1000
-                fr = fr / 1000
-                if 0 < fr < vr:
-                    vr = fr
-                    st.write(f"$Fr = {iu.latex(vr, 'force')}$")
-                else:
-                    st.write(f"$Vr = {iu.latex(vr, 'force')}$")
-                VERIF = general_design.limit_states_design(vf, vr)
-                show_verification(VERIF)
-
-                entaille = bool(notch_depth and notch_length)
-                NOTE["Cisaillement (6.5.4.3)"] = art_6_5_4.verifier_cisaillement(
-                    b=width * built_up, d=depth, f_v=compute_resistance[1], plis=built_up,
-                    d_n=notch_depth if entaille else 0,
-                    K_D=beam_shear.kd, K_H=beam_shear.kh, K_Sv=ksv, K_T=beam_shear.kt, K_Zv=kzv,
-                    V_f=vf, source_resistances=SOURCE, source_K_D=SOURCE_KD,
-                )
-                if entaille:
-                    NOTE["Cisaillement par fissuration à l'entaille (6.5.4.4)"] = (
-                        art_6_5_4.verifier_cisaillement_par_fissuration(
-                            b=width * built_up, d=depth, d_n=notch_depth, e=notch_length, plis=built_up,
-                            K_D=kd, K_H=kh, K_Sf=ksf, K_T=kt, V_f=vf, source_K_D=SOURCE_KD,
-                        )
+                    fissuration = art_6_5_4.verifier_cisaillement_par_fissuration(
+                        b=width * built_up, d=depth, d_n=notch_depth, e=notch_length, plis=built_up,
+                        K_D=kd_f, K_H=kh_f, K_Sf=ksf, K_T=kt_f, V_f=vf, source_K_D=SOURCE_KD,
                     )
+                    NOTE["Cisaillement par fissuration à l'entaille (6.5.4.4)"] = fissuration
+                    afficher_resistance_et_verification(fissuration, "F_r")
         with st.container(horizontal_alignment="center"):
             afficher_figures(
                 "Cisaillement (6.5.4.3)", "Cisaillement par fissuration à l'entaille (6.5.4.4)"
@@ -944,7 +935,7 @@ if "compression_parallele" in ONGLETS:
 
                 with col2:
                     pf = iu.champ(
-                        "$Pf: ({unite})$",
+                        "$P_f: ({unite})$",
                         "force",
                         key="cpa_pf",
                         min_value=0.0,
@@ -954,7 +945,7 @@ if "compression_parallele" in ONGLETS:
                     )
                     if length is None or le_b is None or le_d is None:
                         st.info(
-                            "Spécifiez $L$, $L_{(b)}$ et $L_{(d)}$ pour calculer $Pr$",
+                            "Spécifiez $L$, $L_{(b)}$ et $L_{(d)}$ pour calculer $P_r$",
                             width=650,
                             icon=":material/info:",
                         )
@@ -985,7 +976,7 @@ if "compression_parallele" in ONGLETS:
                         else:
                             axes = (axis_b, axis_d)
                             pr = min(axis_b[3], axis_d[3]) / 1000
-                            st.write(f"$Pr = {iu.latex(pr, 'force')}$")
+                            st.write(f"$P_r = {iu.latex_significatif(pr, 'force')}$")
                             VERIF = general_design.limit_states_design(pf, pr)
                             show_verification(VERIF)
                             NOTE["Compression parallèle au fil (6.5.5)"] = (
@@ -1007,7 +998,7 @@ if "compression_parallele" in ONGLETS:
                         st.markdown(
                             f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = {compute_resistance[2]} \\cdot "
                             f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = "
-                            f"{iu.latex(fc_modified, 'contrainte')}$"
+                            f"{iu.latex_significatif(fc_modified, 'contrainte')}$"
                         )
                         st.markdown(f"$E_{{05}} = {iu.latex(e05, 'contrainte')}$, $K_{{SE}} = {kse}$")
                         for label, axis in zip(
@@ -1016,7 +1007,7 @@ if "compression_parallele" in ONGLETS:
                             cc, kzc, kc, pr_axis = axis
                             st.markdown(
                                 f"**{label}** : $C_c = {cc:.2f}$, $K_{{Zc}} = {kzc:.4f}$, "
-                                f"$K_C = {kc:.4f}$, $Pr = {iu.latex(pr_axis / 1000, 'force')}$"
+                                f"$K_C = {kc:.4f}$, $P_r = {iu.latex_significatif(pr_axis / 1000, 'force')}$"
                             )
         with st.container(horizontal_alignment="center"):
             afficher_figures("Compression parallèle au fil (6.5.5)")
@@ -1159,7 +1150,7 @@ if "compression_perpendiculaire" in ONGLETS:
             details = []
             with col2:
                 rf = iu.champ(
-                    "$Rf: ({unite})$",
+                    "$R_f: ({unite})$",
                     "force",
                     key="cp_rf",
                     min_value=0.0,
@@ -1169,7 +1160,7 @@ if "compression_perpendiculaire" in ONGLETS:
                 )
                 if support_length is None:
                     st.info(
-                        "Spécifiez la longueur d'appui pour calculer $Qr$",
+                        "Spécifiez la longueur d'appui pour calculer $Q_r$",
                         width=650,
                         icon=":material/info:",
                     )
@@ -1182,7 +1173,7 @@ if "compression_perpendiculaire" in ONGLETS:
                         sawn_lumber.bearing_resistance(fcp_modified, area, kb_support, kzcp)
                         / 1000
                     )
-                    st.write(f"$Qr = {iu.latex(qr, 'force')}$")
+                    st.write(f"$Q_r = {iu.latex_significatif(qr, 'force')}$")
                     show_verification(general_design.limit_states_design(rf, qr))
                     NOTE["Compression perpendiculaire au fil (6.5.6.2)"] = (
                         art_6_5_6.verifier_compression_perpendiculaire_au_fil(
@@ -1197,14 +1188,14 @@ if "compression_perpendiculaire" in ONGLETS:
                     )
                     details.append(
                         f"Appui : $A_b = {iu.latex(bearing_width, 'dimension')} \\cdot "
-                        f"{iu.latex(support_length, 'dimension')} = {iu.latex(area, 'aire')}$, "
+                        f"{iu.latex(support_length, 'dimension')} = {iu.latex_significatif(area, 'aire')}$, "
                         f"$K_B = {kb_support:.4f}$, "
-                        f"$Qr = {iu.latex(qr, 'force')}$"
+                        f"$Q_r = {iu.latex_significatif(qr, 'force')}$"
                     )
 
                 if near_load:
                     pf_near = iu.champ(
-                        "$Pf: ({unite})$ près de l'appui",
+                        "$P_f: ({unite})$ près de l'appui",
                         "force",
                         key="cp_pf",
                         min_value=0.0,
@@ -1214,7 +1205,7 @@ if "compression_perpendiculaire" in ONGLETS:
                     )
                     if support_length is None or load_length is None:
                         st.info(
-                            "Spécifiez les deux longueurs d'appui pour calculer $Q'r$",
+                            "Spécifiez les deux longueurs d'appui pour calculer $Q'_r$",
                             width=650,
                             icon=":material/info:",
                         )
@@ -1232,7 +1223,7 @@ if "compression_perpendiculaire" in ONGLETS:
                             )
                             / 1000
                         )
-                        st.write(f"$Q'r = {iu.latex(qr_near, 'force')}$")
+                        st.write(f"$Q'_r = {iu.latex_significatif(qr_near, 'force')}$")
                         show_verification(general_design.limit_states_design(pf_near, qr_near))
                         NOTE["Compression perpendiculaire près d'un appui (6.5.6.3)"] = (
                             art_6_5_6.verifier_compression_perpendiculaire_pres_d_un_appui(
@@ -1248,9 +1239,9 @@ if "compression_perpendiculaire" in ONGLETS:
                             )
                         )
                         details.append(
-                            f"Charge près de l'appui : $A'_b = {iu.latex(average_area, 'aire')}$, "
+                            f"Charge près de l'appui : $A'_b = {iu.latex_significatif(average_area, 'aire')}$, "
                             f"$K_B = \\min({kb_support:.4f}, {kb_load:.4f}) = {kb_near:.4f}$, "
-                            f"$Q'r = {iu.latex(qr_near, 'force')}$"
+                            f"$Q'_r = {iu.latex_significatif(qr_near, 'force')}$"
                         )
 
             afficher_figures(
@@ -1262,7 +1253,7 @@ if "compression_perpendiculaire" in ONGLETS:
                 with st.expander("Voir plus:", width=650):
                     st.markdown(
                         f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {fcp:.2f} \\cdot "
-                        f"({kd} \\cdot {kscp} \\cdot {kt}) = {iu.latex(fcp_modified, 'contrainte')}$"
+                        f"({kd} \\cdot {kscp} \\cdot {kt}) = {iu.latex_significatif(fcp_modified, 'contrainte')}$"
                     )
                     st.markdown(
                         f"$K_{{Zcp}} = {kzcp:.4f}$ (largeur/hauteur = "
