@@ -18,8 +18,9 @@ de cette structure doit d'abord être discutée avec l'utilisateur, puis notée 
 - Des **images 2D** et des **modèles 3D interactifs en temps réel** (ex. assemblage boulonné). Les
   fonctions 3D les plus lourdes peuvent être réservées à l'ordinateur ; le mobile garde les calculs et la 2D.
 - Des **notes de calcul en PDF**, complètes, simples et lisibles, pour l'archivage.
-- Plus tard : **sauvegarde des calculs par projet**, **comptes clients** avec abonnement mensuel ou annuel,
-  et une **version gratuite de démonstration**.
+- **Projets enregistrés en fichiers `.datum`** chez l'utilisateur, sans copie gardée par Datum (section 9).
+- Plus tard : **comptes clients** avec abonnement mensuel ou annuel, une **synchronisation chiffrée et
+  temporaire** des projets entre appareils (section 11), et une **version gratuite de démonstration**.
 
 ## 2. Principes
 
@@ -409,6 +410,21 @@ la charge P_f, la longueur L et la section b × d.
 - **Tests par édition** : chaque édition a ses propres tests. Les anciennes éditions restent testées.
 - Un **projet sauvegardé** garde l'édition utilisée, ainsi que les **entrées** (pas les résultats) : les
   résultats sont recalculés avec la même édition.
+- **Fichier `.datum`** (issue #85, étape 2, option A) : `moteur/commun/projet.py`. Un `Projet` (en-tête de
+  la note, liste d'`Element`) est écrit en JSON (`vers_json()`) avec un numéro de format, et relu
+  (`depuis_json()`) avec validation complète : un fichier invalide est refusé au complet. Chaque `Element`
+  garde son nom, son édition et ses données d'entrée seulement. `resume_du_projet()` donne une ligne par
+  élément (sa vérification qui gouverne), à partir des traces recalculées.
+  **Entrées gardées** (décision de l'utilisateur, PR #105) : les choix tels qu'entrés dans la page
+  (essence, classe, dimensions nominales, plis, durée, milieu humide, charges, appuis…), **jamais les
+  coefficients déduits** (K_D, K_H, K_Z…) : ils sont recherchés de nouveau dans les tableaux à
+  l'ouverture, pour qu'un correctif profite aux projets rouverts. Une valeur entrée par l'ingénieur
+  lui-même (ex. K_e avec « Autre ») est gardée telle quelle. Le fichier note aussi la version de Datum
+  (`moteur.VERSION`, PR #106) une fois cette PR mergée.
+  **Confidentialité** (décision de l'utilisateur, PR #105) : le fichier est **téléchargé** sur l'ordinateur
+  de l'utilisateur, à l'endroit qu'il choisit, et **rouvert** à partir de là. L'application **ne garde
+  aucune copie** des projets ni de leurs données, qui peuvent être confidentielles : le fichier téléversé
+  n'est lu qu'en mémoire, le temps de refaire les calculs.
 
 ---
 
@@ -455,7 +471,14 @@ vrais comptes :
 
 **Plus tard** :
 
-- **comptes et sauvegarde des projets** : base de données et authentification (ex. Supabase) ;
+- **comptes** : authentification (ex. Supabase) ;
+- **projets entre appareils** (décision de l'utilisateur, PR #105 : commencer au chantier sur le
+  téléphone, reprendre au bureau). **Maintenant** : le fichier `.datum` est enregistré dans le nuage de
+  l'utilisateur (OneDrive, iCloud, Google Drive) ou le dossier du bureau, et rouvert sur l'autre
+  appareil ; Datum ne garde rien. **Phase 3, si l'usage au chantier se confirme** : synchronisation
+  automatique par compte, **chiffrée dans le navigateur** avec une clé que seul l'utilisateur connaît
+  (le serveur ne garde qu'un bloc illisible), **effacée automatiquement** après une période sans
+  activité (ex. 30 jours) et en tout temps sur demande. Le fichier `.datum` reste la copie permanente ;
 - **abonnements mensuels ou annuels** : paiement en ligne (ex. Stripe) ;
 - **version gratuite de démonstration** : le registre indique, pour chaque calcul, s'il est offert en
   démonstration ou réservé aux abonnés. **Par défaut, un calcul est réservé aux abonnés** (validé avec
