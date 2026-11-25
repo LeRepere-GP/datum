@@ -56,27 +56,70 @@ def test_verifier_traction_sans_reduction():
     assert r.verification is None  # sans T_f
 
 
-def test_verifier_traction_avec_section_nette():
-    # A_n = 4500 mm² (ex. trou de boulon) : 4500 / 5320 = 0.84586 >= 0.75 (5.3.8.2)
-    r = verifier_traction(b=38, d=140, f_t=5.5, A_n=4500, K_Zt=1.3)
-    assert _donnee(r, "A_n") == 4500
-    assert _etape(r, "T_r") == pytest.approx(28957.5)  # 0.9 x 5.5 MPa x 4500 mm² x 1.3 = 28 957.5 N
+# Réduction de la section (décision de l'utilisateur, PR #107) : retirée de b, de d ou des deux ;
+# A_n = (b - réduction de b) (d - réduction de d)
+
+def _rapport(r):
     rapport = [e for e in r.etapes if e.article == "5.3.8.2"]
     assert len(rapport) == 1 and rapport[0].symbole == ""  # pas de symbole dans la norme
-    assert rapport[0].valeur == pytest.approx(4500 / 5320)
+    return rapport[0].valeur
+
+
+def test_verifier_traction_reduction_de_d():
+    # 2x6 : 38 x 140 mm, 17.5 mm retirés de d : A_n = 38 mm x 122.5 mm = 4655 mm²
+    r = verifier_traction(b=38, d=140, f_t=5.5, K_Zt=1.3, reduction_de_d=17.5)
+    assert _etape(r, "A_n") == pytest.approx(4655)
+    assert _rapport(r) == pytest.approx(0.875)  # 4655 mm² / 5320 mm² = 0.875 >= 0.75
+    # 0.9 x 5.5 MPa x 4655 mm² x 1.3 = 29 954.925 N
+    assert _etape(r, "T_r") == pytest.approx(29954.925)
+    reductions = {d.description: d.valeur for d in r.donnees if d.symbole == ""}
+    assert reductions["Réduction de la largeur b"] == 0
+    assert reductions["Réduction de la hauteur d"] == 17.5
+
+
+def test_verifier_traction_reduction_de_b():
+    # 6 mm retirés de b : A_n = 32 mm x 140 mm = 4480 mm² ; 0.9 x 5.5 MPa x 4480 mm² x 1.3 = 28 828.8 N
+    r = verifier_traction(b=38, d=140, f_t=5.5, K_Zt=1.3, reduction_de_b=6)
+    assert _etape(r, "A_n") == pytest.approx(4480)
+    assert _etape(r, "T_r") == pytest.approx(28828.8)
+
+
+def test_verifier_traction_reduction_de_b_et_de_d():
+    # 4 mm de b et 10 mm de d : A_n = 34 mm x 130 mm = 4420 mm² (4420 / 5320 = 0.83083)
+    # 0.9 x 5.5 MPa x 4420 mm² x 1.3 = 28 442.7 N
+    r = verifier_traction(b=38, d=140, f_t=5.5, K_Zt=1.3, reduction_de_b=4, reduction_de_d=10)
+    assert _etape(r, "A_n") == pytest.approx(4420)
+    assert _rapport(r) == pytest.approx(4420 / 5320)
+    assert _etape(r, "T_r") == pytest.approx(28442.7)
+
+
+def test_verifier_traction_sans_reduction_pas_de_rapport():
+    r = verifier_traction(b=38, d=140, f_t=5.5)
+    assert not [e for e in r.etapes if e.article == "5.3.8.2"]
+    assert not [d for d in r.donnees if d.description.startswith("Réduction")]
 
 
 def test_verifier_traction_section_nette_au_seuil():
-    # A_n = 0.75 x 5320 mm² = 3990 mm² : accepté ; 0.9 x 5.5 MPa x 3990 mm² x 1.3 = 25 675.65 N
-    r = verifier_traction(b=38, d=140, f_t=5.5, A_n=3990, K_Zt=1.3)
+    # 35 mm retirés de d : A_n = 38 mm x 105 mm = 3990 mm² = 0.75 x 5320 mm² : accepté
+    # 0.9 x 5.5 MPa x 3990 mm² x 1.3 = 25 675.65 N
+    r = verifier_traction(b=38, d=140, f_t=5.5, K_Zt=1.3, reduction_de_d=35)
+    assert _rapport(r) == pytest.approx(0.75)
     assert _etape(r, "T_r") == pytest.approx(25675.65)
 
 
-@pytest.mark.parametrize("a_n", [3989.9, 0, 5321])
-def test_verifier_traction_section_nette_refusee(a_n):
-    # 3989.9 mm² < 0.75 A_g ; 0 mm² ; 5321 mm² > A_g = 5320 mm²
-    with pytest.raises(ValueError):
-        verifier_traction(b=38, d=140, f_t=5.5, A_n=a_n)
+@pytest.mark.parametrize(
+    ("reduction_de_b", "reduction_de_d", "message"),
+    [
+        (0, 35.1, "0.75 Ag"),  # 38 mm x 104.9 mm = 3986.2 mm² < 3990 mm²
+        (38, 0, "positive"),  # toute la largeur retirée : A_n = 0 mm²
+        (-1, 0, "négative"),
+        (0, -1, "négative"),
+    ],
+)
+def test_verifier_traction_reduction_refusee(reduction_de_b, reduction_de_d, message):
+    with pytest.raises(ValueError, match=message):
+        verifier_traction(b=38, d=140, f_t=5.5, reduction_de_b=reduction_de_b,
+                          reduction_de_d=reduction_de_d)
 
 
 def test_verifier_traction_coefficients():

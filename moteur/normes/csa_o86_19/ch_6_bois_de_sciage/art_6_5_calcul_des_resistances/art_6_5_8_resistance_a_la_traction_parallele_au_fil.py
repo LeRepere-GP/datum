@@ -6,6 +6,11 @@ CSA O86:19 - 6.5.8 Résistance à la traction parallèle au fil (p. 74).
 
 A_n : aire de la section transversale nette (5.3.8, p. 44) ; elle ne doit en aucun cas être inférieure
 à 75 % de la section brute (5.3.8.2).
+
+Réduction de la section (décision de l'utilisateur, PR #107) : par défaut, aucune réduction (A_n = A_g).
+Sinon, l'utilisateur indique ce qui est retiré de b, de d ou des deux, et la section nette reste un
+rectangle : A_n = (b - réduction de b) (d - réduction de d). Ces réductions n'ont pas de symbole dans
+la norme.
 """
 
 from moteur.commun.nombres import cs
@@ -65,7 +70,8 @@ def verifier_traction(
     d: float,
     f_t: float,
     plis: int = 1,
-    A_n: float | None = None,
+    reduction_de_b: float = 0,
+    reduction_de_d: float = 0,
     K_D: float = 1,
     K_H: float = 1,
     K_St: float = 1,
@@ -84,9 +90,9 @@ def verifier_traction(
         d (float): Hauteur de l'élément, mm.
         f_t (float): Résistance prévue en traction parallèle au fil, MPa.
         plis (int, optional): Nombre de plis. Default to 1.
-        A_n (float | None, optional): Aire de la section transversale nette, mm² (5.3.8.1 : section
-            brute moins l'aire du matériau enlevé par perçage, rainurage, entaillage, etc.).
-            Default to None : aucune réduction, A_n = A_g = b d.
+        reduction_de_b, reduction_de_d (float, optional): Partie de la largeur b et de la hauteur d
+            retirée de la section (5.3.8.1 : matériau enlevé par perçage, rainurage, entaillage,
+            etc.), mm. Pas de symbole dans la norme. Default to 0 : aucune réduction, A_n = A_g.
         K_D, K_H, K_St, K_T, K_Zt (float, optional): Coefficients de correction. Default to 1.
         T_f (float | None, optional): Charge de traction axiale pondérée, kN. Default to None.
         source_resistances (str, optional): Tableau des résistances prévues (6.3), pour la note de
@@ -98,7 +104,8 @@ def verifier_traction(
         Resultat: Trace du calcul. T_r en N ; vérification en kN.
 
     Raises:
-        ValueError: Si A_n n'est pas positive, dépasse A_g ou est inférieure à 0,75 A_g (5.3.8.2).
+        ValueError: Si une réduction est négative, ou si A_n n'est pas positive ou est inférieure à
+            0,75 A_g (5.3.8.2).
     """
     r = Resultat(NORME, "6.5.8", "Résistance à la traction parallèle au fil", "traction")
     for donnee in (
@@ -128,18 +135,28 @@ def verifier_traction(
         "5.3.8.1", "Aire de la section transversale brute", "A_g",
         r"A_g = b \, d", rf"{cs(b)} \times {cs(d)}", b * d, "mm²",
     ))
-    if A_n is None:
+    if reduction_de_b < 0 or reduction_de_d < 0:
+        raise ValueError("Une réduction de la section ne peut pas être négative (5.3.8.1).")
+    if reduction_de_b == 0 and reduction_de_d == 0:
         a_n = r.ajouter_etape(Etape(
             "5.3.8.1", "Aire de la section transversale nette (aucune réduction)", "A_n",
             r"A_n = A_g", rf"{cs(a_g)}", a_g, "mm²",
         ))
     else:
+        r.ajouter_donnee(Donnee("", "Réduction de la largeur b", reduction_de_b, "mm", "dimension"))
+        r.ajouter_donnee(Donnee("", "Réduction de la hauteur d", reduction_de_d, "mm", "dimension"))
+        A_n = (b - reduction_de_b) * (d - reduction_de_d)
         verifier_section_nette(A_n, a_g)
-        a_n = r.ajouter_donnee(Donnee("A_n", "Aire de la section transversale nette", A_n, "mm²"))
+        a_n = r.ajouter_etape(Etape(
+            "5.3.8.1", "Aire de la section transversale nette", "A_n",
+            r"A_n = (b - \text{réduction de } b) \, (d - \text{réduction de } d)",
+            rf"({cs(b)} - {cs(reduction_de_b)}) \times ({cs(d)} - {cs(reduction_de_d)})",
+            A_n, "mm²",
+        ))
         # Rapport sans symbole dans la norme (5.3.8.2 : au moins 75 % de la section brute)
         r.ajouter_etape(Etape(
             "5.3.8.2", "Section nette par rapport à la section brute (au moins 0.75)", "",
-            r"\frac{A_n}{A_g} \geq 0.75", rf"\frac{{{cs(A_n)}}}{{{cs(a_g)}}}", A_n / a_g,
+            r"\frac{A_n}{A_g} \geq 0.75", rf"\frac{{{cs(a_n)}}}{{{cs(a_g)}}}", a_n / a_g,
         ))
     t_r = r.ajouter_etape(Etape(
         "6.5.8", "Résistance pondérée à la traction parallèle au fil", "T_r",
