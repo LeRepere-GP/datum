@@ -156,7 +156,9 @@ Dépôt : **`LeRepere-GP/datum`** (organisation Le Repère).
    de la norme.
 7. **Version de Datum** (`VERSION` dans `moteur/__init__.py`, format MAJEUR.MINEUR.CORRECTIF) : Claude
    l'ajuste lui-même dans ses PR au fil des avancements (ex. 0.1.1 pour un correctif, 0.2.0 pour une
-   nouvelle vérification). La version **1.0.0** est décidée par l'utilisateur seulement (PR #109).
+   nouvelle vérification) ; l'utilisateur commente au besoin. Les versions **majeures** (1.0.0, 2.0.0…)
+   sont décidées par l'utilisateur seulement : Claude peut proposer le moment où elles seraient
+   pertinentes (PR #109).
 
 ## Être proactif
 
