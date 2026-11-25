@@ -89,6 +89,22 @@ L'utilisateur est ingénieur en structure de bâtiment et utilisera ce logiciel 
 - Les calculs plus complexes sont construits ensuite **en combinant ces fonctions simples**, sans
   recopier leurs formules.
 
+## Documenter, commenter et expliquer le code
+
+L'utilisateur révise chaque ligne : le code doit être facile à comprendre et à vérifier.
+
+- **Noms de variables clairs.** Un symbole de la norme garde son nom de la norme (PR #87, voir plus
+  haut). Les autres variables ont un nom en français qui dit ce qu'elles contiennent (ex.
+  `largeur_d_un_pli`, pas `w` ou `tmp`).
+- **Commentaires libres dans le code** : ajouter autant de commentaires que nécessaire pour aider
+  l'utilisateur à comprendre et à réviser. Expliquer surtout le **pourquoi** : l'article ou le tableau
+  appliqué, le sens d'un symbole de la norme, une condition (`if`) et le cas de la norme qu'elle couvre,
+  une interprétation validée, un choix conservateur, une unité.
+- **Docstrings complètes** : article de la norme (style actuel), ce que fait la fonction, chaque
+  paramètre avec son unité, la valeur retournée avec son unité.
+- **Description de PR qui explique** : ce qui change, pourquoi, et où regarder pour réviser.
+- La règle vaut pour tout code écrit ou modifié, y compris une résolution de conflit ou un petit ajout.
+
 ## Interprétations de la norme validées avec l'utilisateur
 
 - **KZc (6.5.5.2.4)** : L = longueur de l'élément, pas la longueur effective ni la longueur entre les
