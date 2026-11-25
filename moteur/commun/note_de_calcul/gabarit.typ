@@ -74,7 +74,7 @@
 #let pied = context grid(
   columns: (1fr, 4.2cm),
   align: (left + bottom, right + bottom),
-  text(size: 7pt, fill: gris)[Note produite avec Datum - Calculatrice Structurale le #entete.date],
+  text(size: 7pt, fill: gris)[Note produite avec Datum - Calculatrice Structurale #donnees.version le #entete.date],
   rect(width: 4.2cm, height: 2.3cm, stroke: 0.6pt + gris, radius: 2pt)[
     #align(center + top)[#text(size: 6.5pt, fill: gris)[Initiales et sceau]]
   ],
