@@ -414,6 +414,12 @@ la charge P_f, la longueur L et la section b × d.
   (`depuis_json()`) avec validation complète : un fichier invalide est refusé au complet. Chaque `Element`
   garde son nom, son édition et ses données d'entrée seulement. `resume_du_projet()` donne une ligne par
   élément (sa vérification qui gouverne), à partir des traces recalculées.
+  **Entrées gardées** (décision de l'utilisateur, PR #105) : les choix tels qu'entrés dans la page
+  (essence, classe, dimensions nominales, plis, durée, milieu humide, charges, appuis…), **jamais les
+  coefficients déduits** (K_D, K_H, K_Z…) : ils sont recherchés de nouveau dans les tableaux à
+  l'ouverture, pour qu'un correctif profite aux projets rouverts. Une valeur entrée par l'ingénieur
+  lui-même (ex. K_e avec « Autre ») est gardée telle quelle. Le fichier note aussi la version de Datum
+  (`moteur.VERSION`, PR #106) une fois cette PR mergée.
 
 ---
 
