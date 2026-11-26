@@ -162,20 +162,15 @@ _PROPRIETES_6_4 = {
 }
 
 
-# 6.5.5 ET 6.5.6 : DÉPLACÉS DANS LE NOUVEAU MOTEUR (moteur/normes/csa_o86_19/)
+# 6.5.5 : DÉPLACÉ DANS LE NOUVEAU MOTEUR (moteur/normes/csa_o86_19/)
 # Ces fonctions gardent leur ancien nom pour l'interface Streamlit et appellent le nouveau moteur.
 # Les formules ne sont plus ici. Voir ARCHITECTURE.md, section 14 (migration).
+# 6.5.6, A.6.5.6 et le tableau A.11 : l'onglet Compression perpendiculaire appelle directement le
+# nouveau moteur (étape 7) ; leurs anciennes fonctions sont retirées.
 from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances import (  # noqa: E402
     art_6_5_3_resistance_au_moment_de_flexion as _art_6_5_3,
     art_6_5_4_resistance_au_cisaillement as _art_6_5_4,
     art_6_5_5_resistance_a_la_compression_parallele_au_fil as _art_6_5_5,
-    art_6_5_6_resistance_a_la_compression_perpendiculaire_au_fil as _art_6_5_6,
-)
-from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.art_A_6_bois_de_sciage import (  # noqa: E402,E501
-    art_A_6_5_6_compression_perpendiculaire_au_fil as _art_A_6_5_6,
-)
-from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.tableaux import (  # noqa: E402,E501
-    tableau_A_11_valeurs_de_densite as _tableau_A_11,
 )
 
 
@@ -217,46 +212,6 @@ def compression_parallel_axis(
     kzc = _art_6_5_5.K_Zc(dimension, length)
     kc = _art_6_5_5.K_C(fc_modified, kzc, cc, e05, kse, kt)
     return cc, kzc, kc, _art_6_5_5.P_r(fc_modified, area, kzc, kc)
-
-
-def bearing_strength(fcp, kd=1, kscp=1, kt=1):
-    """Déplacé : 6.5.6.2, F_cp (art_6_5_6.F_cp)."""
-    return _art_6_5_6.F_cp(fcp, kd, kscp, kt)
-
-
-def bearing_size_factor(width, depth):
-    """Déplacé : 6.5.6.4, K_Zcp (art_6_5_6.K_Zcp)."""
-    return _art_6_5_6.K_Zcp(width, depth)
-
-
-def bearing_length_factor(bearing_length, far_from_end=False, low_bending_stress=False):
-    """Déplacé : 6.5.6.5, K_B (art_6_5_6.K_B)."""
-    return _art_6_5_6.K_B(bearing_length, far_from_end, low_bending_stress)
-
-
-def average_bearing_area(width, length_1, length_2):
-    """Déplacé : 6.5.6.3.2, A'_b (art_6_5_6.A_b_prime)."""
-    return _art_6_5_6.A_b_prime(width, length_1, length_2)
-
-
-def bearing_resistance(fcp_modified, area, kb=1, kzcp=1):
-    """Déplacé : 6.5.6.2, Q_r (art_6_5_6.Q_r)."""
-    return _art_6_5_6.Q_r(fcp_modified, area, kb, kzcp)
-
-
-def bearing_resistance_near_support(fcp_modified, average_area, kb=1, kzcp=1):
-    """Déplacé : 6.5.6.3.1, Q'_r (art_6_5_6.Q_r_prime)."""
-    return _art_6_5_6.Q_r_prime(fcp_modified, average_area, kb, kzcp)
-
-
-def density_table_a11(specie, e=0):
-    """Déplacé : tableau A.11, G (tableau_A_11.G)."""
-    return _tableau_A_11.G(specie, e)
-
-
-def bearing_strength_from_density(density, tolerance_limit=True):
-    """Déplacé : A.6.5.6, f_cp à partir de G (art_A_6_5_6.f_cp)."""
-    return _art_A_6_5_6.f_cp(density, tolerance_limit)
 
 
 @dataclass
@@ -1092,98 +1047,6 @@ def _tests():
         raise AssertionError("compression_parallel_axis Cc > 50 aurait dû lever ValueError")
     except ValueError:
         pass
-
-    # Tests 6.5.6 - fonctions simples de compression perpendiculaire au fil (calculs à la main)
-    # Fcp = 5,3 x 1,0 x 0,67 x 0,85 = 3,01835 MPa (milieu humide, traité incisé)
-    assert close(bearing_strength(5.3, kscp=0.67, kt=0.85), 3.01835), "bearing_strength -> FAILED"
-    assert bearing_strength(5.3) == 5.3, "bearing_strength -> FAILED"
-
-    # KZcp (tableau 6.15) : rapport <= 1 -> 1,00 ; >= 2 -> 1,15 ; interpolation entre les deux
-    for width, depth, expected in (
-        (38, 140, 1.0),  # 2x6 sur chant
-        (89, 89, 1.0),  # rapport = 1,0
-        (140, 89, 1.08596),  # 1 + 0,15 x (140/89 - 1) = 1 + 0,15 x 0,57303 = 1,08596
-        (133.5, 89, 1.075),  # rapport = 1,5 -> 1,075
-        (178, 89, 1.15),  # rapport = 2,0
-        (286, 38, 1.15),  # 2x12 à plat
-    ):
-        kzcp = bearing_size_factor(width, depth)
-        assert close(kzcp, expected), f"bearing_size_factor({width}, {depth}) -> FAILED {kzcp = }"
-
-    # KB (tableau 6.16 et sa note) : formule plafonnée à 1,75, conditions a) et b) requises
-    for lb, expected in (
-        (150, 1.0),
-        (200, 1.0),
-        (100, 1.09525),  # 109,525 / 100
-        (89, 1.10702),  # 98,525 / 89
-        (38, 1.25066),  # 47,525 / 38 (tableau : 1,25)
-        (25, 1.381),  # 34,525 / 25 (tableau : 1,38)
-        (12.5, 1.75),  # formule : 1,762 -> plafonné à 1,75 (tableau : 1,75)
-        (5, 1.75),  # formule : 2,905 -> plafonné à 1,75
-    ):
-        kb = bearing_length_factor(lb, far_from_end=True, low_bending_stress=True)
-        assert close(kb, expected), f"bearing_length_factor({lb}) -> FAILED {kb = }"
-    assert bearing_length_factor(38) == 1, "KB sans conditions -> FAILED"
-    assert bearing_length_factor(38, far_from_end=True) == 1, "KB condition b) -> FAILED"
-    assert bearing_length_factor(38, low_bending_stress=True) == 1, "KB condition a) -> FAILED"
-
-    # A'b = b (Lb1 + Lb2) / 2 <= 1,5 b Lb1
-    # b = 38, Lb = 89 et 140 : 38 x 114,5 = 4351 ; 1,5 x 38 x 89 = 5073 -> 4351
-    # b = 38, Lb = 38 et 140 : 38 x 89 = 3382 ; 1,5 x 38 x 38 = 2166 -> 2166
-    assert close(average_bearing_area(38, 89, 140), 4351), "average_bearing_area -> FAILED"
-    assert close(average_bearing_area(38, 140, 89), 4351), "average_bearing_area (ordre) -> FAILED"
-    assert close(average_bearing_area(38, 38, 140), 2166), "average_bearing_area (limite) -> FAILED"
-    assert close(average_bearing_area(38, 89, 89), 3382), "average_bearing_area (égales) -> FAILED"
-
-    # Qr = 0,8 x 5,3 x (38 x 89) x KB x KZcp
-    #    = 0,8 x 5,3 x 3382 = 14 339,7 N ; avec KB = 1,10702 : 15 874,4 N
-    assert close(bearing_resistance(5.3, 38 * 89), 14339.68), "bearing_resistance -> FAILED"
-    assert close(bearing_resistance(5.3, 38 * 89, kb=1.10702), 15874.4), "bearing_resistance KB -> FAILED"
-    # Q'r = (2/3) x 0,8 x 5,3 x 4351 = 12 298,8 N
-    assert close(
-        bearing_resistance_near_support(5.3, 4351), 12298.83
-    ), "bearing_resistance_near_support -> FAILED"
-
-    # A.6.5.6 : fcp à partir de G (tableau A.11)
-    # S-P-F G = 0,42 : 0,9 x 1,8125 x (942,396 - 473,8) / 145,038 = 5,2703 (tableau 6.4 : 5,3)
-    # D. Fir-L G = 0,49 : 0,9 x 1,8125 x 625,662 / 145,038 = 7,0368 (tableau 6.4 : 7,0)
-    # Ess. nordiques G = 0,35 : 0,9 x 1,8125 x 311,53 / 145,038 = 3,5038 (tableau 6.4 : 3,5)
-    # Sans la limite de tolérance (densité marquée NLGA) : 5,2703 / 0,9 = 5,8559
-    assert close(bearing_strength_from_density(0.42), 5.2703), "fcp G S-P-F -> FAILED"
-    assert close(bearing_strength_from_density(0.49), 7.0368), "fcp G D.Fir-L -> FAILED"
-    assert close(bearing_strength_from_density(0.35), 3.5038), "fcp G NS -> FAILED"
-    assert close(bearing_strength_from_density(0.42, tolerance_limit=False), 5.8559), "fcp G NLGA -> FAILED"
-    for bad in (
-        lambda: bearing_strength_from_density(0.2),
-        lambda: bearing_size_factor(0, 89),
-        lambda: bearing_length_factor(0),
-        lambda: average_bearing_area(38, 0, 89),
-    ):
-        try:
-            bad()
-            raise AssertionError("aurait dû lever ValueError")
-        except ValueError:
-            pass
-
-    # Test density_table_a11 (tableau A.11)
-    for args, expected in (
-        (("df",), 0.49), (("hf",), 0.46), (("spf",), 0.42), (("ns",), 0.35),
-        (("courant", 8300), 0.42), (("normal", 11700), 0.42),
-        (("normal", 12400), 0.47), (("rare", 13100), 0.47),
-        (("courant", 13800), 0.50), (("normal", 16500), 0.50),
-    ):
-        assert density_table_a11(*args) == expected, f"density_table_a11{args} -> FAILED"
-    for e in (8000, 12000, 13500, 17000):
-        try:
-            density_table_a11("normal", e)
-            raise AssertionError(f"density_table_a11 E = {e} aurait dû lever ValueError")
-        except ValueError:
-            pass
-    # Toutes les classes MSR et MEL de la base ont une densité au tableau A.11
-    for row in SawnLumberStrengths.session.query(SawnLumberStrengths).filter(
-        SawnLumberStrengths.category.in_(("MSR", "MEL"))  # type: ignore
-    ):
-        density_table_a11(row.specie, row.e)
 
     print("All tests passed.")
 
