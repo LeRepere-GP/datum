@@ -36,9 +36,11 @@ from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances
 )
 from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.art_A_6_bois_de_sciage import (  # noqa: E501
     art_A_6_5_5_1_coefficient_de_longueur_effective as art_A_6_5_5_1,
+    art_A_6_5_6_compression_perpendiculaire_au_fil as art_A_6_5_6,
 )
 from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.tableaux import (  # noqa: E501
     tableau_A_3_dimensions_minimales_apres_rabotage_du_bois_d_oeuvre as tableau_A_3,
+    tableau_A_11_valeurs_de_densite as tableau_A_11,
 )
 import sawn_lumber
 import general_design
@@ -1032,7 +1034,6 @@ if "compression_perpendiculaire" in ONGLETS:
                 built_up_beam=PLIS,
             )
             member_width = built_up * width
-            kzcp = sawn_lumber.bearing_size_factor(member_width, depth)
 
             # --- résistance prévue fcp : tableaux 6.4 à 6.9, ou densité G en option (A.6.5.6) ---
             fcp = compute_resistance[3]
@@ -1050,9 +1051,8 @@ if "compression_perpendiculaire" in ONGLETS:
                         "Densité moyenne du bois anhydre, $G$",
                         min_value=0.30,
                         max_value=0.80,
-                        value=sawn_lumber.density_table_a11(
-                            specie[SPECIE], compute_resistance[5]
-                        ),
+                        # Valeur proposée : G du tableau A.11 (E en MPa pour le MSR et le MEL)
+                        value=tableau_A_11.G(specie[SPECIE], compute_resistance[5]),
                         step=0.01,
                         key="cp_density",
                         help="Valeur proposée selon le tableau A.11",
@@ -1063,9 +1063,9 @@ if "compression_perpendiculaire" in ONGLETS:
                         key="cp_nlga",
                     )
                 fcp_table = fcp
-                fcp = sawn_lumber.bearing_strength_from_density(
-                    density, tolerance_limit=not nlga
-                )
+                # A.6.5.6 : f_cp (MPa) à partir de G ; la limite de tolérance de 0,9 ne s'applique
+                # pas à une densité marquée NLGA
+                fcp = art_A_6_5_6.f_cp(density, limite_de_tolerance=not nlga)
                 if fcp > fcp_table:
                     st.warning(
                         f"""$f_{{cp}}$ calculé à partir de $G$ ({iu.texte(fcp, "contrainte")}) est plus
@@ -1074,7 +1074,6 @@ if "compression_perpendiculaire" in ONGLETS:
                         width=550,
                         icon=":material/warning:",
                     )
-            fcp_modified = sawn_lumber.bearing_strength(fcp, kd=kd, kscp=kscp, kt=kt)
             SOURCE_FCP = "A.6.5.6 (densité G)" if use_density else SOURCE
 
             col1, col2 = st.columns(2, width=550)
@@ -1165,17 +1164,10 @@ if "compression_perpendiculaire" in ONGLETS:
                         icon=":material/info:",
                     )
                 else:
-                    kb_support = sawn_lumber.bearing_length_factor(
-                        support_length, support_far, support_low_bending
-                    )
-                    area = bearing_width * support_length
-                    qr = (
-                        sawn_lumber.bearing_resistance(fcp_modified, area, kb_support, kzcp)
-                        / 1000
-                    )
-                    st.write(f"$Q_r = {iu.latex_significatif(qr, 'force')}$")
-                    show_verification(general_design.limit_states_design(rf, qr))
-                    NOTE["Compression perpendiculaire au fil (6.5.6.2)"] = (
+                    # Résistances calculées par le nouveau moteur seulement (comme l'onglet
+                    # Cisaillement, issue #98) : l'onglet, le Résumé et la note PDF affichent donc les
+                    # mêmes valeurs. Le détail (« Voir plus ») est tiré de la même trace.
+                    appui = (
                         art_6_5_6.verifier_compression_perpendiculaire_au_fil(
                             b=bearing_width, d=depth, L_b=support_length, f_cp=fcp,
                             K_D=kd, K_Scp=kscp, K_T=kt,
@@ -1186,11 +1178,15 @@ if "compression_perpendiculaire" in ONGLETS:
                             plis=built_up,
                         )
                     )
+                    NOTE["Compression perpendiculaire au fil (6.5.6.2)"] = appui
+                    afficher_resistance_et_verification(appui, "Q_r")
+                    A_b = appui.etape("A_b").valeur  # mm²
+                    Q_r_en_kN = appui.etape("Q_r").valeur / 1000  # N / 1000 = kN
                     details.append(
                         f"Appui : $A_b = {iu.latex(bearing_width, 'dimension')} \\cdot "
-                        f"{iu.latex(support_length, 'dimension')} = {iu.latex_significatif(area, 'aire')}$, "
-                        f"$K_B = {kb_support:.4f}$, "
-                        f"$Q_r = {iu.latex_significatif(qr, 'force')}$"
+                        f"{iu.latex(support_length, 'dimension')} = {iu.latex_significatif(A_b, 'aire')}$, "
+                        f"$K_B = {appui.etape('K_B').valeur:.4f}$, "
+                        f"$Q_r = {iu.latex_significatif(Q_r_en_kN, 'force')}$"
                     )
 
                 if near_load:
@@ -1210,22 +1206,8 @@ if "compression_perpendiculaire" in ONGLETS:
                             icon=":material/info:",
                         )
                     else:
-                        kb_load = sawn_lumber.bearing_length_factor(
-                            load_length, load_far, load_low_bending
-                        )
-                        kb_near = min(kb_support, kb_load)
-                        average_area = sawn_lumber.average_bearing_area(
-                            bearing_width, load_length, support_length
-                        )
-                        qr_near = (
-                            sawn_lumber.bearing_resistance_near_support(
-                                fcp_modified, average_area, kb_near, kzcp
-                            )
-                            / 1000
-                        )
-                        st.write(f"$Q'_r = {iu.latex_significatif(qr_near, 'force')}$")
-                        show_verification(general_design.limit_states_design(pf_near, qr_near))
-                        NOTE["Compression perpendiculaire près d'un appui (6.5.6.3)"] = (
+                        # Nouveau moteur seulement, comme l'appui ci-dessus (issue #98)
+                        pres_de_l_appui = (
                             art_6_5_6.verifier_compression_perpendiculaire_pres_d_un_appui(
                                 b=bearing_width, d=depth, L_b_appui=support_length,
                                 L_b_charge=load_length, f_cp=fcp, K_D=kd, K_Scp=kscp, K_T=kt,
@@ -1238,10 +1220,17 @@ if "compression_perpendiculaire" in ONGLETS:
                                 plis=built_up,
                             )
                         )
+                        NOTE["Compression perpendiculaire près d'un appui (6.5.6.3)"] = pres_de_l_appui
+                        afficher_resistance_et_verification(pres_de_l_appui, "Q'_r")
+                        A_b_prime = pres_de_l_appui.etape("A'_b").valeur  # mm²
+                        # K_B = min(K_B à l'appui ; K_B de la charge) : la substitution de la trace
+                        # montre les deux valeurs
+                        K_B_pres = pres_de_l_appui.etape("K_B")
+                        Q_r_prime_en_kN = pres_de_l_appui.etape("Q'_r").valeur / 1000  # N / 1000 = kN
                         details.append(
-                            f"Charge près de l'appui : $A'_b = {iu.latex_significatif(average_area, 'aire')}$, "
-                            f"$K_B = \\min({kb_support:.4f}, {kb_load:.4f}) = {kb_near:.4f}$, "
-                            f"$Q'_r = {iu.latex_significatif(qr_near, 'force')}$"
+                            f"Charge près de l'appui : $A'_b = {iu.latex_significatif(A_b_prime, 'aire')}$, "
+                            f"$K_B = {K_B_pres.substitution} = {K_B_pres.valeur:.4f}$, "
+                            f"$Q'_r = {iu.latex_significatif(Q_r_prime_en_kN, 'force')}$"
                         )
 
             afficher_figures(
@@ -1250,13 +1239,17 @@ if "compression_perpendiculaire" in ONGLETS:
             )
 
             if details:
+                # details n'est rempli que si Q_r est calculé (Q'_r exige aussi L_b à l'appui) : la
+                # trace « appui » existe donc ici ; F_cp et K_Zcp viennent de cette trace
+                F_cp = appui.etape("F_{cp}").valeur  # MPa
+                K_Zcp = appui.etape("K_{Zcp}").valeur
                 with st.expander("Voir plus:", width=650):
                     st.markdown(
                         f"$F_{{cp}} = f_{{cp}} (K_D K_{{Scp}} K_T) = {fcp:.2f} \\cdot "
-                        f"({kd} \\cdot {kscp} \\cdot {kt}) = {iu.latex_significatif(fcp_modified, 'contrainte')}$"
+                        f"({kd} \\cdot {kscp} \\cdot {kt}) = {iu.latex_significatif(F_cp, 'contrainte')}$"
                     )
                     st.markdown(
-                        f"$K_{{Zcp}} = {kzcp:.4f}$ (largeur/hauteur = "
+                        f"$K_{{Zcp}} = {K_Zcp:.4f}$ (largeur/hauteur = "
                         f"{member_width}/{depth} = {member_width / depth:.2f})"
                     )
                     for line in details:

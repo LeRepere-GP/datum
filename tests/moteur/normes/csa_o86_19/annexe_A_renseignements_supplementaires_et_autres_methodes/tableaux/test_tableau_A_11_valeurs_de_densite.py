@@ -2,6 +2,7 @@
 
 import pytest
 
+from moteur.normes.csa_o86_19.base_de_donnees import lire
 from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.tableaux import (  # noqa: E501
     tableau_A_11_valeurs_de_densite as tableau,
 )
@@ -24,3 +25,15 @@ def test_G(essence, E, attendu):
 def test_G_hors_tableau(E):
     with pytest.raises(ValueError):
         tableau.G("normal", E)
+
+
+def test_G_toutes_les_classes_MSR_et_MEL():
+    # Chaque classe MSR et MEL de la base de données (tableaux 6.8 et 6.9) a une densité G au
+    # tableau A.11 : l'onglet Compression perpendiculaire la propose comme valeur par défaut.
+    # (Test déplacé de sawn_lumber._tests.)
+    lignes = lire(
+        "SELECT specie, e FROM sawn_lumber_strengths WHERE category IN ('MSR', 'MEL')"
+    )
+    assert lignes  # la requête trouve bien des classes
+    for ligne in lignes:
+        assert 0.30 <= tableau.G(ligne["specie"], ligne["e"]) <= 0.80  # E en MPa
