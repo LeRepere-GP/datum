@@ -237,7 +237,16 @@
       if r.verification != none { verification(r.verification) },
     ))
   }
+  // Notes de la norme, à la suite des étapes dans les mêmes colonnes (ex. exigences d'assemblage de
+  // 6.5.5.4 que Datum ne vérifie pas, issue #32) : une puce par note
+  let notes = r.at("notes", default: ())
   columns(2, gutter: 0.6cm)[
     #for e in r.etapes { etape(e) }
+    #if notes.len() > 0 {
+      v(0.1cm)
+      titre(9.5pt, principale, [Notes])
+      set text(size: 7.5pt)
+      list(..notes.map(n => [#n]))
+    }
   ]
 }

@@ -272,6 +272,9 @@ Chaque fonction de vérification retourne un `Resultat` (`moteur/commun/resultat
 - une liste d'**étapes**. Chaque étape contient : l'article, une description, la **formule en LaTeX**
   (symboles), la **formule avec les valeurs remplacées** (en LaTeX), le **résultat** et son unité ;
 - la **vérification** finale : charge pondérée, résistance pondérée, ratio, respecté ou dépassé ;
+- des **notes** facultatives : texte de la norme sans valeur calculée, affiché sous le calcul dans
+  l'interface et après les étapes dans la note PDF (ex. exigences d'assemblage de 6.5.5.4, que Datum ne
+  vérifie pas : décision de l'utilisateur, issue #32) ;
 - la **figure** de l'élément (voir plus bas) ;
 - l'**édition de la norme** utilisée.
 
