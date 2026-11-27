@@ -191,11 +191,15 @@ def test_longueur_d_appui_au_moins_1_mm():
     assert any("au moins 1 mm" in e.value for e in at.error)
 
 
-def test_resume_dans_les_deux_unites():
-    """1 kN = 1000 N / 4.4482 N/lb = 224.8 lb -> « 225 lb » (3 chiffres significatifs)."""
+def test_resume_en_metrique_seulement():
+    """
+    datum-retours #22 : le résumé est en métrique seulement (l'onglet garde les deux unités, PR #99).
+    V_f = 1 kN -> « 1.00 kN » (3 chiffres significatifs), sans « (225 lb) ».
+    """
     at = _entrer(_connecte("admin", "mot-admin"), "$V_f", "1 kN")
-    (tableau,) = [m.value for m in at.markdown if m.value.startswith("| Vérification")]
-    assert "$V_f$ = 1.00 kN (225 lb)" in tableau.splitlines()[2]
+    (tableau,) = [m.value for m in at.markdown if m.value.startswith("| Article")]
+    ligne = next(l for l in tableau.splitlines() if "6.5.4.3" in l)
+    assert "$V_f$ = 1.00 kN**" in ligne and "lb" not in ligne  # seule vérification faite : en gras
 
 
 def test_k_d_unite_de_pression():

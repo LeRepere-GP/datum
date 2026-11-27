@@ -71,7 +71,7 @@ def test_figures_apres_le_calcul_sans_section():
 
 
 def _resume(at):
-    return [m.value for m in at.markdown if m.value.startswith("| Vérification")]
+    return [m.value for m in at.markdown if m.value.startswith("| Article")]
 
 
 def test_element_compose_trace_avec_la_largeur_totale():

@@ -31,7 +31,7 @@ def _affiche(at, symbole):
 
 
 def _ligne_du_resume(at, article):
-    tableau = next(m.value for m in at.markdown if m.value.startswith("| Vérification"))
+    tableau = next(m.value for m in at.markdown if m.value.startswith("| Article"))
     return next(l for l in tableau.splitlines() if article in l)
 
 

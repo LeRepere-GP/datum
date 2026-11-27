@@ -308,13 +308,17 @@ Cette trace est la **source unique** pour :
    avec les valeurs**, puis **le résultat** ;
 5. la vérification finale (ratio en %, respecté ou dépassé).
 
-**Page résumé** (issue #85), au début de la note s'il y a 2 vérifications ou plus : une ligne par
-vérification (vérification, article, charge pondérée, résistance pondérée, ratio, statut ; charges et
-résistances en métrique seulement, pour garder le tableau compact), la vérification
-qui gouverne (ratio le plus élevé) en gras, et le renvoi à sa page. Les lignes viennent de
-`moteur/commun/resume.py` (aucun nouveau calcul) ; le même tableau est affiché dans l'interface, au-dessus
-de la note de calcul. Les commentaires généraux de l'ingénieur vont sur la page résumé seulement (sinon,
-sur la page de la vérification).
+**Page résumé** (issue #85, simplifiée par datum-retours #22), au début de la note s'il y a 2
+vérifications faites ou plus : une ligne par vérification **offerte au compte**, faite ou non, dans
+l'ordre des onglets. Colonnes : article, charge pondérée, résistance pondérée (métrique seulement, pour
+garder le tableau compact), ratio et statut. Statuts : « Conforme », « Non conforme », « Charge
+manquante » (résistance calculée et affichée, charge et ratio « — ») et « Non calculé » (tout à « — »).
+Une vérification non offerte au compte est absente ; une vérification faite mais exclue de la note
+(décochée) est absente du résumé de la note. La vérification qui gouverne (ratio le plus élevé) est en
+gras, et chaque article renvoie à sa page. Les lignes viennent de `moteur/commun/resume.py`
+(`resume_des_verifications_offertes()`, aucun nouveau calcul) ; le même tableau est affiché dans
+l'interface, au-dessus de la note de calcul. Les commentaires généraux de l'ingénieur vont sur la page
+résumé seulement (sinon, sur la page de la vérification).
 
 **Commentaire par calcul** (datum-retours #21) : chaque onglet a sa boîte « Commentaires pour la note »
 (un commentaire par onglet). Il est imprimé en bas de la page de la première vérification de cet onglet,

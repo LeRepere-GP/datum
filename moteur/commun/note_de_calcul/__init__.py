@@ -20,7 +20,7 @@ import typst
 from moteur import VERSION
 from moteur.commun.figures import figure, icone_de_l_article
 from moteur.commun.resultat import Resultat, Verification
-from moteur.commun.resume import LigneDuResume, resume
+from moteur.commun.resume import LigneDuResume, resume, resume_des_verifications_offertes
 from moteur.commun.nombres import cs
 from moteur.commun.unites import deux_unites, grandeur, vers_imperial
 
@@ -159,21 +159,36 @@ def _verification(v: Verification) -> dict:
 def formater_ligne_du_resume(ligne: LigneDuResume) -> dict:
     """
     Ligne du résumé (issue #85) en texte. Charges et résistances pondérées en métrique seulement, pour
-    garder le tableau compact (demande de l'utilisateur, PR #93) ; les pages de vérification gardent les
-    deux unités. Sert à la page résumé de la note et au tableau « Résumé » de l'interface (mêmes valeurs
-    aux deux endroits).
+    garder le tableau compact (demande de l'utilisateur, PR #93 ; aussi dans l'interface depuis
+    datum-retours #22) ; les pages de vérification gardent les deux unités. Sert à la page résumé de la
+    note et au tableau « Résumé » de l'interface (mêmes valeurs aux deux endroits).
+
+    Une valeur absente (charge pas entrée, vérification pas calculée) est « — » (datum-retours #22).
+
+    Args:
+        ligne (LigneDuResume): Ligne du résumé (moteur/commun/resume.py).
+
+    Returns:
+        dict: Textes de la ligne (charge, résistance et ratio formatés), statut et « gouverne ».
     """
+    # Ratio en % (2 décimales) seulement s'il y a une vérification faite avec une résistance positive :
+    # une résistance nulle ou négative donne un ratio infini (Verification), affiché « — » comme avant.
+    if ligne.ratio is not None and ligne.resistance is not None and ligne.resistance > 0:
+        ratio = f"{ligne.ratio * 100:.2f} %"
+    else:
+        ratio = "—"
     return {
         "element": ligne.element,
         "titre": ligne.titre,
         "article": ligne.article,
         "symbole_charge": ligne.symbole_charge,
-        "charge": formater_resultat(ligne.charge, ligne.unite),
+        "charge": "—" if ligne.charge is None else formater_resultat(ligne.charge, ligne.unite),
         "symbole_resistance": ligne.symbole_resistance,
-        "resistance": formater_resultat(ligne.resistance, ligne.unite),
-        "ratio": f"{ligne.ratio * 100:.2f} %" if ligne.resistance > 0 else "—",
+        "resistance": "—" if ligne.resistance is None else formater_resultat(ligne.resistance, ligne.unite),
+        "ratio": ratio,
         "respecte": ligne.respecte,
-        "statut": "Conforme" if ligne.respecte else "Non conforme",
+        # « Conforme », « Non conforme », « Charge manquante » ou « Non calculé » (resume.py)
+        "statut": ligne.statut,
         "gouverne": ligne.gouverne,
     }
 
@@ -183,6 +198,7 @@ def donnees_de_la_note(
     entete: EnTete,
     apparence: Apparence = Apparence(),
     commentaires: str = "",
+    verifications_offertes: list[tuple] | None = None,
 ) -> dict:
     """
     Données transmises au gabarit Typst (aussi utilisées par les tests).
@@ -199,15 +215,36 @@ def donnees_de_la_note(
         commentaires (str, optional): Commentaires de l'ingénieur, en bas à gauche, à côté du sceau
             (datum-retours #3) : sur la page résumé seulement s'il y en a une (PR #93), sinon sur la
             page de la vérification, à côté de la vérification. Default to "" (aucun).
+        verifications_offertes (list[tuple] | None, optional): Lignes de la page résumé
+            (datum-retours #22) : (nom de l'élément, VerificationPrevue, trace ou None) pour toutes les
+            vérifications offertes au compte, comme pour resume.resume_des_verifications_offertes().
+            Chaque ligne dont la trace est dans ``resultats`` renvoie à sa page. Default to None : la
+            page résumé n'a que les vérifications de ``resultats`` qui sont faites (comme avant).
 
     Returns:
         dict: Données sérialisables en JSON.
     """
     normes = sorted({r[1].norme for r in resultats})
-    lignes = resume(resultats)
-    # Position de chaque vérification faite dans la note (« indice ») : le gabarit renvoie chaque
-    # ligne du résumé à sa page
-    indices = [i for i, (_, r, *_) in enumerate(resultats) if r.verification is not None]
+    # Lignes de la page résumé : toutes les vérifications offertes (datum-retours #22), ou, sans cette
+    # liste, seulement les vérifications faites de la note (comme avant)
+    if verifications_offertes is None:
+        lignes = resume(resultats)
+        traces_des_lignes = [r for _, r, *_ in resultats if r.verification is not None]
+    else:
+        lignes = resume_des_verifications_offertes(verifications_offertes)
+        traces_des_lignes = [r for _, _, r in verifications_offertes]
+    # Position de la page de chaque ligne dans la note (« indice ») : le gabarit renvoie la ligne à sa
+    # page. La trace est retrouvée par identité (« is ») : c'est le même objet Resultat que celui de la
+    # page. None : pas de page dans la note (« Charge manquante », « Non calculé »).
+    def indice_de_la_page(trace: Resultat | None) -> int | None:
+        if trace is None:
+            return None
+        return next((i for i, (_, r, *_) in enumerate(resultats) if r is trace), None)
+
+    indices = [indice_de_la_page(trace) for trace in traces_des_lignes]
+    # Page résumé au début de la note (issue #85), seulement s'il y a 2 vérifications faites ou plus
+    # dans la note : avec une seule, sa page est déjà son résumé.
+    nombre_de_verifications_faites = sum(r.verification is not None for _, r, *_ in resultats)
     note = {
         "entete": {**vars(entete), "norme": ", ".join(normes)},
         "version": VERSION,  # version de Datum, au pied de chaque page
@@ -219,11 +256,9 @@ def donnees_de_la_note(
             "police_texte": apparence.police_texte,
         },
         "commentaires": commentaires.strip(),
-        # Page résumé au début de la note (issue #85), seulement s'il y a 2 vérifications ou plus :
-        # avec une seule, sa page est déjà son résumé.
         "resume": (
             [{**formater_ligne_du_resume(l), "indice": i} for l, i in zip(lignes, indices)]
-            if len(lignes) >= 2
+            if nombre_de_verifications_faites >= 2
             else []
         ),
         "resultats": [],
@@ -305,6 +340,7 @@ def produire_pdf(
     entete: EnTete,
     apparence: Apparence = Apparence(),
     commentaires: str = "",
+    verifications_offertes: list[tuple] | None = None,
 ) -> bytes:
     """
     Produit la note de calcul PDF.
@@ -314,6 +350,7 @@ def produire_pdf(
         entete (EnTete): Champs de l'en-tête.
         apparence (Apparence, optional): Logo et couleurs. Default to ceux de la marque.
         commentaires (str, optional): Voir donnees_de_la_note().
+        verifications_offertes (list[tuple] | None, optional): Voir donnees_de_la_note().
 
     Returns:
         bytes: Contenu du fichier PDF.
@@ -323,7 +360,9 @@ def produire_pdf(
     """
     if not resultats:
         raise ValueError("Aucune vérification à mettre dans la note de calcul.")
-    donnees = json.dumps(donnees_de_la_note(resultats, entete, apparence, commentaires), ensure_ascii=False)
+    donnees = json.dumps(
+        donnees_de_la_note(resultats, entete, apparence, commentaires, verifications_offertes), ensure_ascii=False
+    )
     polices = (
         [str(apparence.dossier_polices)]
         if apparence.dossier_polices and apparence.dossier_polices.is_dir()
