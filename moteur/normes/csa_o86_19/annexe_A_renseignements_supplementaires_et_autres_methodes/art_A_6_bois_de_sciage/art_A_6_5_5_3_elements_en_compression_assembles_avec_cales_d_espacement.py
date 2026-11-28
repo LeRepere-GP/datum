@@ -38,9 +38,12 @@ Interprétations :
     - Réponse de l'utilisateur (28 novembre 2026, question 1 de l'issue #115) : Datum ne vérifie pas
       les cales ni les connecteurs ; les exigences de la norme sont affichées en notes (page et note
       PDF), avec la constante du tableau A.5 et la résistance requise des connecteurs comme information.
-    - EN ATTENTE DE L'UTILISATEUR (issue #115) : d de K_Zc dans A.6.5.5.3.5.2 (dimension hors tout,
-      cales comprises, proposée) ; K_H = 1,00 pour les pièces seules de A.6.5.5.3.5.5 ; l'annexe comme
-      méthode de Datum pour 6.5.5.3.
+    - Réponse de l'utilisateur (28 novembre 2026, question 3) : l'annexe est offerte, et aussi l'option
+      de 6.5.5.3 sans gain des cales (pièces seules par 6.5.5.2, dans art_6_5_5).
+    - Réponse de l'utilisateur (28 novembre 2026, question 4) : d de K_Zc dans A.6.5.5.3.5.2 = dimension
+      hors tout de l'élément assemblé, cales comprises (dimension_hors_tout()).
+    - EN ATTENTE DE L'UTILISATEUR (issue #115, question 5) : K_H = 1,00 pour les pièces seules de
+      A.6.5.5.3.5.5.
     - Réponse de l'utilisateur (28 novembre 2026, question 2 de l'issue #115) : « Donner l'option en
       fonction de la position des connecteurs ». L'ingénieur entre la distance entre l'extrémité de
       l'élément et le centre des connecteurs de la cale d'extrémité ; Datum en déduit la condition A ou
@@ -218,7 +221,7 @@ def dimension_hors_tout(nombre_de_pieces: int, largeur_d_une_piece: float, epais
     Dimension hors tout de l'élément assemblé dans la direction de b (pièces et cales), pour le d de K_Zc
     de A.6.5.5.3.5.2 (« dimension de l'élément dans la direction du flambage »). Pas de symbole.
 
-    EN ATTENTE DE L'UTILISATEUR (issue #115) : lecture proposée, « l'élément » = l'élément assemblé
+    Réponse de l'utilisateur (28 novembre 2026, question 4 de l'issue #115) : « l'élément » = l'élément assemblé
     (comme A = « aire de la section transversale totale de l'élément »). Cette dimension est la plus
     grande des lectures possibles, donc K_Zc le plus petit (conservateur).
 
@@ -646,7 +649,7 @@ def verifier_compression_element_avec_cales_d_espacement(
         rf"{cs(L_selon_b)} / {cs(largeur_d_une_piece)}",
         C_C(L_selon_b, largeur_d_une_piece),
     ))
-    # d de K_Zc : dimension hors tout dans la direction du flambage (EN ATTENTE, issue #115)
+    # d de K_Zc : dimension hors tout dans la direction du flambage (réponse de l'utilisateur, 28 nov.)
     d_hors_tout = r.ajouter_etape(Etape(
         "A.6.5.5.3.5.2", "Dimension de l'élément dans la direction du flambage (hors tout, cales comprises)",
         "", r"\text{nombre de pièces} \times \text{face étroite} + (\text{nombre de pièces} - 1) \times "
@@ -697,7 +700,7 @@ def verifier_compression_element_avec_cales_d_espacement(
     ))
 
     # --- 2. Pièces seules, flambage selon d (A.6.5.5.3.5.5), chacune par 6.5.5.2 ---
-    # F_c : le même (K_H = 1,00, EN ATTENTE, issue #115) ; K_Zc avec d (grande face) et L ;
+    # F_c : le même (K_H = 1,00, EN ATTENTE, issue #115, question 5) ; K_Zc avec d (grande face) et L ;
     # K_C de 6.5.5.2.5 avec le K_T des « autres propriétés ».
     c_c_selon_d = r.ajouter_etape(Etape(
         "A.6.5.5.3.5.5", "Élancement d'une pièce seule, flambage selon d", "C_{C(d)}",
