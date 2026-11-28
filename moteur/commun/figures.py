@@ -529,6 +529,117 @@ def traction(
     )
 
 
+def compression_cales_d_espacement(
+    resultat: Resultat, principale: str = COULEUR_PRINCIPALE, accent: str = COULEUR_ACCENT,
+    avec_section: bool = True,
+) -> str:
+    """
+    Figure de A.6.5.5.3 (élément en compression assemblé avec cales d'espacement, figure A.2 de la
+    norme, p. 308), sous la charge pondérée P_f (P_f ≤ P_r).
+
+    - Vue de gauche, flambage selon b (élément assemblé, A.6.5.5.3.5.2) : les pièces vues sur leur face
+      étroite, séparées par une cale d'extrémité en haut et en bas et une cale intermédiaire au centre
+      (A.6.5.5.3.2 b)). Les connecteurs (cercles) des cales d'extrémité sont à L / 20 ou moins de
+      l'extrémité (condition A) ou entre L / 20 et L / 10 (condition B), A.6.5.5.3.3. Cote L_(b).
+    - Vue de droite, flambage selon d (pièces seules, A.6.5.5.3.5.5) : une pièce vue sur sa grande face.
+      Cote L_(d), puis la longueur L de l'élément.
+    - À droite, la section : pièces vues en bout (X), cale entre elles (pointillé), cote d.
+
+    Args:
+        resultat (Resultat): Trace de verifier_compression_element_avec_cales_d_espacement().
+        principale, accent (str, optional): Couleurs de l'élément et des charges. Default to celles
+            de la marque.
+        avec_section (bool, optional): Dessiner la section à droite. Default to True (note PDF).
+
+    Returns:
+        str: SVG de la figure.
+    """
+    pieces = int(_sans_symbole(resultat, "Nombre de pièces") or 2)
+    retenue = _sans_symbole(resultat, "Degré de retenue")
+    condition_b = isinstance(retenue, str) and retenue.startswith("Condition B")
+    pointille = f"stroke='{principale}' stroke-width='0.8' stroke-dasharray='3 3'"
+    fleche = (
+        "<path d='M{x} 4 V28 M{g} 21 L{x} 28 L{d} 21' stroke='" + accent
+        + "' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/>"
+    )
+
+    # --- Vue selon b : 2 pièces dessinées (schéma), cales d'extrémité et intermédiaire ---
+    x1, x2, largeur, vide = 40, 70, 14, 16  # pièces de x1 à x1 + 14 et de x2 à x2 + 14
+    cales = "".join(
+        f"<rect x='{x1 + largeur}' y='{y}' width='{vide}' height='{h}' stroke='{principale}' "
+        f"stroke-width='1.5'/>"
+        for y, h in ((30, 28), (98, 24), (162, 28))  # extrémité haut, intermédiaire, extrémité bas
+    )
+    # Connecteurs des cales d'extrémité : plus près de l'extrémité en condition A qu'en condition B
+    y_connecteur = 52 if condition_b else 40
+    connecteurs = "".join(
+        f"<circle cx='{x1 + largeur + vide / 2}' cy='{y}' r='4' stroke='{accent}' stroke-width='1.5'/>"
+        for y in (y_connecteur, 220 - y_connecteur)
+    )
+    vue_selon_b = (
+        fleche.format(x=x1 + 22, g=x1 + 16, d=x1 + 28)
+        + f"<rect x='{x1}' y='30' width='{largeur}' height='160' stroke='{principale}' stroke-width='2.5'/>"
+        + f"<rect x='{x2}' y='30' width='{largeur}' height='160' stroke='{principale}' stroke-width='2.5'/>"
+        + cales + connecteurs
+        + _hachures(x1 - 12, 190, 68, 14, principale)
+        + _hachures(x2 + largeur, 26, 12, 10, principale)  # support latéral en tête
+        # Distance entre les supports latéraux, à gauche
+        + f"<path d='M{x1 - 4} 30 H{x1 - 32} M{x1 - 4} 190 H{x1 - 32}' {pointille}/>"
+        + _cote_verticale(x1 - 28, 30, 190, accent)
+        + _etiquette(x1 - 34, 116, "L_(b)", ancre="end")
+        # Position des connecteurs depuis l'extrémité (A.6.5.5.3.3), à droite de la cale du haut
+        + f"<path d='M{x2 + largeur + 2} {y_connecteur} H{x2 + largeur + 22}' {pointille}/>"
+        + _etiquette(x1 + 34, 226, "L/20 à L/10" if condition_b else "≤ L/20")
+    )
+
+    # --- Vue selon d : une pièce sur sa grande face ---
+    x = 180
+    vue_selon_d = (
+        fleche.format(x=x + 20, g=x + 14, d=x + 26)
+        + f"<rect x='{x}' y='30' width='40' height='160' stroke='{principale}' stroke-width='2.5'/>"
+        + _hachures(x - 12, 190, 64, 14, principale)
+        + _hachures(x + 40, 26, 12, 10, principale)
+        + f"<path d='M{x - 2} 32 Q{x - 18} 110 {x - 2} 188' stroke='{principale}' stroke-width='1.2' "
+          f"stroke-dasharray='4 4'/>"
+        + f"<path d='M{x - 4} 30 H{x - 30} M{x - 4} 190 H{x - 30}' {pointille}/>"
+        + _cote_verticale(x - 26, 30, 190, accent)
+        + _etiquette(x - 32, 116, "L_(d)", ancre="end")
+        # Longueur L de l'élément, à droite
+        + f"<path d='M{x + 54} 30 H{x + 78} M{x + 54} 190 H{x + 78}' {pointille}/>"
+        + _cote_verticale(x + 72, 30, 190, accent)
+        + _etiquette(x + 80, 116, "L", ancre="start")
+    )
+    elevation = _etiquette(x1 + 12, 20, "P_f", ancre="end") + vue_selon_b + vue_selon_d
+
+    # --- Section : pièces en bout, une cale (pointillé) entre deux pièces, cote d ---
+    section = ""
+    largeur_vue = 300  # sans la section : jusqu'à l'étiquette de la cote L
+    if avec_section:
+        x0, y0, l_piece, l_vide = 300, 80, 14, 12
+        largeur_totale = pieces * l_piece + (pieces - 1) * l_vide
+        section += "".join(
+            _bois_de_bout(x0 + i * (l_piece + l_vide), y0, l_piece, 46, principale, epaisseur=2.5)
+            for i in range(pieces)
+        )
+        section += "".join(
+            f"<rect x='{x0 + i * (l_piece + l_vide) + l_piece}' y='{y0 + 4}' width='{l_vide}' "
+            f"height='38' {pointille}/>"
+            for i in range(pieces - 1)
+        )
+        x_cote = x0 + largeur_totale + 12
+        section += (
+            f"<path d='M{x0 + largeur_totale + 2} {y0} H{x_cote + 4} M{x0 + largeur_totale + 2} {y0 + 46} "
+            f"H{x_cote + 4}' {pointille}/>"
+            + _cote_verticale(x_cote, y0, y0 + 46, accent)
+            + _etiquette(x_cote + 8, y0 + 28, "d", ancre="start")
+        )
+        largeur_vue = x_cote + 30 + 20  # étiquette d, plus la marge de gauche (-20)
+    return (
+        _svg(f"-20 0 {largeur_vue} 236", "-20 0 300 236", avec_section)
+        + f"{elevation}{section}</svg>"
+    )
+
+
 # Figure de chaque vérification, selon l'article de la trace
 _FIGURES = {
     "6.5.3": flexion,
@@ -539,12 +650,15 @@ _FIGURES = {
     "6.5.6.2": compression_perpendiculaire,
     "6.5.6.3": compression_pres_d_un_appui,
     "6.5.8": traction,
+    "A.6.5.5.3": compression_cales_d_espacement,  # cales d'espacement (issue #115)
 }
 
 
 # Figures qui dessinent la section de l'élément (b, d) à droite de l'élévation. Celles de 6.5.6 dessinent
 # plutôt la section sur son appui, avec la largeur d'appui b : elles la gardent toujours (retour #12).
-_FIGURES_AVEC_LA_SECTION_DE_L_ELEMENT = {"6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5", "6.5.5.4", "6.5.8"}
+_FIGURES_AVEC_LA_SECTION_DE_L_ELEMENT = {
+    "6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5", "6.5.5.4", "6.5.8", "A.6.5.5.3",
+}
 
 
 def figure(
@@ -657,6 +771,7 @@ _ICONES = {
     "6.5.6.2": "compression_perpendiculaire",
     "6.5.6.3": "compression_pres_appui",
     "6.5.8": "traction",
+    "A.6.5.5.3": "compression_parallele",  # éléments assemblés avec cales d'espacement (issue #115)
     "6.5.9": "flexion_et_charge_axiale",
 }
 
