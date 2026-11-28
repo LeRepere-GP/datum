@@ -131,6 +131,11 @@ L'utilisateur révise chaque ligne : le code doit être facile à comprendre et 
   réduit et la somme des plis calculés seuls (6.5.5.4.1) ; si un pli seul a C_C > 50, seule la valeur de
   l'élément composé est possible. Assemblage non vérifié (exigences en notes) ; hors de 6.5.5.4.1 :
   calcul refusé ; K_H = 1,00.
+- **Éléments avec cales d'espacement (6.5.5.3, A.6.5.5.3)** (issue #115) : deux options, l'annexe A.6.5.5.3 et
+  les pièces calculées seules par 6.5.5.2 (sans gain des cales). Annexe : condition A ou B **déduite de la
+  position des connecteurs** entrée (A si <= L/20, B si <= L/10, refus au-delà ; L de la figure A.2 = L_(b)) ;
+  d de K_Zc (A.6.5.5.3.5.2) = **dimension hors tout, cales comprises** ; pièces seules (A.6.5.5.3.5.5) avec le
+  K_H du tableau 6.12 ; cales et connecteurs non vérifiés (exigences en notes, constante du tableau A.5 affichée).
 - **Ke** : une fonction simple reçoit Le (ou Ke) en chiffre. Une fonction séparée déduira Ke des
   conditions d'appui (annexe A, informative).
 
