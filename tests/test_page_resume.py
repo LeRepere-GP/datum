@@ -162,3 +162,28 @@ def test_page_resume_de_la_note_comme_le_tableau():
         assert not at.exception
         offertes = produire.call_args.kwargs["verifications_offertes"]
         assert [prevue.article for _, prevue, _ in offertes] == ["6.5.3", "6.5.4.4", "6.5.5", "6.5.6.2", "6.5.6.3"]
+
+
+def test_element_compose_une_seule_ligne_6_5_5_4():
+    """
+    Élément de 3 plis (PR #114, 6.5.5.4) : la ligne de compression parallèle est celle de l'élément
+    composé (article 6.5.5.4) et remplace celle de 6.5.5 ; jamais les deux à la fois.
+    - Pièce seulement (pas de L) : 6.5.5.4 « Non calculé » ;
+    - L, L_(b), L_(d) et P_f = 5 kN entrés : la vérification est faite, P_r affichée, statut conforme ou
+      non (la valeur de P_r est vérifiée à la main dans les tests de 6.5.5.4 et de l'onglet).
+    """
+    from tests.test_page_compression_composee import _element_compose
+
+    at = _connecte("admin", "mot-admin")
+    [t for t in at.text_input if t.key == "piece"][0].set_value("3 2x6").run()
+    assert not at.exception
+    assert [l[0] for l in _lignes(at)] == ["6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5.4", "6.5.6.2", "6.5.6.3"]
+    assert _ligne(at, "6.5.5.4")[1:] == ["—", "—", "—", ":gray[Non calculé]"]
+
+    _element_compose(at, 3)
+    assert not at.exception
+    article, charge, resistance, ratio, statut = _ligne(at, "6.5.5.4")
+    assert charge.strip("*").startswith("$P_f$ = 5")  # 5 kN
+    assert resistance.strip("*").startswith("$P_r$ = ")
+    assert statut.strip("*") in (":green[✔ Conforme]", ":red[✖ Non conforme]")
+    assert "6.5.5" not in [l[0].strip("*") for l in _lignes(at)]

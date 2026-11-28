@@ -468,7 +468,8 @@ def compression_parallele(
     petit que L. À droite, la section : b et d.
 
     Args:
-        resultat (Resultat): Trace de verifier_compression_parallele_au_fil().
+        resultat (Resultat): Trace de verifier_compression_parallele_au_fil() ou de
+            verifier_compression_parallele_element_compose() (6.5.5.4, issue #32).
         principale, accent (str, optional): Couleurs de l'élément et des charges. Default to celles
             de la marque.
         avec_section (bool, optional): Dessiner la section à droite. Default to True (note PDF) ;
@@ -534,6 +535,7 @@ _FIGURES = {
     "6.5.4.3": cisaillement,
     "6.5.4.4": cisaillement_a_l_entaille,
     "6.5.5": compression_parallele,
+    "6.5.5.4": compression_parallele,  # élément composé (issue #32) : même poteau, section avec les plis
     "6.5.6.2": compression_perpendiculaire,
     "6.5.6.3": compression_pres_d_un_appui,
     "6.5.8": traction,
@@ -542,7 +544,7 @@ _FIGURES = {
 
 # Figures qui dessinent la section de l'élément (b, d) à droite de l'élévation. Celles de 6.5.6 dessinent
 # plutôt la section sur son appui, avec la largeur d'appui b : elles la gardent toujours (retour #12).
-_FIGURES_AVEC_LA_SECTION_DE_L_ELEMENT = {"6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5", "6.5.8"}
+_FIGURES_AVEC_LA_SECTION_DE_L_ELEMENT = {"6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5", "6.5.5.4", "6.5.8"}
 
 
 def figure(
@@ -651,6 +653,7 @@ _ICONES = {
     "6.5.4.3": "cisaillement",
     "6.5.4.4": "cisaillement_entaille",
     "6.5.5": "compression_parallele",
+    "6.5.5.4": "compression_parallele",  # élément composé en compression (issue #32)
     "6.5.6.2": "compression_perpendiculaire",
     "6.5.6.3": "compression_pres_appui",
     "6.5.8": "traction",
