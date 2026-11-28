@@ -132,6 +132,27 @@ class DimensionsDeLaPiece:
         """b = largeur de l'élément, mm : largeur totale, tous les plis compris (3.2, p. 35 ; issue #95)."""
         return self.nombre_de_plis * self.largeur_d_un_pli
 
+    def _largeur_x_hauteur(self) -> str:
+        """« 2x6 », « 38x235 » ou « 5 1/4 x 8 7/16 », tels qu'écrits dans le texte, sans unité."""
+        p = self.piece
+        # « 2x6 » collé ; « 5 1/4 x 8 7/16 » espacé, pour que les fractions restent lisibles
+        fractionnaire = any(c in p.texte_largeur + p.texte_hauteur for c in " -/")
+        return f"{p.texte_largeur}{' x ' if fractionnaire else 'x'}{p.texte_hauteur}"
+
+    def nom_court(self) -> str:
+        """
+        Nom court de la pièce, pour le titre par défaut de la note de calcul (datum-retours #7) : plis avec
+        un tiret, puis « brut » ou « mm » au besoin. Ex. « 2x6 », « 3-2x6 », « 5 1/4 x 8 7/16 brut »,
+        « 2-38x235 mm ». Même forme que l'ancien titre (« 3-2x6 », « ... brut »), avec « mm » en plus pour
+        que des millimètres ne soient pas lus comme des pouces.
+        """
+        nom = self._largeur_x_hauteur()
+        if self.lecture == REELLES:
+            nom += " mm"
+        elif self.lecture == BRUTES:
+            nom += " brut"
+        return nom if self.nombre_de_plis == 1 else f"{self.nombre_de_plis}-{nom}"
+
     def description(self) -> str:
         """
         Ce que Datum a compris, en mots, sans les dimensions nettes (l'interface les ajoute dans les deux
@@ -139,9 +160,7 @@ class DimensionsDeLaPiece:
         « 5 1/4 x 8 7/16 po, sec, dimensions brutes » ; « 89x140 mm, sec, dimensions réelles ».
         """
         p = self.piece
-        # « 2x6 » collé ; « 5 1/4 x 8 7/16 » espacé, pour que les fractions restent lisibles
-        fractionnaire = any(c in p.texte_largeur + p.texte_hauteur for c in " -/")
-        nom = f"{p.texte_largeur}{' x ' if fractionnaire else 'x'}{p.texte_hauteur}"
+        nom = self._largeur_x_hauteur()
         if self.lecture != NOMINALES:
             nom += " mm" if p.en_mm else " po"  # « 2x6 » nominal se lit sans unité
         if self.nombre_de_plis > 1:
