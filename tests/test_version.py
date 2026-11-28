@@ -9,14 +9,14 @@ from tests.test_acces import _connecte
 
 
 def test_format_de_la_version():
-    assert VERSION == "0.4.0"
+    assert VERSION == "0.3.0"
     assert re.fullmatch(r"\d+\.\d+\.\d+", VERSION)  # MAJEUR.MINEUR.CORRECTIF
 
 
 def test_version_dans_la_note():
-    assert donnees_de_la_note([("Solive S-1", flexion())], ENTETE)["version"] == "0.4.0"
+    assert donnees_de_la_note([("Solive S-1", flexion())], ENTETE)["version"] == "0.3.0"
 
 
 def test_version_dans_la_barre_laterale():
     at = _connecte("admin", "mot-admin")
-    assert "Datum 0.4.0" in [c.value for c in at.sidebar.caption]
+    assert "Datum 0.3.0" in [c.value for c in at.sidebar.caption]
