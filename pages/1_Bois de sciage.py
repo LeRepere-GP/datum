@@ -21,6 +21,7 @@ from moteur.commun.note_de_calcul import (
     nom_du_pdf,
     produire_pdf,
 )
+from moteur.commun.piece import lire_piece
 from moteur.commun.resume import resume
 from moteur.normes.csa_o86_19.ch_5_conception_generale import (
     art_5_3_conditions_et_coefficients_influant_sur_la_resistance as art_5_3,
@@ -135,61 +136,45 @@ with st.container(horizontal_alignment="center"):
     )
 
     with col1:
-        GREEN = st.toggle(
-            "Bois vert",
-            help="Bois d'œuvre dont la teneur en humidité dépasse 19 % (H > 19%)",
+        # Pièce en texte libre (datum-retours #20) : une seule boîte remplace les anciens champs (bois vert,
+        # dimensions brutes, largeur, hauteur et nombre de plis ; retirés, décision de l'utilisateur).
+        # Lecture du texte : moteur/commun/piece.py ; dimensions nettes : tableau A.3
+        # (dimensions_de_la_piece()). Aucune logique de calcul ici.
+        texte_de_la_piece = st.text_input(
+            "Pièce",
+            value="2x6",
+            key="piece",
+            icon=":material/straighten:",
+            help="""Plis (facultatif), largeur x hauteur, puis « vert » ou « brut » au besoin.
+            Ex. : 2x10 ; 2 2x6 ou 2-2x6 (2 plis) ; 4x4 vert ; 5 1/4 x 8 7/16 ; 2x6 brut ; 89 x 140 mm.
+            Dimensions entières du tableau A.3 : nominales. Dimensions non entières ou absentes du
+            tableau A.3 : brutes. En mm : dimensions réelles. Plis : de 1 à 5.""",
         )
-        BRUT = st.toggle(
-            "Dimensions brutes",
-            help="Utilise les dimensions nominales en tant que dimensions réelles",
+        try:
+            DIMENSIONS = tableau_A_3.dimensions_de_la_piece(lire_piece(texte_de_la_piece))
+        except ValueError as error:
+            # Texte refusé : message avec la raison, et rien n'est calculé (jamais de valeur devinée)
+            st.error(f"« {texte_de_la_piece} » : {error}.", icon=":material/error:")
+            st.stop()
+        # Ce que Datum a compris, toujours affiché sous la boîte (décision de l'utilisateur, #20)
+        st.caption(
+            f"Compris : {DIMENSIONS.description()} : "
+            + (
+                f"b = {DIMENSIONS.nombre_de_plis} × {iu.texte(DIMENSIONS.largeur_d_un_pli, 'dimension')} "
+                f"= {iu.texte(DIMENSIONS.b, 'dimension')}"
+                if DIMENSIONS.nombre_de_plis > 1
+                else f"b = {iu.texte(DIMENSIONS.b, 'dimension')}"
+            )
+            + f", d = {iu.texte(DIMENSIONS.d, 'dimension')}."
         )
-        if BRUT:
-            width_input = st.number_input(
-                "Largeur réelle de l'élément, $b$ (po)",
-                min_value=1.50,
-                step=0.25,
-                icon=":material/fit_page_width:",
-            )
-            depth_input = st.number_input(
-                "Hauteur réelle de l'élément, $d$ (po)",
-                min_value=1.50,
-                value=5.50,
-                step=0.25,
-                icon=":material/fit_page_height:",
-            )
-        else:
-            NOMINAL_SIZES = tableau_A_3.dimensions_nominales()
-            width_input = st.selectbox(
-                "Largeur nominale de l'élément, $b$ (po)",
-                options=NOMINAL_SIZES,
-                index=NOMINAL_SIZES.index(2),
-                help="Dimensions nominales du tableau A.3",
-            )
-            depth_input = st.selectbox(
-                "Hauteur nominale de l'élément, $d$ (po)",
-                options=NOMINAL_SIZES,
-                index=NOMINAL_SIZES.index(6),
-                help="Dimensions nominales du tableau A.3",
-            )
-        built_up = st.radio(
-            "Élément composé (plis)",
-            options=(1, 2, 3, 4, 5),
-            horizontal=True,
-            help="Élément assemblé composé de plusieurs plis",
-        )
+        # Mêmes noms qu'avant pour la suite de la page : width = largeur nette d'un pli (mm), depth = d (mm),
+        # built_up = nombre de plis. width_input, depth_input et BRUT servent au titre par défaut de la note.
+        width, depth, built_up = DIMENSIONS.largeur_d_un_pli, DIMENSIONS.d, DIMENSIONS.nombre_de_plis
+        width_input = DIMENSIONS.piece.largeur_d_un_pli_entree
+        depth_input = DIMENSIONS.piece.hauteur_entree
+        BRUT = DIMENSIONS.lecture == tableau_A_3.BRUTES
 
     with col2:
-        TIMBER = not BRUT and tableau_A_3.est_gros_bois(width_input, depth_input)
-        try:
-            width = tableau_A_3.dimension_nette(
-                width_input, vert=GREEN, brut=BRUT, gros_bois=TIMBER
-            )
-            depth = tableau_A_3.dimension_nette(
-                depth_input, vert=GREEN, brut=BRUT, gros_bois=TIMBER
-            )
-        except ValueError as error:
-            st.error(str(error), icon=":material/error:")
-            st.stop()
         if built_up == 1:
             st.metric("Largeur nette de l'élément, $b$", iu.texte(width, "dimension"))
         else:

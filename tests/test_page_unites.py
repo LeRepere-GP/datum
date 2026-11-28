@@ -53,13 +53,14 @@ def test_par_defaut():
     # Dimensions nettes dans les deux unités : 38 mm / 25.4 mm/po = 1.496 po -> 1 1/2 po ;
     # 140 mm / 25.4 mm/po = 5.512 po -> 5 1/2 po (au 1/16 po près)
     assert [m.value for m in at.metric] == ["38 mm (1 1/2 po)", "140 mm (5 1/2 po)"]
-    # Les dimensions nominales restent en po (« 2x6 »)
-    assert [s for s in at.selectbox if s.label.startswith("Largeur nominale")][0].value == 2
+    # Les dimensions nominales restent en po (« 2x6 »), même si les dimensions par défaut sont en mm :
+    # la boîte « Pièce » (datum-retours #20) lit les nombres sans unité en po
+    assert [t for t in at.text_input if t.key == "piece"][0].value == "2x6"
 
 
 def test_element_compose():
     at = _connecte("admin", "mot-admin")
-    [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(2).run()
+    [t for t in at.text_input if t.key == "piece"][0].set_value("2 2x6").run()  # 2 plis de 2x6 (datum-retours #20)
     # 2 x 38 mm = 76 mm ; 76 mm / 25.4 mm/po = 2.992 po -> 3 po (au 1/16 po près)
     assert at.metric[0].value == "2*38 = 76 mm (3 po)"
 

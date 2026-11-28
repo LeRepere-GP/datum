@@ -17,7 +17,7 @@ def _page(plis=1, L_b=None, R_f=None, conditions_appui=False, charge_pres=False,
           P_f=None, densite=False, nlga=False):
     at = _connecte("admin", "mot-admin")
     if plis != 1:
-        [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(plis).run()
+        [t for t in at.text_input if t.key == "piece"][0].set_value(f"{plis} 2x6").run()  # plis de 2x6 (datum-retours #20)
     for cle, coche in (
         ("cp_support_far", conditions_appui), ("cp_support_low_bending", conditions_appui),
         ("cp_near_load", charge_pres), ("cp_use_density", densite),

@@ -83,7 +83,7 @@ def test_figure_de_la_compression_perpendiculaire():
 def test_figure_d_un_element_compose():
     """Issue #62 : avec 3 plis, la page passe le nombre de plis à la trace (figure)."""
     at = _connecte("admin", "mot-admin")
-    [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(3).run()
+    [t for t in at.text_input if t.key == "piece"][0].set_value("3 2x6").run()  # 3 plis de 2x6 (datum-retours #20)
     [n for n in at.text_input if n.key == "cp_support_length"][0].set_value("89.0 mm").run()  # mm
     assert not at.exception
     assert _images(at._tree) >= 1
@@ -163,7 +163,7 @@ def test_largeur_d_appui_preremplie():
     at = _connecte("admin", "mot-admin")
     champ = lambda: [n for n in at.text_input if n.key == "cp_bearing_width"][0]  # noqa: E731
     assert champ().value == "38 mm"  # 2x6 : b = 38 mm (1.50 po)
-    [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(2).run()
+    [t for t in at.text_input if t.key == "piece"][0].set_value("2 2x6").run()  # 2 plis de 2x6 (datum-retours #20)
     assert not at.exception
     assert champ().value == "76 mm"  # 2 plis x 38 mm = 76 mm (2.99 po)
     # Une valeur entrée par l'utilisateur est gardée tant que l'élément ne change pas
