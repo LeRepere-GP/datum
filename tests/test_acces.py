@@ -87,7 +87,10 @@ def test_formulaire_de_commentaire():
     at.text_input[0].input("mot-lantier")
     at.button[0].click().run()
     with mock.patch.object(retours, "creer_issue", return_value="https://exemple") as envoi:
-        at.text_area[0].input("Le ratio devrait être arrondi.")
+        # Boîte du formulaire de retour (la page a aussi des boîtes de commentaires pour la note)
+        [t for t in at.text_area if t.label == "Commentaire, erreur ou suggestion"][0].input(
+            "Le ratio devrait être arrondi."
+        )
         [b for b in at.button if b.label == "Envoyer"][0].click().run()
     assert not at.exception
     titre, corps, jeton, depot = envoi.call_args.args
@@ -299,8 +302,9 @@ def test_en_tete_de_la_note():
         [n for n in at.text_input if n.key == "cp_support_length"][0].set_value("89.0 mm")
         [n for n in at.text_input if n.key == "cp_rf"][0].set_value("5.0")  # kN
         at.run()
-        etiquettes = [e.label for e in at.expander]  # plus de sections repliables dans la note
-        assert "En-tête de la note" not in etiquettes
+        etiquettes = [e.label for e in at.expander]
+        # datum-retours #21 : l'en-tête est une section repliable en haut de la page, ouverte par défaut
+        assert "En-tête de la note de calcul" in etiquettes
         assert not any(e.startswith("Apparence") for e in etiquettes)
         assert not at.get("color_picker") and not at.get("file_uploader")
         titre = [t for t in at.text_input if t.label == "Titre"][0]
@@ -315,9 +319,57 @@ def test_en_tete_de_la_note():
         [t for t in at.text_input if t.label == "Titre"][0].set_value("Poutre P-1").run()
         [t for t in at.text_input if t.key == "piece"][0].set_value("2 2x6").run()  # 2 plis
         assert [t for t in at.text_input if t.label == "Titre"][0].value == "Poutre P-1"
-        assert [t for t in at.text_area if t.label == "Commentaires"]
+        assert [t for t in at.text_area if t.label == "Commentaires généraux"]
     assert not at.exception
     assert any(b.label.startswith("Télécharger") for b in at.get("download_button"))
+
+
+def test_en_tete_en_haut_de_la_page():
+    # datum-retours #21 : les champs de l'en-tête sont en haut de la page, avant « Matériaux », et
+    # visibles avant le premier calcul (aucune charge pondérée entrée)
+    with mock.patch.dict(acces.ACCES, {acces.LANTIER: frozenset({"compression_perpendiculaire", "note_pdf"})}):
+        at = _connecte("lantier", "mot-lantier")
+    assert not at.exception
+    en_tete = [e for e in at.expander if e.label == "En-tête de la note de calcul"][0]
+    assert {"Client", "Projet", "Adresse du projet", "Numéro de dossier", "Titre"} <= {
+        t.label for t in en_tete.text_input
+    }
+    # Ordre d'affichage : l'en-tête vient avant le sous-titre « Matériaux » (parcours de la page de
+    # haut en bas)
+    def en_ordre(bloc):
+        yield bloc
+        for enfant in getattr(bloc, "children", {}).values():
+            yield from en_ordre(enfant)
+
+    page = list(en_ordre(at.main))
+    position_en_tete = next(i for i, b in enumerate(page) if b is en_tete)
+    position_materiaux = next(i for i, b in enumerate(page) if getattr(b, "value", None) == "Matériaux")
+    assert position_en_tete < position_materiaux
+    # Pas encore de calcul : pas de bouton de téléchargement, mais l'en-tête se remplit déjà
+    assert not at.get("download_button")
+
+
+def test_commentaire_par_onglet_dans_la_note():
+    # datum-retours #21 : une boîte « Commentaires pour la note » par onglet, transmise à la note sur la
+    # page de la première vérification de l'onglet seulement (pas répétée sur la 2e vérification)
+    from moteur.commun import note_de_calcul
+
+    with (
+        mock.patch.dict(acces.ACCES, {acces.LANTIER: frozenset({"compression_perpendiculaire", "note_pdf"})}),
+        mock.patch.object(note_de_calcul, "produire_pdf", return_value=b"%PDF") as produire,
+    ):
+        at = _connecte("lantier", "mot-lantier")
+        boites = [t for t in at.text_area if t.label == "Commentaires pour la note"]
+        assert [t.key for t in boites] == ["note_commentaire_compression_perpendiculaire"]  # un par onglet
+        boites[0].input("Appui sur poutre P-2.")
+        [n for n in at.text_input if n.key == "cp_support_length"][0].set_value("89.0 mm")
+        [n for n in at.text_input if n.key == "cp_rf"][0].set_value("5.0")  # kN
+        at.run()
+    assert not at.exception
+    resultats = produire.call_args.args[0]
+    commentaires = [r[3] for r in resultats]
+    assert commentaires[0] == "Appui sur poutre P-2."
+    assert all(c == "" for c in commentaires[1:])  # 6.5.6.3 (même onglet) : pas répété
 
 
 def test_selecteur_de_norme_dans_la_barre_laterale():

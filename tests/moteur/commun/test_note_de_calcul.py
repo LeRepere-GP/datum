@@ -211,6 +211,48 @@ def test_produire_pdf_avec_commentaires():
     assert len(pages.findall(avec)) == len(pages.findall(sans)) == 1
 
 
+def test_commentaire_par_calcul():
+    """datum-retours #21 : un commentaire par calcul, 4e élément facultatif du tuple."""
+    # Sans 4e élément (anciens appels) : aucun commentaire, et « en test » reste lu
+    note = donnees_de_la_note([("2x6", flexion()), ("2x6", flexion(), True)], ENTETE)
+    assert [r["commentaire"] for r in note["resultats"]] == ["", ""]
+    assert [r["en_test"] for r in note["resultats"]] == [False, True]
+    # Avec commentaire : espaces autour retirés, lignes conservées ; None compte comme aucun
+    note = donnees_de_la_note(
+        [("2x6", flexion(), False, "  Appui sur poutre P-2.\nVoir détail 3 \n"), ("2x6", flexion(), True, None)],
+        ENTETE,
+    )
+    assert note["resultats"][0]["commentaire"] == "Appui sur poutre P-2.\nVoir détail 3"
+    assert note["resultats"][0]["en_test"] is False
+    assert note["resultats"][1]["commentaire"] == ""
+    assert note["resultats"][1]["en_test"] is True
+    # Le commentaire n'entre pas dans les commentaires généraux
+    assert note["commentaires"] == ""
+
+
+def test_produire_pdf_avec_commentaire_par_calcul():
+    pages = re.compile(rb"/Type\s*/Page(?!s)")
+    sans = produire_pdf([("2x6", flexion())], ENTETE)
+    # Commentaire du calcul seul : en bas de la page de la vérification, pas de page de plus
+    avec = produire_pdf([("2x6", flexion(), False, "Appui sur poutre P-2.")], ENTETE)
+    assert avec.startswith(b"%PDF") and len(avec) > len(sans)
+    assert len(pages.findall(avec)) == 1
+    # Commentaires généraux et commentaire du calcul sur la même page (une seule vérification)
+    les_deux = produire_pdf(
+        [("2x6", flexion(), False, "Appui sur poutre P-2.")], ENTETE, commentaires="Voir plan S-2."
+    )
+    assert len(les_deux) > len(avec) and len(pages.findall(les_deux)) == 1
+    # Deux vérifications : page résumé + 2 pages ; le commentaire va sur la page de son calcul
+    deux = produire_pdf(
+        [("2x6", flexion(), False, "Appui sur poutre P-2."), ("2x6", flexion(M_f=3.0), True, "")],
+        ENTETE,
+        commentaires="Voir plan S-2.",
+    )
+    assert len(pages.findall(deux)) == 3
+    # Commentaire vide ou sans calcul vérifié (charge pondérée absente) : le PDF se produit
+    assert produire_pdf([("2x6", flexion(M_f=None), False, "Note")], ENTETE).startswith(b"%PDF")
+
+
 def test_figure_schematique_dans_la_note():
     """Issue #62 : la figure de 6.5.6.2 est dans les données de la note et le PDF se produit."""
     from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances import (
