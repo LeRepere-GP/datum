@@ -53,7 +53,7 @@ def test_section_dans_materiaux_seulement():
 
 def test_section_suit_le_nombre_de_plis():
     at = _connecte("admin", "mot-admin")
-    [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(3).run()
+    [t for t in at.text_input if t.key == "piece"][0].set_value("3 2x6").run()  # 3 plis de 2x6 (datum-retours #20)
     assert not at.exception
     sections = _sections(_svg_affiches(at._tree))
     assert len(sections) == 1 and _x_du_pli(sections[0]) == 3
@@ -82,7 +82,7 @@ def test_element_compose_trace_avec_la_largeur_totale():
     trace donnerait environ la moitié (7.4 kN).
     """
     at = _connecte("admin", "mot-admin")
-    [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(2).run()
+    [t for t in at.text_input if t.key == "piece"][0].set_value("2 2x6").run()  # 2 plis de 2x6 (datum-retours #20)
     [n for n in at.text_input if n.label == "$V_f: (kN)$"][0].set_value("1.0").run()  # kN
     assert not at.exception
     v_r_affiche = next(m.value for m in at.markdown if m.value.startswith("$V_r = "))

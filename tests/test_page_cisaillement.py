@@ -13,7 +13,7 @@ from tests.test_acces import _connecte
 
 def _page(plis=2, humide=False, d_n=None, e=None, V_f=None):
     at = _connecte("admin", "mot-admin")
-    [r for r in at.radio if r.label.startswith("Élément composé")][0].set_value(plis).run()
+    [t for t in at.text_input if t.key == "piece"][0].set_value(f"{plis} 2x6").run()  # plis de 2x6 (datum-retours #20)
     if humide:
         [c for c in at.checkbox if c.label == "Utilisation en milieu humide"][0].check().run()
     for cle, texte in (("cis_d_n", d_n), ("cis_e", e), ("cis_vf", V_f)):

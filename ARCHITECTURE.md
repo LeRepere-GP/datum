@@ -47,6 +47,7 @@ moteur/                     ← moteur de calcul Python (aucune dépendance à l
     resume.py               ← résumé des vérifications faites (section 8, issue #85)
     unites.py               ← conversions d'affichage et saisie des champs (section 8)
     calculatrice.py         ← calculatrice d'unités, outil indépendant (section 8, issue #100)
+    piece.py                ← lecture du texte de la boîte « Pièce » (section 8, datum-retours #20)
   normes/
     csa_o86_19/             ← bois, édition 2019 (section 5)
     csa_o86_24/             ← bois, édition suivante (plus tard)
@@ -401,6 +402,17 @@ la charge P_f, la longueur L et la section b × d.
   `\text{}` pour garder les espaces), avec une espace insécable entre les milliers, ex.
   « 14.34 kN (3 224 lb) », « 38 mm (1-1/2 po) ».
   Les dimensions nominales (« 2x6 ») et les dimensions brutes restent en po.
+- **Boîte « Pièce »** (datum-retours #20) : une seule boîte de texte libre remplace les champs bois vert,
+  dimensions brutes, b, d et nombre de plis (retirés). Ex. « 2x10 », « 2 2x6 » ou « 2-2x6 » (plis),
+  « 4x4 vert », « 5 1/4 x 8 7/16 », « 2x6 brut », « 89 x 140 mm ». Deux étapes, sans logique dans
+  l'interface : `moteur/commun/piece.lire_piece()` lit le texte seulement (plis, nombres, unité, mots-clés
+  « vert », « sec », « brut » ; tout autre mot est refusé), puis
+  `tableau_A_3.dimensions_de_la_piece()` donne les dimensions nettes. Lecture (décisions de l'utilisateur) :
+  en mm, dimensions réelles ; avec « brut », brutes ; sinon nominales du tableau A.3 si les deux
+  dimensions y sont pour ce bois (sec ou vert) ; sinon (non entière ou absente du tableau) brutes, sans
+  mot-clé. L'ordre est celui du texte (largeur d'un pli, puis hauteur). Plis : 1 à 5. L'interface affiche
+  toujours sous la boîte ce qu'elle a compris (« Compris : 2 plis de 2x6, sec, dimensions nominales
+  (tableau A.3) : b = 2 × 38 mm = 76 mm, d = 140 mm »).
 
 ## 9. Éditions de la norme
 
