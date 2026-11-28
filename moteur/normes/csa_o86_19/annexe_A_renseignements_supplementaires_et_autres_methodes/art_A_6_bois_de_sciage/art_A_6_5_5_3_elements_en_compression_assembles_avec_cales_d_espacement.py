@@ -42,8 +42,9 @@ Interprétations :
       de 6.5.5.3 sans gain des cales (pièces seules par 6.5.5.2, dans art_6_5_5).
     - Réponse de l'utilisateur (28 novembre 2026, question 4) : d de K_Zc dans A.6.5.5.3.5.2 = dimension
       hors tout de l'élément assemblé, cales comprises (dimension_hors_tout()).
-    - EN ATTENTE DE L'UTILISATEUR (issue #115, question 5) : K_H = 1,00 pour les pièces seules de
-      A.6.5.5.3.5.5.
+    - Réponse de l'utilisateur (28 novembre 2026, question 5) : les pièces seules de A.6.5.5.3.5.5 sont
+      calculées par 6.5.5.2 avec le K_H du tableau 6.12 (F_c = f_c (K_D K_H K_Sc K_T)). L'élément assemblé
+      (A.6.5.5.3.5.2) garde son F_c sans K_H. K_H est reçu en paramètre (art_6_4.K_H()).
     - Réponse de l'utilisateur (28 novembre 2026, question 2 de l'issue #115) : « Donner l'option en
       fonction de la position des connecteurs ». L'ingénieur entre la distance entre l'extrémité de
       l'élément et le centre des connecteurs de la cale d'extrémité ; Datum en déduit la condition A ou
@@ -539,6 +540,7 @@ def verifier_compression_element_avec_cales_d_espacement(
     E_05: float,
     distance_des_connecteurs: float,
     K_D: float = 1,
+    K_H: float = 1,
     K_Sc: float = 1,
     K_T: float = 1,
     K_SE: float = 1,
@@ -574,8 +576,9 @@ def verifier_compression_element_avec_cales_d_espacement(
         distance_des_connecteurs (float): Distance entre l'extrémité de l'élément et le centre des
             connecteurs de la cale d'extrémité, mm ; donne la condition A ou B (A.6.5.5.3.3). Pas de
             symbole.
-        K_D, K_Sc, K_T, K_SE (float, optional): Coefficients de correction. Pas de K_H (A.6.5.5.3.5.2).
-            Default to 1.
+        K_D, K_Sc, K_T, K_SE (float, optional): Coefficients de correction. Default to 1.
+        K_H (float, optional): Coefficient de système (tableau 6.12), pour les pièces seules
+            (A.6.5.5.3.5.5) seulement : le F_c de A.6.5.5.3.5.2 n'a pas de K_H. Default to 1.
         groupe_d_essences (str | None, optional): "df", "hf", "spf" ou "ns", pour la constante du
             tableau A.5 (information). None : constante non calculée. Default to None.
         P_f (float | None, optional): Charge de compression axiale pondérée, kN. Default to None.
@@ -619,6 +622,7 @@ def verifier_compression_element_avec_cales_d_espacement(
         Donnee("E_{05}", "Module d'élasticité pour les éléments en compression", E_05, "MPa",
                "contrainte", source_resistances),
         Donnee("K_D", "Coefficient de durée d'application de la charge", K_D, source=source_K_D),
+        Donnee("K_H", "Coefficient de système (pièces seules, A.6.5.5.3.5.5)", K_H, source="Tableau 6.12"),
         Donnee("K_{Sc}", "Coefficient de conditions d'utilisation (compression)", K_Sc,
                source="Tableau 6.10"),
         Donnee("K_T", "Coefficient de traitement", K_T, source="Tableau 6.11"),
@@ -700,8 +704,14 @@ def verifier_compression_element_avec_cales_d_espacement(
     ))
 
     # --- 2. Pièces seules, flambage selon d (A.6.5.5.3.5.5), chacune par 6.5.5.2 ---
-    # F_c : le même (K_H = 1,00, EN ATTENTE, issue #115, question 5) ; K_Zc avec d (grande face) et L ;
-    # K_C de 6.5.5.2.5 avec le K_T des « autres propriétés ».
+    # F_c de 6.5.5.2.4, avec le K_H du tableau 6.12 (réponse de l'utilisateur, question 5 de #115) ;
+    # K_Zc avec d (grande face) et L ; K_C de 6.5.5.2.5 avec le K_T des « autres propriétés ».
+    f_c_d_une_piece = r.ajouter_etape(Etape(
+        "6.5.5.2.4", "Résistance corrigée d'une pièce seule (avec K_H)", "",
+        r"f_c \, (K_D \, K_H \, K_{Sc} \, K_T)",
+        rf"{cs(f_c)} \times ({cs(K_D)} \times {cs(K_H)} \times {cs(K_Sc)} \times {cs(K_T)})",
+        art_6_5_5.F_c(f_c, K_D, K_H, K_Sc, K_T), "MPa", "contrainte",
+    ))
     c_c_selon_d = r.ajouter_etape(Etape(
         "A.6.5.5.3.5.5", "Élancement d'une pièce seule, flambage selon d", "C_{C(d)}",
         r"C_{C(d)} = L_{(d)} / d \leq 50", rf"{cs(L_selon_d)} / {cs(d)}",
@@ -716,16 +726,16 @@ def verifier_compression_element_avec_cales_d_espacement(
     k_c_selon_d = r.ajouter_etape(Etape(
         "6.5.5.2.5", "Coefficient d'élancement d'une pièce, flambage selon d", "K_{C(d)}",
         r"K_{C(d)} = \left[1 + \frac{F_c \, K_{Zc(d)} \, C_{C(d)}^3}{35 \, E_{05} \, K_{SE} \, K_T}\right]^{-1}",
-        rf"\left[1 + \frac{{{cs(f_c_corrige)} \times {cs(k_zc_selon_d)} \times {cs(c_c_selon_d)}^3}}"
+        rf"\left[1 + \frac{{{cs(f_c_d_une_piece)} \times {cs(k_zc_selon_d)} \times {cs(c_c_selon_d)}^3}}"
         rf"{{35 \times {cs(E_05)} \times {cs(K_SE)} \times {cs(K_T)}}}\right]^{{-1}}",
-        art_6_5_5.K_C(f_c_corrige, k_zc_selon_d, c_c_selon_d, E_05, K_SE, K_T),
+        art_6_5_5.K_C(f_c_d_une_piece, k_zc_selon_d, c_c_selon_d, E_05, K_SE, K_T),
     ))
     p_r_d_une_piece = r.ajouter_etape(Etape(
         "6.5.5.2.4", "Résistance d'une pièce seule, flambage selon d", "",
         r"\phi \, F_c \, (\text{face étroite} \times d) \, K_{Zc(d)} \, K_{C(d)}",
-        rf"0.8 \times {cs(f_c_corrige)} \times ({cs(largeur_d_une_piece)} \times {cs(d)}) \times "
+        rf"0.8 \times {cs(f_c_d_une_piece)} \times ({cs(largeur_d_une_piece)} \times {cs(d)}) \times "
         rf"{cs(k_zc_selon_d)} \times {cs(k_c_selon_d)}",
-        art_6_5_5.P_r(f_c_corrige, aire_d_une_piece, k_zc_selon_d, k_c_selon_d), "N",
+        art_6_5_5.P_r(f_c_d_une_piece, aire_d_une_piece, k_zc_selon_d, k_c_selon_d), "N",
     ))
     # Toutes les pièces sont identiques : la somme est le nombre de pièces x P_r d'une pièce
     p_r_des_pieces = r.ajouter_etape(Etape(

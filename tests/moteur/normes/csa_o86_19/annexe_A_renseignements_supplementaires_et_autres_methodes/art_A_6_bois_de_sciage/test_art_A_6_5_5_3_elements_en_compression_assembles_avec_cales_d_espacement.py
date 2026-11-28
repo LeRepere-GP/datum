@@ -249,3 +249,19 @@ def test_registre_et_figure():
     assert "L/10" in figure(_cales(distance_des_connecteurs=200, nombre_de_pieces=3))
     sans_section = figure(_cales(), avec_section=False)
     assert "viewBox='-20 0 300 236'" in sans_section
+
+
+def test_K_H_pour_les_pieces_seules_seulement():
+    # Réponse de l'utilisateur (question 5) : K_H du tableau 6.12 pour les pièces seules (A.6.5.5.3.5.5).
+    # K_H = 1,10 : F_c d'une pièce = 11,5 MPa x 1,10 = 12,65 MPa ;
+    # K_C(d) = [1 + 12,65 x 1,1705 x 21,43³ / 227 500]^-1 = [1 + 0,6404]^-1 = 0,6096 ;
+    # 2 x 0,8 x 12,65 MPa x 5320 mm² x 1,1705 x 0,6096 = 2 x 38 416 N = 76 832 N
+    r = art.verifier_compression_element_avec_cales_d_espacement(
+        largeur_d_une_piece=38, nombre_de_pieces=2, d=140, epaisseur_des_cales=38, L=3000, L_selon_b=3000,
+        L_selon_d=3000, f_c=F_C, E_05=E_05, distance_des_connecteurs=150, K_H=1.10,
+    )
+    assert r.etape("K_{C(d)}").valeur == pytest.approx(0.6096, abs=1e-3)
+    assert r.etape("P_{r(d)}").valeur == pytest.approx(76_832, rel=1e-3)
+    # L'élément assemblé (A.6.5.5.3.5.2) n'a pas de K_H : F_c = 11,5 MPa, P_r(b) inchangé (14 822 N)
+    assert r.etape("F_c").valeur == 11.5
+    assert r.etape("P_{r(b)}").valeur == pytest.approx(14_822, rel=1e-3)
