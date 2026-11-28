@@ -27,6 +27,10 @@ from moteur.normes.csa_o86_19.ch_5_conception_generale.art_5_3_conditions_et_coe
 
 EDITION = "csa_o86_19"
 PHI = 0.9  # 6.5.8
+# Tableau 6.8 (MSR, p. 57-58) : f_t n'est donné que pour les hauteurs « 64 à 184 mm » et « > 184 mm ».
+# Aucune colonne ne couvre une hauteur de moins de 64 mm (ex. 38 mm x 38 mm) : le calcul de traction
+# du MSR y est refusé (décision de l'utilisateur, PR #120).
+HAUTEUR_MINIMALE_MSR_EN_TRACTION = 64  # mm
 
 
 # FONCTIONS SIMPLES (dans l'ordre de la norme)
@@ -64,6 +68,31 @@ def T_r(F_t: float, A_n: float, K_Zt: float = 1) -> float:
     return PHI * F_t * A_n * K_Zt
 
 
+def verifier_hauteur_msr_en_traction(categorie: str, grande_face: float) -> None:
+    """
+    Tableau 6.8 (p. 57-58) : hauteur couverte par f_t du bois MSR.
+
+    Les colonnes de f_t du tableau 6.8 sont « 64 à 184 mm » et « > 184 mm ». Une pièce MSR de moins de
+    64 mm de hauteur n'a pas de f_t dans la norme : le calcul est refusé plutôt que deviné (décision de
+    l'utilisateur, PR #120). Le MEL (tableau 6.9) n'a qu'une colonne, « toutes hauteurs » : il n'est
+    pas visé.
+
+    Args:
+        categorie (str): Code de la catégorie (voir art_6_2_materiaux), ex. "MSR".
+        grande_face (float): Hauteur de la pièce, mm : la plus grande dimension d'un pli (le MSR a
+            38 mm de largeur, tableau 6.8).
+
+    Raises:
+        ValueError: Si la pièce est en MSR et que sa hauteur est inférieure à 64 mm.
+    """
+    if categorie == "MSR" and grande_face < HAUTEUR_MINIMALE_MSR_EN_TRACTION:
+        raise ValueError(
+            f"Traction du bois MSR : le tableau 6.8 ne donne f_t que pour une hauteur de 64 mm ou plus "
+            f"(colonnes « 64 à 184 mm » et « > 184 mm »). La hauteur de cette pièce est de "
+            f"{grande_face:g} mm : calcul refusé."
+        )
+
+
 # VÉRIFICATIONS
 @enregistrer(EDITION, "6.5.8", "Résistance à la traction parallèle au fil")
 def verifier_traction(
@@ -81,6 +110,7 @@ def verifier_traction(
     T_f: float | None = None,
     source_resistances: str = "Tableaux 6.4 à 6.9",
     source_K_D: str = "Tableau 5.1",
+    categorie: str = "",
 ) -> Resultat:
     """
     6.5.8 Résistance pondérée à la traction parallèle au fil d'un élément en bois de sciage.
@@ -100,14 +130,19 @@ def verifier_traction(
             calcul (voir art_6_3.tableau_des_resistances()). Default to "Tableaux 6.4 à 6.9".
         source_K_D (str, optional): Source de K_D pour la note de calcul : « Tableau 5.1 », ou
             « 5.3.2.2 » si K_D est calculé à partir des charges. Default to "Tableau 5.1".
+        categorie (str, optional): Code de la catégorie (voir art_6_2_materiaux). Sert seulement à
+            refuser le MSR de moins de 64 mm de hauteur (tableau 6.8). Default to "" (non précisée).
 
     Returns:
         Resultat: Trace du calcul. T_r en N ; vérification en kN.
 
     Raises:
-        ValueError: Si une réduction est négative, ou si A_n n'est pas positive ou est inférieure à
-            0,75 A_g (5.3.8.2).
+        ValueError: Si une réduction est négative, si elle retire toute la largeur b ou toute la
+            hauteur d, si A_n n'est pas positive ou est inférieure à 0,75 A_g (5.3.8.2), ou si la
+            pièce est en MSR de moins de 64 mm de hauteur (tableau 6.8).
     """
+    # Hauteur d'une pièce MSR : la plus grande dimension d'un pli (b / plis = largeur d'un pli)
+    verifier_hauteur_msr_en_traction(categorie, max(b / plis, d))
     r = Resultat(NORME, "6.5.8", "Résistance à la traction parallèle au fil", "traction")
     for donnee in (
         Donnee("b", "Largeur de l'élément", b, "mm", "dimension"),
@@ -134,14 +169,23 @@ def verifier_traction(
     ))
     a_g = r.ajouter_etape(Etape(
         "5.3.8.1", "Aire de la section transversale brute", "A_g",
-        r"A_g = b \, d", rf"{cs(b)} \times {cs(d)}", b * d, "mm²",
+        r"A_g = b \, d", rf"{cs(b)} \times {cs(d)}", b * d, "mm²", "aire",  # aire : affichée aussi en po²
     ))
     if reduction_de_b < 0 or reduction_de_d < 0:
         raise ValueError("Une réduction de la section ne peut pas être négative (5.3.8.1).")
+    # Une réduction qui retire toute la largeur b ou toute la hauteur d (ou plus) ne laisse aucune
+    # section. Ce contrôle est nécessaire : si les deux réductions dépassent b et d, les deux facteurs
+    # de (b - réduction de b) (d - réduction de d) sont négatifs et leur produit serait positif (ex.
+    # 2x6 de 38 mm x 140 mm, 76 mm retirés de b et 280 mm de d : (-38 mm) x (-140 mm) = 5320 mm²).
+    if reduction_de_b >= b or reduction_de_d >= d:
+        raise ValueError(
+            f"La réduction ne peut pas retirer toute la section : réduction de b < b = {b:g} mm et "
+            f"réduction de d < d = {d:g} mm (5.3.8.1)."
+        )
     if reduction_de_b == 0 and reduction_de_d == 0:
         a_n = r.ajouter_etape(Etape(
             "5.3.8.1", "Aire de la section transversale nette (aucune réduction)", "A_n",
-            r"A_n = A_g", rf"{cs(a_g)}", a_g, "mm²",
+            r"A_n = A_g", rf"{cs(a_g)}", a_g, "mm²", "aire",  # aire : affichée aussi en po²
         ))
     else:
         r.ajouter_donnee(Donnee("", "Réduction de la largeur b", reduction_de_b, "mm", "dimension"))
@@ -152,7 +196,7 @@ def verifier_traction(
             "5.3.8.1", "Aire de la section transversale nette", "A_n",
             r"A_n = (b - \text{réduction de } b) \, (d - \text{réduction de } d)",
             rf"({cs(b)} - {cs(reduction_de_b)}) \times ({cs(d)} - {cs(reduction_de_d)})",
-            A_n, "mm²",
+            A_n, "mm²", "aire",  # aire : affichée aussi en po²
         ))
         # Rapport sans symbole dans la norme (5.3.8.2 : au moins 75 % de la section brute)
         r.ajouter_etape(Etape(

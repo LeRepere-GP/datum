@@ -12,7 +12,7 @@ from unittest import mock
 import acces
 from tests.test_acces import _connecte
 
-ORDRE_DES_ONGLETS = ["6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5", "6.5.6.2", "6.5.6.3"]
+ORDRE_DES_ONGLETS = ["6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5", "6.5.6.2", "6.5.6.3", "6.5.8"]
 
 
 def _resume(at):
@@ -161,7 +161,7 @@ def test_page_resume_de_la_note_comme_le_tableau():
         [c for c in at.checkbox if c.key == "note_Cisaillement (6.5.4.3)"][0].uncheck().run()
         assert not at.exception
         offertes = produire.call_args.kwargs["verifications_offertes"]
-        assert [prevue.article for _, prevue, _ in offertes] == ["6.5.3", "6.5.4.4", "6.5.5", "6.5.6.2", "6.5.6.3"]
+        assert [prevue.article for _, prevue, _ in offertes] == ["6.5.3", "6.5.4.4", "6.5.5", "6.5.6.2", "6.5.6.3", "6.5.8"]
 
 
 def test_element_compose_une_seule_ligne_6_5_5_4():
@@ -177,7 +177,7 @@ def test_element_compose_une_seule_ligne_6_5_5_4():
     at = _connecte("admin", "mot-admin")
     [t for t in at.text_input if t.key == "piece"][0].set_value("3 2x6").run()
     assert not at.exception
-    assert [l[0] for l in _lignes(at)] == ["6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5.4", "6.5.6.2", "6.5.6.3"]
+    assert [l[0] for l in _lignes(at)] == ["6.5.3", "6.5.4.3", "6.5.4.4", "6.5.5.4", "6.5.6.2", "6.5.6.3", "6.5.8"]
     assert _ligne(at, "6.5.5.4")[1:] == ["—", "—", "—", ":gray[Non calculé]"]
 
     _element_compose(at, 3)

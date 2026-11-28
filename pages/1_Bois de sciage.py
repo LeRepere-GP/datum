@@ -42,6 +42,7 @@ from moteur.normes.csa_o86_19.ch_6_bois_de_sciage.art_6_5_calcul_des_resistances
     art_6_5_4_resistance_au_cisaillement as art_6_5_4,
     art_6_5_5_resistance_a_la_compression_parallele_au_fil as art_6_5_5,
     art_6_5_6_resistance_a_la_compression_perpendiculaire_au_fil as art_6_5_6,
+    art_6_5_8_resistance_a_la_traction_parallele_au_fil as art_6_5_8,
 )
 from moteur.normes.csa_o86_19.annexe_A_renseignements_supplementaires_et_autres_methodes.art_A_6_bois_de_sciage import (  # noqa: E501
     art_A_6_5_5_1_coefficient_de_longueur_effective as art_A_6_5_5_1,
@@ -1341,8 +1342,112 @@ if "compression_oblique" in ONGLETS:
 if "traction" in ONGLETS:
     with ONGLETS["traction"]:
         afficher_titre_de_l_onglet("Traction parallèle au fil (6.5.8)", "6.5.8")
+        acces.avertir_si_en_test("traction")
+        # Coefficients de la traction parallèle au fil (6.4) : K_D (5.3.2), K_St (tableau 6.10),
+        # K_T (tableau 6.11), K_H (tableau 6.12 ; au cas 2, « — » au tableau : 1.00, issue #7) et
+        # K_Zt (tableau 6.13 ; 1.00 pour la charpente légère, le MSR et le MEL, 6.4.5.2 et 6.4.5.3).
+        kd, kst, kt, kh, kzt = sawn_lumber.modification_factors(
+            width=width,
+            depth=depth,
+            prop="trac",
+            duration=duration[DURATION],
+            loads=CHARGES,
+            category=CATEGORY,
+            wet_service=wet,
+            treated=treated,
+            incised=incised,
+            _2ft_spacing=group,
+            connected_subfloor=subfloor,
+            built_up_beam=PLIS,
+        )
+        # b = largeur totale de l'élément, tous les plis compris (3.2, issue #95)
+        b_total = width * built_up
         with st.container(horizontal_alignment="center"):
-            st.warning("Fonctionnalité à venir.", width=200)
+            col1, col2 = st.columns(2, width=550)
+            with col1:
+                # Section nette A_n (5.3.8, décision de l'utilisateur, PR #107) : par défaut, aucune
+                # réduction (A_n = A_g = b d). Sinon, l'utilisateur indique ce qui est retiré de b, de d
+                # ou des deux, et A_n = (b - réduction de b) (d - réduction de d) : la section résiduelle.
+                REDUCTION = st.toggle(
+                    "Réduction de la section (5.3.8)",
+                    key="trac_reduction",
+                    help="""Matériau enlevé par perçage, rainurage, embrèvement, entaillage ou une autre
+                    opération (5.3.8.1). Indiquez ce qui est retiré de la largeur b, de la hauteur d ou
+                    des deux : la section nette est la section résiduelle. Elle doit valoir au moins
+                    75 % de la section brute (5.3.8.2).""",
+                )
+                reduction_de_b, reduction_de_d = 0.0, 0.0
+                if REDUCTION:
+                    # Champs vides = aucune réduction sur cette dimension (0 mm). Les bornes (moins que
+                    # b et moins que d) sont aussi vérifiées par le moteur.
+                    reduction_de_b = iu.champ(
+                        "Réduction de la largeur $b$ ({unite})",
+                        "dimension",
+                        key="trac_reduction_b",
+                        min_value=0.0,
+                        placeholder="0",
+                        help=f"Partie retirée de b = {iu.texte(b_total, 'dimension')} (largeur totale, "
+                        "tous les plis compris).",
+                        icon=":material/width:",
+                    ) or 0.0
+                    reduction_de_d = iu.champ(
+                        "Réduction de la hauteur $d$ ({unite})",
+                        "dimension",
+                        key="trac_reduction_d",
+                        min_value=0.0,
+                        placeholder="0",
+                        help=f"Partie retirée de d = {iu.texte(depth, 'dimension')}.",
+                        icon=":material/height:",
+                    ) or 0.0
+
+            with col2:
+                tf = iu.champ(
+                    "$T_f: ({unite})$",
+                    "force",
+                    key="trac_tf",
+                    min_value=0.0,
+                    width=550,
+                    placeholder="Traction pondérée",
+                    icon=":material/input:",
+                )
+                # Nouveau moteur seulement (comme les onglets Cisaillement et Compression
+                # perpendiculaire, issue #98) : l'onglet, le Résumé et la note PDF affichent les mêmes
+                # valeurs. f_t vient du tableau 6.4 à 6.9 de la classe choisie (MSR : colonne
+                # « 64 à 184 mm » du tableau 6.8 pour les hauteurs de 64 mm et plus, issue #31 ; moins de 64 mm :
+                # refusé par le moteur, PR #120).
+                try:
+                    traction = art_6_5_8.verifier_traction(
+                        b=b_total, d=depth, f_t=compute_resistance[4], plis=built_up,
+                        reduction_de_b=reduction_de_b, reduction_de_d=reduction_de_d,
+                        K_D=kd, K_H=kh, K_St=kst, K_T=kt, K_Zt=kzt,
+                        T_f=tf, source_resistances=SOURCE, source_K_D=SOURCE_KD,
+                        # Catégorie : refus du MSR de moins de 64 mm de hauteur (tableau 6.8, PR #120)
+                        categorie=CATEGORY,
+                    )
+                except ValueError as error:
+                    # Ex. section nette inférieure à 75 % de la section brute (5.3.8.2), ou MSR de
+                    # moins de 64 mm de hauteur (tableau 6.8) : aucun
+                    # calcul, jamais de valeur devinée
+                    traction = None
+                    st.error(str(error), width=650, icon=":material/error:")
+                else:
+                    NOTE["Traction parallèle au fil (6.5.8)"] = traction
+                    afficher_resistance_et_verification(traction, "T_r")
+
+            if traction is not None:
+                with st.expander("Voir plus:", width=650):
+                    # Détail tiré de la trace, étape par étape (mêmes valeurs que la note PDF)
+                    st.markdown(
+                        f"$K_D = {kd}$, $K_H = {kh}$, $K_{{St}} = {kst}$, $K_T = {kt}$, "
+                        f"$K_{{Zt}} = {kzt}$"
+                    )
+                    for etape in traction.etapes:
+                        st.markdown(
+                            f"{etape.article} {etape.description} : "
+                            f"${etape.formule} = {etape.substitution} = {valeur_de_l_etape(etape)}$"
+                        )
+        with st.container(horizontal_alignment="center"):
+            afficher_figures("Traction parallèle au fil (6.5.8)")
 
 if "flexion_et_charge_axiale" in ONGLETS:
     with ONGLETS["flexion_et_charge_axiale"]:
@@ -1357,8 +1462,8 @@ if "flexion_et_charge_axiale" in ONGLETS:
 # charge pondérée et de la résistance pondérée : le tableau « Résumé » et la page résumé de la note
 # affichent ainsi une ligne pour chaque vérification, même si elle n'est pas encore faite
 # (datum-retours #22). Les symboles sont ceux des fonctions de vérification du moteur (Verification).
-# Les onglets « à venir » (compression oblique, traction, flexion et charge axiale) n'ont pas encore de
-# calcul : ils ne sont pas dans le résumé.
+# Les onglets « à venir » (compression oblique, flexion et charge axiale) n'ont pas encore de calcul :
+# ils ne sont pas dans le résumé.
 VERIFICATIONS_DE_LA_PAGE = [
     ("Flexion (6.5.3)", "flexion",
      VerificationPrevue("Résistance au moment de flexion", "6.5.3", "M_f", "M_r", "kN·m", "moment")),
@@ -1385,6 +1490,9 @@ VERIFICATIONS_DE_LA_PAGE = [
      VerificationPrevue(
          "Compression perpendiculaire au fil près d'un appui", "6.5.6.3", "P_f", "Q'_r", "kN", "force"
      )),
+    # Traction : même nom que dans NOTE (onglet Traction) ; symboles de verifier_traction() (T_f, T_r)
+    ("Traction parallèle au fil (6.5.8)", "traction",
+     VerificationPrevue("Résistance à la traction parallèle au fil", "6.5.8", "T_f", "T_r", "kN", "force")),
 ]
 # Onglet de chaque vérification (accès du compte, avertissement « en test », commentaire de l'onglet)
 FONCTION_DE_LA_VERIFICATION = {nom: onglet for nom, onglet, _ in VERIFICATIONS_DE_LA_PAGE}
