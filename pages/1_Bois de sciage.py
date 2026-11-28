@@ -22,7 +22,14 @@ from moteur.commun.note_de_calcul import (
     produire_pdf,
 )
 from moteur.commun.piece import lire_piece
-from moteur.commun.resume import resume
+from moteur.commun.resume import (
+    CHARGE_MANQUANTE,
+    CONFORME,
+    NON_CALCULE,
+    NON_CONFORME,
+    VerificationPrevue,
+    resume_des_verifications_offertes,
+)
 from moteur.normes.csa_o86_19.ch_5_conception_generale import (
     art_5_3_conditions_et_coefficients_influant_sur_la_resistance as art_5_3,
 )
@@ -1345,48 +1352,92 @@ if "flexion_et_charge_axiale" in ONGLETS:
 
 
 # --- note de calcul PDF (issue #50) ---
-FONCTION_DE_LA_VERIFICATION = {
-    "Flexion (6.5.3)": "flexion",
-    "Cisaillement (6.5.4.3)": "cisaillement",
-    "Cisaillement par fissuration à l'entaille (6.5.4.4)": "cisaillement",
-    "Compression parallèle au fil (6.5.5)": "compression_parallele",
-    "Compression parallèle au fil, élément composé (6.5.5.4)": "compression_parallele",
-    "Compression perpendiculaire au fil (6.5.6.2)": "compression_perpendiculaire",
-    "Compression perpendiculaire près d'un appui (6.5.6.3)": "compression_perpendiculaire",
-}
+# Vérifications de la page, dans l'ordre des onglets : (nom dans NOTE, onglet, vérification prévue).
+# La vérification prévue (resume.VerificationPrevue) donne l'article et les symboles de la norme de la
+# charge pondérée et de la résistance pondérée : le tableau « Résumé » et la page résumé de la note
+# affichent ainsi une ligne pour chaque vérification, même si elle n'est pas encore faite
+# (datum-retours #22). Les symboles sont ceux des fonctions de vérification du moteur (Verification).
+# Les onglets « à venir » (compression oblique, traction, flexion et charge axiale) n'ont pas encore de
+# calcul : ils ne sont pas dans le résumé.
+VERIFICATIONS_DE_LA_PAGE = [
+    ("Flexion (6.5.3)", "flexion",
+     VerificationPrevue("Résistance au moment de flexion", "6.5.3", "M_f", "M_r", "kN·m", "moment")),
+    ("Cisaillement (6.5.4.3)", "cisaillement",
+     VerificationPrevue("Résistance au cisaillement", "6.5.4.3", "V_f", "V_r", "kN", "force")),
+    ("Cisaillement par fissuration à l'entaille (6.5.4.4)", "cisaillement",
+     VerificationPrevue(
+         "Résistance au cisaillement par fissuration à l'entaille", "6.5.4.4", "V_f", "F_r", "kN", "force"
+     )),
+    # Compression parallèle : une seule ligne, celle de la pièce choisie (PR #114) : élément simple (6.5.5)
+    # ou élément composé de plusieurs plis (6.5.5.4). Même nom que la trace (NOM_COMPRESSION_PARALLELE),
+    # pour que NOTE.get(nom) la trouve ; titres et articles de la trace (verifier_compression_parallele_...).
+    (NOM_COMPRESSION_PARALLELE, "compression_parallele",
+     VerificationPrevue("Résistance à la compression parallèle au fil", "6.5.5", "P_f", "P_r", "kN", "force")
+     if built_up == 1
+     else VerificationPrevue(
+         "Résistance à la compression parallèle au fil, élément composé", "6.5.5.4", "P_f", "P_r", "kN", "force"
+     )),
+    ("Compression perpendiculaire au fil (6.5.6.2)", "compression_perpendiculaire",
+     VerificationPrevue(
+         "Compression perpendiculaire au fil à l'appui", "6.5.6.2", "R_f", "Q_r", "kN", "force"
+     )),
+    ("Compression perpendiculaire près d'un appui (6.5.6.3)", "compression_perpendiculaire",
+     VerificationPrevue(
+         "Compression perpendiculaire au fil près d'un appui", "6.5.6.3", "P_f", "Q'_r", "kN", "force"
+     )),
+]
+# Onglet de chaque vérification (accès du compte, avertissement « en test », commentaire de l'onglet)
+FONCTION_DE_LA_VERIFICATION = {nom: onglet for nom, onglet, _ in VERIFICATIONS_DE_LA_PAGE}
+# Vérifications offertes au compte (onglet offert, acces.py) : les autres sont absentes du résumé
+# (décision de l'utilisateur, datum-retours #22)
+OFFERTES = [(nom, prevue) for nom, onglet, prevue in VERIFICATIONS_DE_LA_PAGE if onglet in ONGLETS]
 # Seulement les vérifications faites (charge pondérée entrée) : pas de page inutile dans la note
 FAITES = {nom: r for nom, r in NOTE.items() if r.verification is not None}
-if acces.permis("note_pdf") and FAITES:
-    # Résumé des vérifications faites dans les onglets (issue #85) : mêmes valeurs que la page résumé
-    # de la note PDF ; la vérification qui gouverne (ratio le plus élevé) est en gras.
+# Statut affiché dans le tableau « Résumé » (couleurs de Streamlit) ; les deux derniers en gris : la
+# vérification n'est pas faite
+STATUT_AFFICHE = {
+    CONFORME: ":green[✔ Conforme]",
+    NON_CONFORME: ":red[✖ Non conforme]",
+    CHARGE_MANQUANTE: ":gray[Charge manquante]",
+    NON_CALCULE: ":gray[Non calculé]",
+}
+if acces.permis("note_pdf") and OFFERTES:
+    # Résumé de toutes les vérifications offertes (issue #85, simplifié par datum-retours #22) : mêmes
+    # lignes et mêmes valeurs que la page résumé de la note PDF. Colonnes : article, charge et
+    # résistance pondérées en métrique seulement (même avec la bascule en impérial), ratio et statut.
+    # La vérification qui gouverne (ratio le plus élevé) est en gras.
     st.divider()
     st.subheader("Résumé", anchor=False)
-    with st.container(horizontal_alignment="center"):
-        lignes = []
-        for ligne in resume([("", r) for r in FAITES.values()]):
-            l = formater_ligne_du_resume(ligne)
-            # Interface : charges et résistances dans les deux unités (PR #99), comme la note PDF
-            if ligne.grandeur:
-                l["charge"] = iu.texte_significatif(ligne.charge, ligne.grandeur)
-                l["resistance"] = iu.texte_significatif(ligne.resistance, ligne.grandeur)
-            lignes.append(l)
+    # Cellulaire : le tableau a 5 colonnes de mots qui ne se coupent pas (ex. « Conforme »,
+    # « Résistance ») ; avec la police et les marges par défaut, il dépasse l'écran (environ 400 px pour
+    # 360 px) et la colonne Statut est coupée. Sur un petit écran seulement, texte et marges plus petits.
+    st.html(
+        """<style>
+        @media (max-width: 640px) {
+            .st-key-tableau_du_resume table { font-size: 0.8rem; }
+            .st-key-tableau_du_resume :is(th, td) { padding: 0.25rem 0.3rem; }
+        }
+        </style>"""
+    )
+    with st.container(horizontal_alignment="center", key="tableau_du_resume"):
+        # NOTE.get(nom) : None si la vérification n'est pas calculée (« Non calculé »)
+        lignes = resume_des_verifications_offertes([("", prevue, NOTE.get(nom)) for nom, prevue in OFFERTES])
         tableau = [
-            "| Vérification | Article | Charge pondérée | Résistance pondérée | Ratio | Statut |",
-            "|---|---|---|---|--:|---|",
+            "| Article | Charge pondérée | Résistance pondérée | Ratio | Statut |",
+            "|---|---|---|--:|---|",
         ]
-        for l in lignes:
+        for ligne in lignes:
+            l = formater_ligne_du_resume(ligne)  # textes en métrique, « — » si la valeur manque
             gras = "**" if l["gouverne"] else ""
-            statut = ":green[✔ Conforme]" if l["respecte"] else ":red[✖ Non conforme]"
             cellules = [
-                l["titre"],
                 l["article"],
-                f"${l['symbole_charge']}$ = {l['charge']}",
-                f"${l['symbole_resistance']}$ = {l['resistance']}",
+                # « symbole = valeur », ou « — » seul si la valeur n'est pas connue
+                "—" if l["charge"] == "—" else f"${l['symbole_charge']}$ = {l['charge']}",
+                "—" if l["resistance"] == "—" else f"${l['symbole_resistance']}$ = {l['resistance']}",
                 l["ratio"],
+                STATUT_AFFICHE[l["statut"]],
             ]
-            tableau.append(
-                "| " + " | ".join(f"{gras}{c}{gras}" for c in cellules) + f" | {gras}{statut}{gras} |"
-            )
+            tableau.append("| " + " | ".join(f"{gras}{c}{gras}" for c in cellules) + " |")
         st.markdown("\n".join(tableau), width=900)
         st.caption("En gras : la vérification qui gouverne (ratio le plus élevé).", width=900)
 
@@ -1484,12 +1535,22 @@ if acces.permis("note_pdf"):
                         )
                         onglets_deja_commentes.add(onglet)
                         resultats_de_la_note.append((titre, FAITES[nom], acces.en_test(onglet), commentaire))
+                    # Page résumé de la note (datum-retours #22) : mêmes lignes que le tableau « Résumé »
+                    # (vérifications offertes, « Charge manquante », « Non calculé »), sauf une
+                    # vérification faite mais décochée ci-dessus : elle n'est pas dans la note, donc
+                    # pas dans son résumé non plus.
+                    resume_de_la_note = [
+                        (titre, prevue, NOTE.get(nom))
+                        for nom, prevue in OFFERTES
+                        if nom not in FAITES or nom in choix
+                    ]
                     pdf = produire_pdf(
                         resultats_de_la_note,
                         EnTete(client, projet, adresse, dossier, str(date), ingenieur or "", oiq),
                         # Apparence du compte, sans options pour la changer (datum-retours #8)
                         config.apparence_du_compte(st.session_state.get("compte", "")),
                         commentaires,
+                        verifications_offertes=resume_de_la_note,
                     )
                     st.download_button(
                         "Télécharger la note de calcul (PDF)",
