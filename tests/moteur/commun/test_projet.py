@@ -51,7 +51,7 @@ def test_fichier_sans_resultats():
     contenu = json.loads(vers_json(_projet()))
     assert set(contenu) == {"type", "format", "version", "en_tete", "elements"}
     assert contenu["format"] == FORMAT == 1
-    assert contenu["version"] == VERSION == "0.4.0"  # version de Datum qui a écrit le fichier (PR #106)
+    assert contenu["version"] == VERSION == "0.4.1"  # version de Datum qui a écrit le fichier (PR #106)
     assert all(set(e) == {"nom", "edition", "entrees"} for e in contenu["elements"])
     assert contenu["elements"][0]["edition"] == "csa_o86_19"
     assert "°" in vers_json(_projet())  # accents gardés tels quels (UTF-8), fichier lisible
