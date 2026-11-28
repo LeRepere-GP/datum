@@ -168,11 +168,8 @@ with st.container(horizontal_alignment="center"):
             + f", d = {iu.texte(DIMENSIONS.d, 'dimension')}."
         )
         # Mêmes noms qu'avant pour la suite de la page : width = largeur nette d'un pli (mm), depth = d (mm),
-        # built_up = nombre de plis. width_input, depth_input et BRUT servent au titre par défaut de la note.
+        # built_up = nombre de plis
         width, depth, built_up = DIMENSIONS.largeur_d_un_pli, DIMENSIONS.d, DIMENSIONS.nombre_de_plis
-        width_input = DIMENSIONS.piece.largeur_d_un_pli_entree
-        depth_input = DIMENSIONS.piece.hauteur_entree
-        BRUT = DIMENSIONS.lecture == tableau_A_3.BRUTES
 
     with col2:
         if built_up == 1:
@@ -1440,10 +1437,9 @@ if EN_TETE_DE_LA_NOTE is not None:
         )
         col1, col2 = st.columns(2)
         date = col1.date_input("Date", value=datetime.date.today(), format="YYYY-MM-DD")
-        # Titre par défaut : la pièce calculée, ex. « 2x6 » ou « 3-2x6 » (datum-retours #7).
-        # Il suit la pièce choisie, sauf s'il a été modifié à la main.
-        piece = f"{width_input:g}x{depth_input:g}" + (" brut" if BRUT else "")
-        titre_par_defaut = piece if built_up == 1 else f"{built_up}-{piece}"
+        # Titre par défaut : la pièce calculée, ex. « 2x6 », « 3-2x6 » ou « 38x235 mm » (datum-retours #7
+        # et #20), tiré de la boîte « Pièce ». Il suit la pièce choisie, sauf s'il a été modifié à la main.
+        titre_par_defaut = DIMENSIONS.nom_court()
         if st.session_state.get("note_titre") in (None, st.session_state.get("note_titre_defaut")):
             st.session_state["note_titre"] = titre_par_defaut
         st.session_state["note_titre_defaut"] = titre_par_defaut

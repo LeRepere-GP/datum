@@ -178,3 +178,19 @@ def test_dimensions_de_la_piece(texte, lecture, largeur_d_un_pli, d, b):
 )
 def test_description_de_la_piece(texte, description):
     assert dimensions_de_la_piece(lire_piece(texte)).description() == description
+
+
+@pytest.mark.parametrize(
+    ("texte", "nom_court"),
+    [
+        ("2x6", "2x6"),
+        ("3 2x6", "3-2x6"),  # même forme que l'ancien titre (datum-retours #7)
+        ("6x8 vert", "6x8"),  # comme l'ancien titre : l'état (vert ou sec) n'y est pas
+        ("2x6 brut", "2x6 brut"),
+        ("5 1/4 x 8 7/16", "5 1/4 x 8 7/16 brut"),  # non entière : brute (#20)
+        ("2 38x235 mm", "2-38x235 mm"),  # « mm » : pas lu comme des pouces
+    ],
+)
+def test_nom_court_de_la_piece(texte, nom_court):
+    """Titre par défaut de la note de calcul (datum-retours #7 et #20)."""
+    assert dimensions_de_la_piece(lire_piece(texte)).nom_court() == nom_court
