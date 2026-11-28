@@ -188,9 +188,12 @@ def donnees_de_la_note(
     Données transmises au gabarit Typst (aussi utilisées par les tests).
 
     Args:
-        resultats (list[tuple]): (nom de l'élément, trace) ou (nom de l'élément, trace, en test), dans
-            l'ordre de la note. « en test » (bool) : affiche l'avertissement de la fonction en test
-            (acces.py, issue #56).
+        resultats (list[tuple]): (nom de l'élément, trace), (nom de l'élément, trace, en test) ou
+            (nom de l'élément, trace, en test, commentaire), dans l'ordre de la note. « en test » (bool) :
+            affiche l'avertissement de la fonction en test (acces.py, issue #56). « commentaire » (str) :
+            commentaire de l'ingénieur sur ce calcul (datum-retours #21), imprimé en bas de la page de
+            cette vérification sous le titre « Commentaires » ; "" : aucun. Ce n'est pas une donnée du
+            calcul : il n'entre pas dans la trace.
         entete (EnTete): Champs de l'en-tête.
         apparence (Apparence, optional): Logo et couleurs. Default to ceux de la marque.
         commentaires (str, optional): Commentaires de l'ingénieur, en bas à gauche, à côté du sceau
@@ -225,9 +228,14 @@ def donnees_de_la_note(
         ),
         "resultats": [],
     }
-    for element, r, *option in resultats:
+    for element, r, *options in resultats:
+        # Options facultatives du tuple, dans l'ordre : en test (bool), puis commentaire (str)
+        en_test = bool(options[0]) if len(options) >= 1 else False
+        commentaire = options[1] if len(options) >= 2 else ""
         note["resultats"].append({
-            "en_test": bool(option and option[0]),
+            "en_test": en_test,
+            # Commentaire de l'ingénieur sur ce calcul (datum-retours #21), lignes conservées
+            "commentaire": (commentaire or "").strip(),
             "norme": r.norme,
             "article": r.article,
             "titre": r.titre,
