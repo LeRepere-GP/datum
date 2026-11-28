@@ -41,6 +41,12 @@ import math
 from moteur.normes.csa_o86_19.ch_5_conception_generale import (
     art_5_3_conditions_et_coefficients_influant_sur_la_resistance as _art_5_3,
 )
+from moteur.normes.csa_o86_19.ch_5_conception_generale.art_5_4_exigences_relatives_a_la_tenue_en_service import (  # noqa: E501
+    art_5_4_1_module_d_elasticite as _art_5_4_1,
+    art_5_4_2_fleche_elastique as _art_5_4_2,
+    art_5_4_3_deformation_permanente as _art_5_4_3,
+    art_5_4_4_accumulation_d_eau as _art_5_4_4,
+)
 from dataclasses import dataclass
 from sqlalchemy import orm, create_engine, Column, TEXT, REAL, INTEGER
 from moteur.normes.csa_o86_19.base_de_donnees import CHEMIN as _CHEMIN_BD
@@ -152,8 +158,9 @@ def elasticity(modulus: float, service: float, treatment: float) -> float:
     Returns:
         float: Es = module d'élasticité, MPa.
 
+    Déplacé dans le nouveau moteur (art_5_4_1 : E_S).
     """
-    return modulus * (service * treatment)
+    return _art_5_4_1.E_S(modulus, service, treatment)
 
 
 def elastic_deflection(span: float, delta: float) -> str:
@@ -167,9 +174,12 @@ def elastic_deflection(span: float, delta: float) -> str:
     Returns:
         str: message de validation du critère de flèche élastique.
 
+    Limite ℓ / 180 déplacée dans le nouveau moteur (art_5_4_2 : fleche_elastique_maximale) ; le
+    message de l'ancien code est conservé.
     """
     criteria = span / delta
-    if criteria < 180:
+    # Flèche plus grande que ℓ / 180 : critère non respecté (même résultat que span / delta < 180)
+    if delta > _art_5_4_2.fleche_elastique_maximale(span):
         message = f"Critère de flèche non-valide: L/{int(criteria)} > L/180"
     else:
         message = f"Critère de flèche valide: L/{int(criteria)} < L/180"
@@ -188,9 +198,12 @@ def permanent_deformation(span: float, delta: float) -> str:
     Returns:
         str: Message de validation du critère de déformation permanente.
 
+    Limite ℓ / 360 déplacée dans le nouveau moteur (art_5_4_3 :
+    fleche_elastique_maximale_charges_continues) ; le message de l'ancien code est conservé.
     """
     criteria = span / delta
-    if criteria < 360:
+    # Flèche plus grande que ℓ / 360 : critère non respecté (même résultat que span / delta < 360)
+    if delta > _art_5_4_3.fleche_elastique_maximale_charges_continues(span):
         message = f"Critère de déformation non-valide: L/{int(criteria)} > L/360"
     else:
         message = f"Critère de déformation valide: L/{int(criteria)} < L/360"
@@ -209,13 +222,11 @@ def ponding(load: float, *delta: float) -> str:
     Returns:
         str: Satisfait ou non la condition pour accumulation d'eau.
 
+    Déplacé dans le nouveau moteur (art_5_4_4 : somme_Delta_sur_w, ΣΔ / w < 65) ; le message de
+    l'ancien code est conservé.
     """
-    total = 0
-    for item in delta:
-        total += item
-
-    verif = total / load
-    if verif < 65:
+    verif = _art_5_4_4.somme_Delta_sur_w(list(delta), load)
+    if verif < _art_5_4_4.LIMITE:
         message = f"Condition pour accumulation d'eau satisfaite: {verif} < 65"
     else:
         message = (
