@@ -11,9 +11,9 @@ from tests.test_acces import _connecte
 def _element_compose(at, plis: int, assemblage: str | None = None):
     """
     2x6 S-P-F n° 1/n° 2 (plis de 38 mm x 140 mm), L = 3000 mm, L_(b) = 1500 mm, L_(d) = 3000 mm,
-    P_f = 5 kN.
+    P_f = 5 kN. La pièce est entrée dans la boîte « Pièce » (datum-retours #20), ex. « 3 2x6 ».
     """
-    [r for r in at.radio if r.label == "Élément composé (plis)"][0].set_value(plis).run()
+    [t for t in at.text_input if t.key == "piece"][0].set_value(f"{plis} 2x6").run()
     if assemblage is not None:
         [r for r in at.radio if r.key == "cpa_assemblage"][0].set_value(assemblage).run()
     [n for n in at.text_input if n.key == "cpa_L"][0].set_value("3000 mm")
@@ -80,3 +80,4 @@ def test_element_compose_dans_la_note_pdf():
     traces = [r[1] for r in produire.call_args.args[0]]
     compose = [t for t in traces if t.article == "6.5.5.4"]
     assert len(compose) == 1 and compose[0].notes
+
