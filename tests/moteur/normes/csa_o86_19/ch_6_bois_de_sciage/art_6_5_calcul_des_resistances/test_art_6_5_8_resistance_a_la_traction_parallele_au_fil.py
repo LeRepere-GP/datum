@@ -114,7 +114,11 @@ def test_verifier_traction_section_nette_au_seuil():
         # Exemple de la PR #107 : 2x6 moins 0.5 po (12.7 mm) sur b et sur d : section résiduelle
         # 25.3 mm x 127.3 mm = 3220.69 mm² (1 po x 5 po), 3220.69 / 5320 = 0.605 < 0.75 : refusée
         (12.7, 12.7, "0.75 Ag"),
-        (38, 0, "positive"),  # toute la largeur retirée : A_n = 0 mm²
+        (38, 0, "toute la section"),  # toute la largeur retirée : A_n = 0 mm²
+        (0, 140, "toute la section"),  # toute la hauteur retirée : A_n = 0 mm²
+        # Les deux réductions dépassent b et d : (38 - 76) mm x (140 - 280) mm = (-38 mm) x (-140 mm)
+        # = 5320 mm² = A_g, positif ; doit quand même être refusé
+        (76, 280, "toute la section"),
         (-1, 0, "négative"),
         (0, -1, "négative"),
     ],

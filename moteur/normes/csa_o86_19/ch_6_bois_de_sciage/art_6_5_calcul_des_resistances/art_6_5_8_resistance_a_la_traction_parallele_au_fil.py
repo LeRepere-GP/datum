@@ -105,8 +105,8 @@ def verifier_traction(
         Resultat: Trace du calcul. T_r en N ; vérification en kN.
 
     Raises:
-        ValueError: Si une réduction est négative, ou si A_n n'est pas positive ou est inférieure à
-            0,75 A_g (5.3.8.2).
+        ValueError: Si une réduction est négative, si elle retire toute la largeur b ou toute la
+            hauteur d, ou si A_n n'est pas positive ou est inférieure à 0,75 A_g (5.3.8.2).
     """
     r = Resultat(NORME, "6.5.8", "Résistance à la traction parallèle au fil", "traction")
     for donnee in (
@@ -134,14 +134,23 @@ def verifier_traction(
     ))
     a_g = r.ajouter_etape(Etape(
         "5.3.8.1", "Aire de la section transversale brute", "A_g",
-        r"A_g = b \, d", rf"{cs(b)} \times {cs(d)}", b * d, "mm²",
+        r"A_g = b \, d", rf"{cs(b)} \times {cs(d)}", b * d, "mm²", "aire",  # aire : affichée aussi en po²
     ))
     if reduction_de_b < 0 or reduction_de_d < 0:
         raise ValueError("Une réduction de la section ne peut pas être négative (5.3.8.1).")
+    # Une réduction qui retire toute la largeur b ou toute la hauteur d (ou plus) ne laisse aucune
+    # section. Ce contrôle est nécessaire : si les deux réductions dépassent b et d, les deux facteurs
+    # de (b - réduction de b) (d - réduction de d) sont négatifs et leur produit serait positif (ex.
+    # 2x6 de 38 mm x 140 mm, 76 mm retirés de b et 280 mm de d : (-38 mm) x (-140 mm) = 5320 mm²).
+    if reduction_de_b >= b or reduction_de_d >= d:
+        raise ValueError(
+            f"La réduction ne peut pas retirer toute la section : réduction de b < b = {b:g} mm et "
+            f"réduction de d < d = {d:g} mm (5.3.8.1)."
+        )
     if reduction_de_b == 0 and reduction_de_d == 0:
         a_n = r.ajouter_etape(Etape(
             "5.3.8.1", "Aire de la section transversale nette (aucune réduction)", "A_n",
-            r"A_n = A_g", rf"{cs(a_g)}", a_g, "mm²",
+            r"A_n = A_g", rf"{cs(a_g)}", a_g, "mm²", "aire",  # aire : affichée aussi en po²
         ))
     else:
         r.ajouter_donnee(Donnee("", "Réduction de la largeur b", reduction_de_b, "mm", "dimension"))
@@ -152,7 +161,7 @@ def verifier_traction(
             "5.3.8.1", "Aire de la section transversale nette", "A_n",
             r"A_n = (b - \text{réduction de } b) \, (d - \text{réduction de } d)",
             rf"({cs(b)} - {cs(reduction_de_b)}) \times ({cs(d)} - {cs(reduction_de_d)})",
-            A_n, "mm²",
+            A_n, "mm²", "aire",  # aire : affichée aussi en po²
         ))
         # Rapport sans symbole dans la norme (5.3.8.2 : au moins 75 % de la section brute)
         r.ajouter_etape(Etape(
