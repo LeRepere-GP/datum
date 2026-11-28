@@ -40,13 +40,13 @@ automatiquement.
 |---|---|---|
 | Moment de flexion, Mr | 6.5.3 | ✅ (KL selon 7.5.6.4 : avec le chapitre 7) |
 | Cisaillement, Vr et Fr | 6.5.4 | ✅ |
-| Compression parallèle au fil, Pr | 6.5.5 | ✅ (1 pli) |
+| Compression parallèle au fil, Pr | 6.5.5 | ✅ (1 à 5 plis, 6.5.5.4 ; cales d'espacement 6.5.5.3 : ⏳) |
 | Compression perpendiculaire au fil, Qr et Q'r | 6.5.6 | ✅ |
 | Compression oblique par rapport au fil | 6.5.7 | ⏳ |
-| Traction parallèle au fil | 6.5.8 | ⏳ |
+| Traction parallèle au fil | 6.5.8 | ⏳ (moteur prêt, onglet à venir) |
 | Flexion et charge axiale combinées | 6.5.9 | ⏳ |
 
-Chaque vérification affiche le ratio effet pondéré / résistance pondérée : 🟢 respecté (≤ 1.00) ou
+Chaque vérification affiche le ratio charge pondérée / résistance pondérée : 🟢 respecté (≤ 1.00) ou
 🔴 dépassé.
 
 ---
