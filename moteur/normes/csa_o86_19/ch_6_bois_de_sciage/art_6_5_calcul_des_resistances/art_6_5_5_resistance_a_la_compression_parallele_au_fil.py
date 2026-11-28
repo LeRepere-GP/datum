@@ -6,6 +6,8 @@ CSA O86:19 - 6.5.5 Résistance à la compression parallèle au fil (p. 68-71).
     6.5.5.2.2 Élancement, C_C
     6.5.5.2.4 Résistance pondérée à la compression sous charge axiale (P_r, F_c, K_Zc)
     6.5.5.2.5 Coefficient d'élancement, K_C
+    6.5.5.3 Éléments en compression assemblés avec cales d'espacement (p. 69) : pièces calculées seules,
+        sans gain des cales (issue #115) ; la méthode de l'annexe A.6.5.5.3 est dans l'annexe A
     6.5.5.4 Éléments composés en compression (p. 70-71) : 2 à 5 plis cloués, boulonnés ou assemblés
         par anneaux fendus (issue #32)
 
@@ -34,6 +36,8 @@ Décisions de l'utilisateur pour 6.5.5.4 (issue #32, commentaire du 27 novembre 
       ou 80 %) et la somme des plis calculés seuls. Si un pli seul a C_C > 50 (6.5.5.2.2), seule la
       valeur de l'élément composé (C_C le plus petit) est possible.
 """
+
+from dataclasses import replace
 
 from moteur.commun.nombres import cs
 from moteur.commun.unites import deux_unites
@@ -519,6 +523,105 @@ def verifier_compression_parallele_au_fil(
         rf"\min({cs(resistances[0])} \, ; \, {cs(resistances[1])})",
         min(resistances), "N",
     ))
+
+    if P_f is not None:
+        r.verification = verifier_etat_limite_ultime(P_f, p_r / 1000, "P_f", "P_r", "kN", "force")
+
+    return r
+
+
+@enregistrer(EDITION, "6.5.5.3", "Éléments assemblés avec cales d'espacement, pièces seules")
+def verifier_compression_pieces_seules_avec_cales_d_espacement(
+    largeur_d_une_piece: float,
+    nombre_de_pieces: int,
+    d: float,
+    L: float,
+    L_selon_b: float,
+    L_selon_d: float,
+    f_c: float,
+    E_05: float,
+    K_e_selon_b: float = 1,
+    K_e_selon_d: float = 1,
+    K_D: float = 1,
+    K_H: float = 1,
+    K_Sc: float = 1,
+    K_T: float = 1,
+    K_SE: float = 1,
+    P_f: float | None = None,
+    source_resistances: str = "Tableaux 6.4 à 6.9",
+    source_K_D: str = "Tableau 5.1",
+    source_K_e_selon_b: str = "Tableau A.4",
+    source_K_e_selon_d: str = "Tableau A.4",
+) -> Resultat:
+    """
+    6.5.5.3 Éléments en compression assemblés avec cales d'espacement, pièces calculées seules (p. 69).
+
+    « Les éléments en compression assemblés avec cales d'espacement doivent être calculés en utilisant
+    les résistances prévues et les coefficients de correction appropriés pour le bois d'œuvre. » La note
+    permet l'annexe A.6.5.5.3 (« peuvent être calculés »), qui donne un gain grâce aux cales
+    (art_A_6_5_5_3_...). Réponse de l'utilisateur (28 novembre 2026, question 3 de l'issue #115) : offrir
+    aussi cette option-ci, sans gain des cales.
+
+    Chaque pièce est un élément simple calculé par 6.5.5.2 selon les deux axes (6.5.5.2.1), avec
+    b = face étroite d'une pièce (verifier_compression_parallele_au_fil()). Toutes les pièces sont
+    identiques : P_r = nombre de pièces x P_r d'une pièce. Pas de symbole pour la face étroite d'une pièce
+    ni pour le nombre de pièces.
+
+    Args:
+        largeur_d_une_piece (float): Face étroite (épaisseur) d'une pièce, b d'une pièce seule, mm.
+        nombre_de_pieces (int): Nombre de pièces, au moins 2 (A.6.5.5.3.1 : élément assemblé avec cales
+            d'espacement). Pas de symbole.
+        d (float): Grande face d'une pièce (hauteur), mm.
+        L (float): Longueur de l'élément, mm (pour K_Zc).
+        L_selon_b, L_selon_d (float): L de 6.5.5.1 pour chaque axe (entraxe des appuis latéraux), mm.
+            Symboles affichés : L_(b), L_(d). Les cales ne sont pas des appuis latéraux.
+        f_c (float): Résistance prévue en compression parallèle au fil, MPa.
+        E_05 (float): Module d'élasticité pour les éléments en compression, MPa.
+        K_e_selon_b, K_e_selon_d (float, optional): K_e de 6.5.5.1 pour chaque axe. Default to 1.
+        K_D, K_H, K_Sc, K_T, K_SE (float, optional): Coefficients de correction. Default to 1.
+        P_f (float | None, optional): Charge de compression axiale pondérée sur l'élément, kN.
+            Default to None.
+        source_resistances, source_K_D, source_K_e_selon_b, source_K_e_selon_d (str, optional):
+            Sources pour la note de calcul, comme verifier_compression_parallele_au_fil().
+
+    Returns:
+        Resultat: Trace du calcul d'une pièce, puis P_r de l'élément. Résistances en N ; vérification en kN.
+
+    Raises:
+        ValueError: Moins de 2 pièces, valeur invalide ou C_C d'une pièce > 50.
+    """
+    if nombre_de_pieces < 2:
+        raise ValueError(
+            f"Un élément assemblé avec cales d'espacement a au moins 2 pièces (A.6.5.5.3.1) : "
+            f"{nombre_de_pieces} pièce(s). Calcul refusé."
+        )
+    # Une pièce seule, par 6.5.5.2 (les deux axes, plus petite des deux), sans P_f : la charge
+    # pondérée est comparée plus bas à la résistance de tout l'élément
+    r = verifier_compression_parallele_au_fil(
+        largeur_d_une_piece, d, L, L_selon_b, L_selon_d, f_c, E_05, K_e_selon_b, K_e_selon_d, K_D, K_H,
+        K_Sc, K_T, K_SE, None, source_resistances, source_K_D, source_K_e_selon_b, source_K_e_selon_d,
+    )
+    r.article = "6.5.5.3"
+    r.titre = "Résistance à la compression parallèle au fil, élément avec cales d'espacement (pièces seules)"
+    # La donnée b de la trace est la face étroite d'une pièce : on le précise
+    r.donnees[0] = Donnee("b", "Largeur d'une pièce (face étroite)", largeur_d_une_piece, "mm", "dimension")
+    r.donnees.insert(1, Donnee("", "Nombre de pièces", nombre_de_pieces))  # pas de symbole
+    # La dernière étape (6.5.5.2.1) est le P_r d'une pièce : elle perd le symbole P_r, réservé à l'élément
+    # (Etape est immuable : on la remplace par une copie modifiée)
+    r.etapes[-1] = replace(
+        r.etapes[-1], symbole="", description="Résistance pondérée d'une pièce (plus petite des deux)"
+    )
+    p_r_d_une_piece = r.etapes[-1].valeur
+    p_r = r.ajouter_etape(Etape(
+        "6.5.5.3", "Résistance pondérée de l'élément (pièces seules, sans gain des cales)", "P_r",
+        r"P_r = \text{nombre de pièces} \times \text{résistance d'une pièce}",
+        rf"{nombre_de_pieces} \times {cs(p_r_d_une_piece)}",
+        nombre_de_pieces * p_r_d_une_piece, "N",
+    ))
+    r.ajouter_note(
+        "6.5.5.3 : chaque pièce est calculée seule (6.5.5.2), sans gain des cales d'espacement. La note de "
+        "6.5.5.3 permet aussi la méthode de l'annexe A.6.5.5.3, qui tient compte des cales."
+    )
 
     if P_f is not None:
         r.verification = verifier_etat_limite_ultime(P_f, p_r / 1000, "P_f", "P_r", "kN", "force")
