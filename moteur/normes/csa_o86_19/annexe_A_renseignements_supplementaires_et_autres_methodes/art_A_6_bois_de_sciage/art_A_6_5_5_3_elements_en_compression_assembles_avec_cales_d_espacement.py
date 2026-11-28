@@ -39,8 +39,16 @@ Interprétations :
       les cales ni les connecteurs ; les exigences de la norme sont affichées en notes (page et note
       PDF), avec la constante du tableau A.5 et la résistance requise des connecteurs comme information.
     - EN ATTENTE DE L'UTILISATEUR (issue #115) : d de K_Zc dans A.6.5.5.3.5.2 (dimension hors tout,
-      cales comprises, proposée) ; K_H = 1,00 pour les pièces seules de A.6.5.5.3.5.5 ; condition A ou
-      B choisie par l'ingénieur (A par défaut) ; l'annexe comme méthode de Datum pour 6.5.5.3.
+      cales comprises, proposée) ; K_H = 1,00 pour les pièces seules de A.6.5.5.3.5.5 ; l'annexe comme
+      méthode de Datum pour 6.5.5.3.
+    - Réponse de l'utilisateur (28 novembre 2026, question 2 de l'issue #115) : « Donner l'option en
+      fonction de la position des connecteurs ». L'ingénieur entre la distance entre l'extrémité de
+      l'élément et le centre des connecteurs de la cale d'extrémité ; Datum en déduit la condition A ou
+      B (condition_de_retenue()).
+    - L de A.6.5.5.3.3 (« 1/20 de la longueur, L ») : la clause renvoie à la figure A.2, où L = « distance
+      entre les points d'appui latéral des éléments en compression assemblés sur cale d'espacement »,
+      soit L_(b) ici (flambage entre les cales). Pour un poteau tenu seulement à ses extrémités, L_(b)
+      = L.
 """
 
 import math
@@ -122,6 +130,44 @@ def verifier_les_pieces(nombre_de_pieces: int) -> None:
             f"Un élément assemblé avec cales d'espacement doit avoir au moins 2 pièces (A.6.5.5.3.1) : "
             f"{nombre_de_pieces} pièce(s). Calcul refusé."
         )
+
+
+def condition_de_retenue(distance_des_connecteurs: float, L_selon_b: float) -> str:
+    """
+    A.6.5.5.3.3 Classes de degré de retenue : condition A ou B selon la position des connecteurs.
+
+    « a) Condition A : le centre des connecteurs ou du groupe de connecteurs de la cale d'espacement
+    d'extrémité doit se trouver à moins de 1/20 de la longueur, L, mesurée depuis l'extrémité de
+    l'élément. b) Condition B : [...] entre 1/20 et 1/10 de la longueur, L [...] » (p. 305 ; anglais,
+    p. 290 : « within 1/20 of the length, L »).
+
+    - distance <= L / 20 : condition A. L'anglais « within 1/20 » comprend l'égalité ; la condition A
+      donne aussi le K_E le plus petit (conservateur) à la limite.
+    - L / 20 < distance <= L / 10 : condition B.
+    - distance > L / 10 : aucune classe de la norme (« doivent être classés [...] selon une des
+      conditions ») : calcul refusé.
+
+    Args:
+        distance_des_connecteurs (float): Distance entre l'extrémité de l'élément et le centre des
+            connecteurs (ou du groupe de connecteurs) de la cale d'extrémité, mm. Pas de symbole.
+        L_selon_b (float): L de la figure A.2, distance entre les points d'appui latéral, mm.
+
+    Returns:
+        str: CONDITION_A ou CONDITION_B.
+
+    Raises:
+        ValueError: Si une valeur n'est pas positive ou si la distance dépasse L / 10.
+    """
+    if distance_des_connecteurs <= 0 or L_selon_b <= 0:
+        raise ValueError("La position des connecteurs et L doivent être positives (A.6.5.5.3.3).")
+    if distance_des_connecteurs <= L_selon_b / 20:
+        return CONDITION_A
+    if distance_des_connecteurs <= L_selon_b / 10:
+        return CONDITION_B
+    raise ValueError(
+        f"Connecteurs des cales d'extrémité à {distance_des_connecteurs:g} mm de l'extrémité, plus de "
+        f"L / 10 = {L_selon_b / 10:g} mm : ni condition A ni condition B (A.6.5.5.3.3). Calcul refusé."
+    )
 
 
 def K_E(condition: str) -> float:
@@ -389,7 +435,8 @@ def resistance_requise_des_connecteurs(aire_d_une_piece: float, constante: float
 
 
 def exigences_des_cales(
-    condition: str, L: float, largeur_d_une_piece: float, epaisseur_des_cales: float,
+    condition: str, distance_des_connecteurs: float, L_selon_b: float, largeur_d_une_piece: float,
+    epaisseur_des_cales: float,
     resistance_requise: float | None,
 ) -> list[str]:
     """
@@ -401,8 +448,9 @@ def exigences_des_cales(
     sont calculées pour aider (ex. L / 20).
 
     Args:
-        condition (str): CONDITION_A ou CONDITION_B.
-        L (float): Longueur de l'élément, mm (A.6.5.5.3.3 : « 1/20 de la longueur, L »).
+        condition (str): CONDITION_A ou CONDITION_B (condition_de_retenue()).
+        distance_des_connecteurs (float): Distance entre l'extrémité et le centre des connecteurs, mm.
+        L_selon_b (float): L de la figure A.2 (distance entre les points d'appui latéral), mm.
         largeur_d_une_piece (float): Face étroite (épaisseur) d'une pièce, mm.
         epaisseur_des_cales (float): Épaisseur des cales entrée, mm.
         resistance_requise (float | None): Résistance pondérée requise des connecteurs (A.6.5.5.3.4), N.
@@ -412,18 +460,19 @@ def exigences_des_cales(
         list[str]: Une note par exigence, dans l'ordre de la norme.
     """
     K_E(condition)  # erreur si la condition est inconnue
-    vingtieme = L / 20  # mm
-    dixieme = L / 10  # mm
+    vingtieme = L_selon_b / 20  # mm
+    dixieme = L_selon_b / 10  # mm
+    position_entree = deux_unites(distance_des_connecteurs, 'longueur')
     if condition == CONDITION_A:
         position = (
-            f"condition A choisie : centre des connecteurs de chaque cale d'extrémité à moins de L / 20 = "
-            f"{deux_unites(vingtieme, 'longueur')} de l'extrémité de l'élément (K_E = 2.50)"
+            f"centre des connecteurs de chaque cale d'extrémité à {position_entree} de l'extrémité de "
+            f"l'élément, au plus L / 20 = {deux_unites(vingtieme, 'longueur')} : condition A (K_E = 2.50)"
         )
     else:
         position = (
-            f"condition B choisie : centre des connecteurs de chaque cale d'extrémité entre L / 20 = "
-            f"{deux_unites(vingtieme, 'longueur')} et L / 10 = {deux_unites(dixieme, 'longueur')} de "
-            "l'extrémité de l'élément (K_E = 3.00)"
+            f"centre des connecteurs de chaque cale d'extrémité à {position_entree} de l'extrémité de "
+            f"l'élément, entre L / 20 = {deux_unites(vingtieme, 'longueur')} et L / 10 = "
+            f"{deux_unites(dixieme, 'longueur')} : condition B (K_E = 3.00)"
         )
     # A.6.5.5.3.2 c) : épaisseur des cales >= épaisseur des pièces, ou entre la moitié et l'épaisseur
     # des pièces avec une longueur de cale ajustée. Cas sous la moitié : non permis.
@@ -485,7 +534,7 @@ def verifier_compression_element_avec_cales_d_espacement(
     L_selon_d: float,
     f_c: float,
     E_05: float,
-    condition: str = CONDITION_A,
+    distance_des_connecteurs: float,
     K_D: float = 1,
     K_Sc: float = 1,
     K_T: float = 1,
@@ -519,8 +568,9 @@ def verifier_compression_element_avec_cales_d_espacement(
             (A.6.5.5.3.5.5), mm. Symbole affiché : L_(d).
         f_c (float): Résistance prévue en compression parallèle au fil, MPa.
         E_05 (float): Module d'élasticité pour les éléments en compression, MPa.
-        condition (str, optional): CONDITION_A ou CONDITION_B (A.6.5.5.3.3). Default to CONDITION_A
-            (K_E le plus petit, conservateur).
+        distance_des_connecteurs (float): Distance entre l'extrémité de l'élément et le centre des
+            connecteurs de la cale d'extrémité, mm ; donne la condition A ou B (A.6.5.5.3.3). Pas de
+            symbole.
         K_D, K_Sc, K_T, K_SE (float, optional): Coefficients de correction. Pas de K_H (A.6.5.5.3.5.2).
             Default to 1.
         groupe_d_essences (str | None, optional): "df", "hf", "spf" ou "ns", pour la constante du
@@ -533,12 +583,14 @@ def verifier_compression_element_avec_cales_d_espacement(
         Resultat: Trace du calcul. Résistances en N ; vérification en kN.
 
     Raises:
-        ValueError: Moins de 2 pièces, condition inconnue, valeur invalide, C_C > 80 (élément assemblé)
+        ValueError: Moins de 2 pièces, connecteurs à plus de L / 10, valeur invalide, C_C > 80 (élément assemblé)
             ou C_C > 50 (pièce seule).
     """
     # A.6.5.5.3.1 : au moins 2 pièces, sinon calcul refusé
     verifier_les_pieces(nombre_de_pieces)
-    k_e = K_E(condition)  # erreur si la condition est inconnue
+    # A.6.5.5.3.3 : condition A ou B selon la position des connecteurs (refus au-delà de L / 10)
+    condition = condition_de_retenue(distance_des_connecteurs, L_selon_b)
+    k_e = K_E(condition)
     description_de_la_condition = CONDITIONS[condition][0]
 
     r = Resultat(
@@ -555,6 +607,8 @@ def verifier_compression_element_avec_cales_d_espacement(
                L_selon_b, "mm", "longueur"),
         Donnee("L_{(d)}", "Distance réelle entre les points de support latéral, flambage selon d",
                L_selon_d, "mm", "longueur"),
+        Donnee("", "Position des connecteurs des cales d'extrémité (depuis l'extrémité)",
+               distance_des_connecteurs, "mm", "longueur"),  # pas de symbole dans la norme
         Donnee("", "Degré de retenue", f"Condition {condition} : {description_de_la_condition}",
                source="A.6.5.5.3.3"),
         Donnee("f_c", "Résistance prévue en compression parallèle au fil", f_c, "MPa", "contrainte",
@@ -704,7 +758,10 @@ def verifier_compression_element_avec_cales_d_espacement(
         ))
 
     # Exigences des cales et des connecteurs, que Datum ne vérifie pas (réponse de l'utilisateur, 28 nov.)
-    for note in exigences_des_cales(condition, L, largeur_d_une_piece, epaisseur_des_cales, resistance_requise):
+    for note in exigences_des_cales(
+        condition, distance_des_connecteurs, L_selon_b, largeur_d_une_piece, epaisseur_des_cales,
+        resistance_requise,
+    ):
         r.ajouter_note(note)
 
     if P_f is not None:

@@ -20,12 +20,12 @@ F_C = 11.5  # MPa
 E_05 = 6500  # MPa
 
 
-def _cales(L_selon_b=3000, L_selon_d=3000, nombre_de_pieces=2, condition="A", L=3000, P_f=None,
+def _cales(L_selon_b=3000, L_selon_d=3000, nombre_de_pieces=2, distance_des_connecteurs=150, L=3000, P_f=None,
            epaisseur_des_cales=38, groupe_d_essences="spf"):
     return art.verifier_compression_element_avec_cales_d_espacement(
         largeur_d_une_piece=38, nombre_de_pieces=nombre_de_pieces, d=140,
         epaisseur_des_cales=epaisseur_des_cales, L=L, L_selon_b=L_selon_b, L_selon_d=L_selon_d,
-        f_c=F_C, E_05=E_05, condition=condition, groupe_d_essences=groupe_d_essences, P_f=P_f,
+        f_c=F_C, E_05=E_05, distance_des_connecteurs=distance_des_connecteurs, groupe_d_essences=groupe_d_essences, P_f=P_f,
     )
 
 
@@ -45,6 +45,18 @@ def test_verifier_les_pieces():
     for nombre in (0, 1):
         with pytest.raises(ValueError, match="A.6.5.5.3.1"):
             art.verifier_les_pieces(nombre)
+
+
+def test_condition_de_retenue():
+    # L = 3000 mm : L / 20 = 150 mm, L / 10 = 300 mm
+    assert art.condition_de_retenue(50, 3000) == "A"
+    assert art.condition_de_retenue(150, 3000) == "A"  # L / 20 exactement : « within 1/20 » (anglais)
+    assert art.condition_de_retenue(150.1, 3000) == "B"
+    assert art.condition_de_retenue(300, 3000) == "B"  # L / 10 exactement
+    with pytest.raises(ValueError, match="L / 10"):
+        art.condition_de_retenue(300.1, 3000)  # au-delà de L / 10 : calcul refusé
+    with pytest.raises(ValueError):
+        art.condition_de_retenue(0, 3000)
 
 
 def test_K_E():
@@ -171,7 +183,7 @@ def test_poteau_contreventé_selon_b_les_pieces_gouvernent():
     # L_(b) = 1200 mm : C_C(b) = 31,58 < C_K = 32,77, branche b) :
     # K_C(b) = 1 - (1/3)(31,58 / 32,77)^4 = 1 - (1/3)(0,8625) = 0,7125
     # P_r(b) = 97 888 N x 0,7125 x 1,2022 = 83 848 N > P_r(d) = 72 418 N : les pièces gouvernent
-    r = _cales(L_selon_b=1200)
+    r = _cales(L_selon_b=1200, distance_des_connecteurs=50)  # 50 mm <= 1200 mm / 20 = 60 mm : A
     assert r.etape("K_{C(b)}").valeur == pytest.approx(0.7125, abs=1e-3)
     assert r.etape("P_{r(b)}").valeur == pytest.approx(83_848, rel=2e-3)
     assert r.etape("P_r").valeur == pytest.approx(r.etape("P_{r(d)}").valeur)
@@ -179,13 +191,13 @@ def test_poteau_contreventé_selon_b_les_pieces_gouvernent():
 
 def test_poteau_court_K_C_egal_1():
     # L_(b) = 380 mm : C_C(b) = 10 exactement, K_C(b) = 1,00
-    r = _cales(L_selon_b=380)
+    r = _cales(L_selon_b=380, distance_des_connecteurs=15)  # 15 mm <= 380 mm / 20 = 19 mm : A
     assert r.etape("C_{C(b)}").valeur == pytest.approx(10)
     assert r.etape("K_{C(b)}").valeur == 1.00
 
 
 def test_condition_B():
-    r = _cales(condition="B")
+    r = _cales(distance_des_connecteurs=200)  # entre 150 mm et 300 mm : condition B
     assert r.etape("C_K").valeur == pytest.approx(35.898, abs=1e-3)
     # K_C(b) = 6500 MPa x 3,00 / (1,8 x 78,947² x 11,5 MPa) = 19 500 / 129 017 = 0,15114
     assert r.etape("K_{C(b)}").valeur == pytest.approx(0.15114, abs=1e-4)
@@ -207,7 +219,7 @@ def test_calcul_refuse():
     with pytest.raises(ValueError, match="50"):
         _cales(L_selon_d=7100)  # C_C(d) d'une pièce = 50,7
     with pytest.raises(ValueError, match="A.6.5.5.3.3"):
-        _cales(condition="X")
+        _cales(distance_des_connecteurs=310)  # plus de L / 10 = 300 mm
 
 
 def test_notes_des_cales():
@@ -217,8 +229,8 @@ def test_notes_des_cales():
     for article in ("A.6.5.5.3.1", "A.6.5.5.3.2 a)", "A.6.5.5.3.2 b)", "A.6.5.5.3.2 c)", "A.6.5.5.3.3",
                     "A.6.5.5.3.4", "A.6.5.5.3.6"):
         assert article in texte
-    # L / 20 = 3000 mm / 20 = 150 mm
-    assert "150 mm" in texte
+    # L / 20 = 3000 mm / 20 = 150 mm : connecteurs à 150 mm, condition A
+    assert "150 mm" in texte and "condition A" in texte
     assert "13.83 kN" in texte  # 13 832 N
     # Cales de 19 mm (la moitié de 38 mm exactement) : longueur ajustée ; 15 mm : sous la moitié
     assert "longueur de chaque cale doit être augmentée" in " ".join(_cales(epaisseur_des_cales=19).notes)
@@ -234,6 +246,6 @@ def test_registre_et_figure():
     assert calcul.fonction is art.verifier_compression_element_avec_cales_d_espacement
     svg_a = figure(_cales())
     assert svg_a.startswith("<svg") and "L/20" in svg_a and "L/10" not in svg_a
-    assert "L/10" in figure(_cales(condition="B", nombre_de_pieces=3))
+    assert "L/10" in figure(_cales(distance_des_connecteurs=200, nombre_de_pieces=3))
     sans_section = figure(_cales(), avec_section=False)
     assert "viewBox='-20 0 300 236'" in sans_section
