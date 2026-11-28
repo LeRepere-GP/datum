@@ -315,6 +315,9 @@ def test_en_tete_de_la_note():
         assert [t for t in at.text_input if t.label == "Numéro OIQ"][0].value == "5025799"
         [t for t in at.text_input if t.key == "piece"][0].set_value("3 2x6").run()  # 3 plis : le titre suit la pièce
         assert [t for t in at.text_input if t.label == "Titre"][0].value == "3-2x6"
+        # Millimètres (datum-retours #20) : « mm » dans le titre, pour ne pas être lus comme des pouces
+        [t for t in at.text_input if t.key == "piece"][0].set_value("89 x 140 mm").run()
+        assert [t for t in at.text_input if t.label == "Titre"][0].value == "89x140 mm"
         # un titre tapé à la main reste, même si la pièce change
         [t for t in at.text_input if t.label == "Titre"][0].set_value("Poutre P-1").run()
         [t for t in at.text_input if t.key == "piece"][0].set_value("2 2x6").run()  # 2 plis
