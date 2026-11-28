@@ -126,6 +126,11 @@ L'utilisateur révise chaque ligne : le code doit être facile à comprendre et 
   **largeur totale**, tous les plis compris. Un pli est un « élément individuel » (6.5.3.2.4) : sa largeur
   et le nombre de plis n'ont **pas de symbole** (pas de `n`). Exception de la norme : en 6.5.6, b = largeur
   d'appui.
+- **Éléments composés en compression (6.5.5.4)** (issue #32, PR #114) : réduction (60, 75 ou 80 %) selon
+  b seulement (6.5.5.4.6), toujours. P_r(b) = la valeur **la plus permissive** entre l'élément composé
+  réduit et la somme des plis calculés seuls (6.5.5.4.1) ; si un pli seul a C_C > 50, seule la valeur de
+  l'élément composé est possible. Assemblage non vérifié (exigences en notes) ; hors de 6.5.5.4.1 :
+  calcul refusé ; K_H = 1,00.
 - **Ke** : une fonction simple reçoit Le (ou Ke) en chiffre. Une fonction séparée déduira Ke des
   conditions d'appui (annexe A, informative).
 

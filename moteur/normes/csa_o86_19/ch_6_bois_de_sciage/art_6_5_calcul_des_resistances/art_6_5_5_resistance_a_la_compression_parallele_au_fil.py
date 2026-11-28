@@ -30,6 +30,9 @@ Décisions de l'utilisateur pour 6.5.5.4 (issue #32, commentaire du 27 novembre 
       K_H est reçu en paramètre ; l'interface le prend de art_6_4.K_H().
     - b = largeur de l'élément, tous les plis compris (3.2, décision #95). La largeur d'un pli et le
       nombre de plis n'ont pas de symbole dans la norme.
+    - 6.5.5.4.1 (PR #114) : P_r(b) = la valeur la plus permissive entre l'élément composé réduit (60, 75
+      ou 80 %) et la somme des plis calculés seuls. Si un pli seul a C_C > 50 (6.5.5.2.2), seule la
+      valeur de l'élément composé (C_C le plus petit) est possible.
 """
 
 from moteur.commun.nombres import cs
@@ -710,7 +713,9 @@ def verifier_compression_parallele_element_compose(
     c_c_d_un_pli = l_e_selon_b / largeur_d_un_pli
     if c_c_d_un_pli > 50:
         # 6.5.5.2.2 : C_C <= 50. Un pli ne peut pas être calculé comme un élément individuel : la
-        # résistance combinée des plis n'est pas une option (choix conservateur, on la laisse de côté).
+        # résistance combinée des plis n'est pas une option. Décision de l'utilisateur (PR #114) : la
+        # valeur la plus permissive des deux options est retenue ; l'élément composé (C_C le plus petit,
+        # largeur totale b) reste valide et donne P_r(b).
         r.ajouter_note(
             f"Plis considérés comme éléments individuels (6.5.5.4.1), flambage selon b : "
             f"C_C = {cs(l_e_selon_b)} mm / {cs(largeur_d_un_pli)} mm = {c_c_d_un_pli:.2f} > 50 "
