@@ -133,16 +133,18 @@
   ])
 }
 
-// Commentaires de l'ingénieur (datum-retours #3), lignes conservées
-#let commentaires = donnees.at("commentaires", default: "")
-#let bloc-commentaires = block(breakable: false, width: 100%, stroke: 0.6pt + gris, inset: 7pt, radius: 3pt)[
+// Bloc de commentaires de l'ingénieur, lignes conservées : commentaires généraux (datum-retours #3)
+// ou commentaire d'un calcul (datum-retours #21)
+#let bloc-de-commentaires(texte, titre-du-bloc: [Commentaires]) = block(breakable: false, width: 100%, stroke: 0.6pt + gris, inset: 7pt, radius: 3pt)[
   #set align(left)
-  #text(weight: "bold", fill: principale)[Commentaires] \
-  #for (i, ligne) in commentaires.split("\n").enumerate() {
+  #text(weight: "bold", fill: principale)[#titre-du-bloc] \
+  #for (i, ligne) in texte.split("\n").enumerate() {
     if i > 0 { linebreak() }
     ligne
   }
 ]
+#let commentaires = donnees.at("commentaires", default: "")
+#let bloc-commentaires = bloc-de-commentaires(commentaires)
 
 // Page résumé (issue #85) : une ligne par vérification faite, la vérification qui gouverne (ratio le
 // plus élevé) en gras. Chaque titre renvoie à la page de sa vérification.
@@ -228,12 +230,24 @@
   // du sceau (datum-retours #3) : la note tient le plus possible sur une seule page.
   // S'il y a une page résumé, les commentaires y sont déjà (PR #93) : pas sur la page de vérification.
   let avec-commentaires = i == 0 and commentaires != "" and resume.len() == 0
-  if r.verification != none or avec-commentaires {
+  // Commentaire de l'ingénieur sur ce calcul (datum-retours #21) : à la fin de la page de cette
+  // vérification, dans la même colonne que les commentaires généraux (sous ceux-ci s'il y en a).
+  let commentaire = r.at("commentaire", default: "")
+  let avec-commentaire = commentaire != ""
+  if r.verification != none or avec-commentaires or avec-commentaire {
     place(bottom, float: true, clearance: 0.3cm, grid(
       columns: (1fr, 1fr),
       column-gutter: 0.6cm,
       align: bottom,
-      if avec-commentaires { bloc-commentaires },
+      stack(
+        spacing: 0.2cm,
+        ..if avec-commentaires { (bloc-commentaires,) } else { () },
+        ..if avec-commentaire {
+          // Titre distinct si les commentaires généraux sont sur la même page, pour les différencier
+          let titre-du-bloc = if avec-commentaires [Commentaires sur ce calcul] else [Commentaires]
+          (bloc-de-commentaires(commentaire, titre-du-bloc: titre-du-bloc),)
+        } else { () },
+      ),
       if r.verification != none { verification(r.verification) },
     ))
   }

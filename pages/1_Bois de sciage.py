@@ -89,6 +89,19 @@ st.header(
 )
 
 
+# --- en-tête de la note de calcul (datum-retours #21) ---
+# L'en-tête de la note (client, projet, adresse, dossier, date, ingénieur, OIQ, titre) est en haut de
+# la page, pour être rempli en premier, dans une section qu'on peut replier une fois remplie. Ici, on
+# réserve seulement sa place : les champs sont créés plus bas (section « Note de calcul »), parce que
+# le titre par défaut dépend de la pièce choisie dans « Matériaux », qui n'est pas encore lue ici.
+# Streamlit affiche les champs à la place réservée, même s'ils sont créés plus loin dans le script.
+EN_TETE_DE_LA_NOTE = None
+if acces.permis("note_pdf"):
+    with st.container(horizontal_alignment="center"):
+        EN_TETE_DE_LA_NOTE = st.expander(
+            "En-tête de la note de calcul", expanded=True, icon=":material/description:", width=650
+        )
+
 # --- section matériaux ---
 st.divider()
 st.subheader(
@@ -1319,6 +1332,66 @@ if acces.permis("note_pdf") and FAITES:
         st.markdown("\n".join(tableau), width=900)
         st.caption("En gras : la vérification qui gouverne (ratio le plus élevé).", width=900)
 
+# Une boîte de commentaires par onglet (datum-retours #21, décision de l'utilisateur : un par onglet,
+# ex. un seul pour le cisaillement, même avec l'entaille). Elle est ajoutée à la fin de chaque onglet qui
+# a au moins une vérification. Le commentaire est une donnée de la note, pas du calcul : il n'entre pas
+# dans la trace (Resultat).
+COMMENTAIRE_DE_L_ONGLET = {}
+if acces.permis("note_pdf"):
+    for onglet in dict.fromkeys(FONCTION_DE_LA_VERIFICATION.values()):  # onglets, sans doublon, en ordre
+        if onglet in ONGLETS:
+            with ONGLETS[onglet], st.container(horizontal_alignment="center"):
+                COMMENTAIRE_DE_L_ONGLET[onglet] = st.text_area(
+                    "Commentaires pour la note",
+                    key=f"note_commentaire_{onglet}",
+                    width=650,
+                    help="Facultatif. Imprimé à la fin de la page de cette vérification dans la note "
+                    "de calcul, sous le titre « Commentaires ».",
+                )
+
+if EN_TETE_DE_LA_NOTE is not None:
+    # Champs de l'en-tête, affichés en haut de la page (place réservée avant « Matériaux »,
+    # datum-retours #21). Toujours créés, même avant le premier calcul : ils se remplissent en premier.
+    # Une rangée de 2 colonnes par paire de champs : sur un cellulaire, les colonnes s'empilent et
+    # les champs restent dans l'ordre de lecture (Client, Projet, Adresse, Dossier…).
+    with EN_TETE_DE_LA_NOTE:
+        col1, col2 = st.columns(2)
+        client = col1.text_input("Client")
+        projet = col2.text_input("Projet")
+        col1, col2 = st.columns(2)
+        adresse = col1.text_input("Adresse du projet")
+        dossier = col2.text_input("Numéro de dossier")
+        # Liste des ingénieurs du compte ; un autre nom peut être tapé (datum-retours #6)
+        INGENIEURS = config.ingenieurs_du_compte(st.session_state.get("compte", ""))
+        OIQ_PAR_NOM = dict(INGENIEURS)
+        col1, col2 = st.columns(2)
+        ingenieur = col1.selectbox(
+            "Ingénieur",
+            options=[nom for nom, _ in INGENIEURS],
+            index=None,
+            accept_new_options=True,
+            placeholder="Choisir ou taper un nom",
+        )
+        oiq = col2.text_input(
+            "Numéro OIQ",
+            value=OIQ_PAR_NOM.get(ingenieur, ""),
+            key=f"note_oiq_{ingenieur}",  # se remplit quand l'ingénieur change
+        )
+        col1, col2 = st.columns(2)
+        date = col1.date_input("Date", value=datetime.date.today(), format="YYYY-MM-DD")
+        # Titre par défaut : la pièce calculée, ex. « 2x6 » ou « 3-2x6 » (datum-retours #7).
+        # Il suit la pièce choisie, sauf s'il a été modifié à la main.
+        piece = f"{width_input:g}x{depth_input:g}" + (" brut" if BRUT else "")
+        titre_par_defaut = piece if built_up == 1 else f"{built_up}-{piece}"
+        if st.session_state.get("note_titre") in (None, st.session_state.get("note_titre_defaut")):
+            st.session_state["note_titre"] = titre_par_defaut
+        st.session_state["note_titre_defaut"] = titre_par_defaut
+        titre = col2.text_input(
+            "Titre",
+            key="note_titre",
+            help="Titre de chaque page ; aussi dans le nom du fichier PDF",
+        )
+
 if acces.permis("note_pdf"):
     st.divider()
     st.subheader("Note de calcul (PDF)", anchor=False)
@@ -1331,44 +1404,10 @@ if acces.permis("note_pdf"):
                 icon=":material/info:",
             )
         else:
-            # En-tête toujours visible : sert à chaque note (datum-retours #5)
-            with st.container(width=650, border=True):
-                st.markdown("**En-tête de la note**")
-                col1, col2 = st.columns(2)
-                client = col1.text_input("Client")
-                projet = col2.text_input("Projet")
-                adresse = col1.text_input("Adresse du projet")
-                dossier = col2.text_input("Numéro de dossier")
-                # Liste des ingénieurs du compte ; un autre nom peut être tapé (datum-retours #6)
-                INGENIEURS = config.ingenieurs_du_compte(st.session_state.get("compte", ""))
-                OIQ_PAR_NOM = dict(INGENIEURS)
-                ingenieur = col1.selectbox(
-                    "Ingénieur",
-                    options=[nom for nom, _ in INGENIEURS],
-                    index=None,
-                    accept_new_options=True,
-                    placeholder="Choisir ou taper un nom",
-                )
-                oiq = col2.text_input(
-                    "Numéro OIQ",
-                    value=OIQ_PAR_NOM.get(ingenieur, ""),
-                    key=f"note_oiq_{ingenieur}",  # se remplit quand l'ingénieur change
-                )
-                date = col1.date_input("Date", value=datetime.date.today(), format="YYYY-MM-DD")
-                # Titre par défaut : la pièce calculée, ex. « 2x6 » ou « 3-2x6 » (datum-retours #7).
-                # Il suit la pièce choisie, sauf s'il a été modifié à la main.
-                piece = f"{width_input:g}x{depth_input:g}" + (" brut" if BRUT else "")
-                titre_par_defaut = piece if built_up == 1 else f"{built_up}-{piece}"
-                if st.session_state.get("note_titre") in (None, st.session_state.get("note_titre_defaut")):
-                    st.session_state["note_titre"] = titre_par_defaut
-                st.session_state["note_titre_defaut"] = titre_par_defaut
-                titre = col2.text_input(
-                    "Titre",
-                    key="note_titre",
-                    help="Titre de chaque page ; aussi dans le nom du fichier PDF",
-                )
+            with st.container(width=650):
+                # Commentaires généraux : restent en bas, près du bouton (datum-retours #21)
                 commentaires = st.text_area(
-                    "Commentaires",
+                    "Commentaires généraux",
                     help="En bas à gauche de la première page, à côté de la vérification et du sceau",
                 )
             with st.container(width=650):
@@ -1376,11 +1415,20 @@ if acces.permis("note_pdf"):
                 st.markdown("Vérifications à inclure :")
                 choix = [nom for nom in FAITES if st.checkbox(nom, value=True, key=f"note_{nom}")]
                 if choix:
+                    # Commentaire de chaque onglet sur la page de sa première vérification incluse
+                    # (datum-retours #21) : un onglet à deux vérifications (ex. cisaillement et
+                    # entaille) n'imprime pas son commentaire deux fois.
+                    resultats_de_la_note = []
+                    onglets_deja_commentes = set()
+                    for nom in choix:
+                        onglet = FONCTION_DE_LA_VERIFICATION[nom]
+                        commentaire = (
+                            "" if onglet in onglets_deja_commentes else COMMENTAIRE_DE_L_ONGLET.get(onglet, "")
+                        )
+                        onglets_deja_commentes.add(onglet)
+                        resultats_de_la_note.append((titre, FAITES[nom], acces.en_test(onglet), commentaire))
                     pdf = produire_pdf(
-                        [
-                            (titre, FAITES[nom], acces.en_test(FONCTION_DE_LA_VERIFICATION[nom]))
-                            for nom in choix
-                        ],
+                        resultats_de_la_note,
                         EnTete(client, projet, adresse, dossier, str(date), ingenieur or "", oiq),
                         # Apparence du compte, sans options pour la changer (datum-retours #8)
                         config.apparence_du_compte(st.session_state.get("compte", "")),

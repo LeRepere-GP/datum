@@ -313,8 +313,14 @@ vérification (vérification, article, charge pondérée, résistance pondérée
 résistances en métrique seulement, pour garder le tableau compact), la vérification
 qui gouverne (ratio le plus élevé) en gras, et le renvoi à sa page. Les lignes viennent de
 `moteur/commun/resume.py` (aucun nouveau calcul) ; le même tableau est affiché dans l'interface, au-dessus
-de la note de calcul. Les commentaires de l'ingénieur vont sur la page résumé seulement (sinon, sur la
-page de la vérification).
+de la note de calcul. Les commentaires généraux de l'ingénieur vont sur la page résumé seulement (sinon,
+sur la page de la vérification).
+
+**Commentaire par calcul** (datum-retours #21) : chaque onglet a sa boîte « Commentaires pour la note »
+(un commentaire par onglet). Il est imprimé en bas de la page de la première vérification de cet onglet,
+sous le titre « Commentaires », à gauche de la vérification. C'est une donnée de la note, pas du calcul :
+il n'entre pas dans la trace (`Resultat`). L'en-tête de la note est en haut de la page de l'interface,
+dans une section repliable, pour être rempli en premier.
 
 Les **formules sont écrites en LaTeX** dans la trace. Elles sont affichées avec KaTeX dans l'interface,
 et rendues proprement dans le PDF.
