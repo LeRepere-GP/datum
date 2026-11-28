@@ -1413,16 +1413,20 @@ if "traction" in ONGLETS:
                 # Nouveau moteur seulement (comme les onglets Cisaillement et Compression
                 # perpendiculaire, issue #98) : l'onglet, le Résumé et la note PDF affichent les mêmes
                 # valeurs. f_t vient du tableau 6.4 à 6.9 de la classe choisie (MSR : colonne
-                # « 64 à 184 mm » du tableau 6.8 pour toutes les hauteurs, issue #31).
+                # « 64 à 184 mm » du tableau 6.8 pour les hauteurs de 64 mm et plus, issue #31 ; moins de 64 mm :
+                # refusé par le moteur, PR #120).
                 try:
                     traction = art_6_5_8.verifier_traction(
                         b=b_total, d=depth, f_t=compute_resistance[4], plis=built_up,
                         reduction_de_b=reduction_de_b, reduction_de_d=reduction_de_d,
                         K_D=kd, K_H=kh, K_St=kst, K_T=kt, K_Zt=kzt,
                         T_f=tf, source_resistances=SOURCE, source_K_D=SOURCE_KD,
+                        # Catégorie : refus du MSR de moins de 64 mm de hauteur (tableau 6.8, PR #120)
+                        categorie=CATEGORY,
                     )
                 except ValueError as error:
-                    # Ex. section nette inférieure à 75 % de la section brute (5.3.8.2) : aucun
+                    # Ex. section nette inférieure à 75 % de la section brute (5.3.8.2), ou MSR de
+                    # moins de 64 mm de hauteur (tableau 6.8) : aucun
                     # calcul, jamais de valeur devinée
                     traction = None
                     st.error(str(error), width=650, icon=":material/error:")

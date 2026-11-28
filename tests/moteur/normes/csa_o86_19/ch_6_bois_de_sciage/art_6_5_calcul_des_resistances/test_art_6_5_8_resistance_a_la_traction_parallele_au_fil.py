@@ -194,3 +194,42 @@ def test_enregistree_dans_le_catalogue():
     c = registre.calcul("csa_o86_19", "6.5.8")
     assert c.fonction is verifier_traction
     assert c.titre == "Résistance à la traction parallèle au fil"
+
+
+
+# --- MSR de moins de 64 mm de hauteur (tableau 6.8, p. 57-58 ; décision de l'utilisateur, PR #120)
+# f_t du MSR n'existe que pour les hauteurs « 64 à 184 mm » et « > 184 mm » : sous 64 mm, refusé.
+
+
+@pytest.mark.parametrize(
+    ("b", "d", "plis"),
+    [
+        (38, 38, 1),  # 2x2 MSR : hauteur 38 mm < 64 mm
+        (38, 63.9, 1),  # juste sous le seuil
+        (76, 38, 2),  # 2 plis de 38 mm x 38 mm : un pli a 38 mm de hauteur
+    ],
+)
+def test_traction_msr_sous_64_mm_refusee(b, d, plis):
+    with pytest.raises(ValueError, match="tableau 6.8"):
+        verifier_traction(b=b, d=d, f_t=6.7, plis=plis, categorie="MSR")
+
+
+def test_traction_msr_au_seuil_de_64_mm_acceptee():
+    # 38 mm x 64 mm, MSR 1200Fb-1.2E (f_t = 6.7 MPa) : T_r = 0.9 x 6.7 MPa x 2432 mm² = 14 664.96 N
+    r = verifier_traction(b=38, d=64, f_t=6.7, categorie="MSR")
+    assert r.etape("T_r").valeur == pytest.approx(14664.96)
+
+
+def test_traction_msr_hauteur_selon_la_grande_face():
+    # Pièce entrée à plat (b = 89 mm, d = 38 mm) : la hauteur de la pièce est sa grande face, 89 mm
+    # >= 64 mm : acceptée. T_r = 0.9 x 6.7 MPa x 3382 mm² = 20 393.46 N
+    r = verifier_traction(b=89, d=38, f_t=6.7, categorie="MSR")
+    assert r.etape("T_r").valeur == pytest.approx(20393.46)
+
+
+@pytest.mark.parametrize("categorie", ["MEL", "Light", ""])
+def test_traction_autres_categories_sous_64_mm_acceptees(categorie):
+    # MEL (tableau 6.9 : « toutes hauteurs ») et bois classé visuellement : pas de refus.
+    # 38 mm x 38 mm : T_r = 0.9 x 9.0 MPa x 1444 mm² = 11 696.4 N
+    r = verifier_traction(b=38, d=38, f_t=9.0, categorie=categorie)
+    assert r.etape("T_r").valeur == pytest.approx(11696.4)

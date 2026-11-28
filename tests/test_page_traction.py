@@ -148,3 +148,30 @@ def test_lantier_sans_l_onglet_tant_que_non_coche():
     """La case `traction` n'est pas cochée dans ACCES_GROUPE_LANTIER.md : pas d'onglet Traction."""
     at = _connecte("lantier", "mot-lantier")
     assert "Traction parallèle au fil" not in [t.label for t in at.tabs]
+
+
+def test_msr_sous_64_mm_refuse():
+    """
+    2x2 MSR (38 mm x 38 mm) : le tableau 6.8 ne donne f_t que pour une hauteur de 64 mm ou plus
+    (décision de l'utilisateur, PR #120) : message d'erreur, aucune T_r, « Non calculé » au Résumé.
+    """
+    at = _connecte("admin", "mot-admin")
+    [t for t in at.text_input if t.key == "piece"][0].set_value("2x2").run()
+    [s for s in at.segmented_control if s.label == "Bois classé mécaniquement?"][0].set_value("MSR").run()
+    assert not at.exception
+    assert any("tableau 6.8" in e.value for e in at.error)
+    assert not any(m.value.startswith("$T_r = ") for m in at.markdown)
+    assert "Non calculé" in _ligne_du_resume(at)
+
+
+def test_msr_2x4_accepte():
+    """
+    2x4 MSR (38 mm x 89 mm), classe par défaut : T_r est calculée (hauteur 89 mm >= 64 mm) ;
+    K_Zt = 1.00 (6.4.5.3).
+    """
+    at = _connecte("admin", "mot-admin")
+    [t for t in at.text_input if t.key == "piece"][0].set_value("2x4").run()
+    [s for s in at.segmented_control if s.label == "Bois classé mécaniquement?"][0].set_value("MSR").run()
+    assert not at.exception
+    assert _T_r(at)[1] > 0
+    assert not any("tableau 6.8" in e.value for e in at.error)

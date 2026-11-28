@@ -16,7 +16,7 @@ nouvelle fonction intégrée, **non cochée** ; c'est toi qui décides de la coc
 - [x] `cisaillement` : Cisaillement (6.5.4.3) et cisaillement par fissuration à l'entaille (6.5.4.4).
 - [ ] `compression_parallele` : Compression parallèle au fil (6.5.5), y compris les éléments composés de 2 à 5 plis cloués, boulonnés ou à anneaux fendus (6.5.5.4, #32 ; assemblage non vérifié, exigences en notes). Limite : éléments assemblés avec cales d'espacement (6.5.5.3) à venir.
 - [x] `compression_perpendiculaire` : Compression perpendiculaire au fil (6.5.6), y compris f_cp à partir de la densité G (A.6.5.6).
-- [ ] `traction` : Traction parallèle au fil (6.5.8), avec réduction de la section en option (section résiduelle, 5.3.8). Limite : MSR, f_t de la colonne « 64 à 184 mm » du tableau 6.8 pour toutes les hauteurs (#31).
+- [ ] `traction` : Traction parallèle au fil (6.5.8), avec réduction de la section en option (section résiduelle, 5.3.8). Limites : MSR, f_t de la colonne « 64 à 184 mm » du tableau 6.8 au-delà de 184 mm (#31) ; MSR de moins de 64 mm de hauteur refusé (tableau 6.8).
 - [x] `note_pdf` : Note de calcul PDF (vérifications offertes seulement). Limite : figures schématiques à venir.
 
 ## Fonctions testées convenablement
