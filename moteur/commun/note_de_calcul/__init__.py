@@ -267,6 +267,9 @@ def donnees_de_la_note(
                 for e in r.etapes
             ],
             "verification": _verification(r.verification) if r.verification else None,
+            # Notes de la norme sans valeur calculée (ex. exigences d'assemblage de 6.5.5.4, que Datum
+            # ne vérifie pas : issue #32), imprimées après les étapes
+            "notes": list(r.notes),
         })
     return note
 

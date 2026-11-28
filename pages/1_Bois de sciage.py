@@ -6,6 +6,7 @@ import acces
 import config
 import interface_unites as iu
 import datetime
+from moteur.commun.nombres import cs
 from moteur.commun.figures import (
     figure,
     figure_avant_le_calcul,
@@ -71,6 +72,18 @@ def afficher_resistance_et_verification(resultat, symbole: str) -> None:
         show_verification(general_design.limit_states_design(None, etape.valeur))
     else:
         show_verification(resultat.verification.message())
+
+
+def valeur_de_l_etape(etape) -> str:
+    """
+    Résultat d'une étape de la trace pour l'affichage (« Voir plus ») : les forces sont en N dans la trace
+    et affichées en kN, avec l'impérial ; les autres valeurs avec leur grandeur, ou sans unité.
+    """
+    if etape.unite == "N":
+        return iu.latex_significatif(etape.valeur / 1000, "force")  # N / 1000 = kN
+    if etape.grandeur is not None:
+        return iu.latex_significatif(etape.valeur, etape.grandeur)
+    return f"{cs(etape.valeur)} {etape.unite}".strip()
 
 
 # ---- en-tête ----
@@ -823,191 +836,253 @@ if "cisaillement" in ONGLETS:
                 "Cisaillement (6.5.4.3)", "Cisaillement par fissuration à l'entaille (6.5.4.4)"
             )
 
+# Nom de la vérification de compression parallèle dans la note : élément simple (6.5.5) ou élément composé
+# de plusieurs plis (6.5.5.4, issue #32). L'article entre parenthèses choisit la figure.
+NOM_COMPRESSION_PARALLELE = (
+    "Compression parallèle au fil (6.5.5)"
+    if built_up == 1
+    else "Compression parallèle au fil, élément composé (6.5.5.4)"
+)
+
 if "compression_parallele" in ONGLETS:
     with ONGLETS["compression_parallele"]:
         afficher_titre_de_l_onglet("Compression parallèle au fil (6.5.5)", "6.5.5")
         acces.avertir_si_en_test("compression_parallele")
         with st.container(horizontal_alignment="center"):
+            kd, ksc, kt, kh, _ = sawn_lumber.modification_factors(
+                width=width,
+                depth=depth,
+                prop="comp_para",
+                duration=duration[DURATION],
+                loads=CHARGES,
+                category=CATEGORY,
+                wet_service=wet,
+                treated=treated,
+                incised=incised,
+                _2ft_spacing=group,
+                connected_subfloor=subfloor,
+                built_up_beam=PLIS,
+            )
+            _, kse, _, _, _ = sawn_lumber.modification_factors(
+                width=width,
+                depth=depth,
+                prop="moe",
+                duration=duration[DURATION],
+                loads=CHARGES,
+                category=CATEGORY,
+                wet_service=wet,
+                treated=treated,
+                incised=incised,
+                _2ft_spacing=group,
+                connected_subfloor=subfloor,
+                built_up_beam=PLIS,
+            )
+            fc_modified = sawn_lumber.compression_strength(
+                fc=compute_resistance[2], kd=kd, kh=kh, ksc=ksc, kt=kt
+            )
+            e05 = compute_resistance[6]
+            axes = None
+
+            # Degré de retenue aux extrémités pour chaque axe (tableau A.4, annexe A informative ;
+            # issue #90, retour #16) : une rangée d'icônes, avec un bouton (K_e) sous chacune, et
+            # « Autre » pour entrer K_e. Par défaut : translation fixe et rotation libre aux deux
+            # extrémités (K_e = 1.00). Aucun avertissement avec « Autre » : choix de l'ingénieur.
+            degres = choisir_les_degres_de_retenue()
+
+            # Élément composé de plusieurs plis (6.5.5.4, issue #32) : l'ingénieur choisit le type
+            # d'assemblage (6.5.5.4.2 à 6.5.5.4.4), qui donne le coefficient de réduction (0.60, 0.75 ou
+            # 0.80). Décision de l'utilisateur : Datum ne vérifie pas l'assemblage (espacements,
+            # pénétration, rangées) ; les exigences de la norme sont affichées en notes sous le calcul.
+            assemblage = None
             if built_up > 1:
-                st.warning(
-                    """Éléments composés de plusieurs plis en compression (6.5.5.3) :
-                    fonctionnalité à venir.""",
+                assemblage = st.radio(
+                    "Assemblage des plis (6.5.5.4)",
+                    options=list(art_6_5_5.ASSEMBLAGES),
+                    format_func=lambda choix: (
+                        f"{art_6_5_5.ASSEMBLAGES[choix][1]} ({art_6_5_5.ASSEMBLAGES[choix][0]})"
+                    ),
+                    horizontal=True,
+                    key="cpa_assemblage",
                     width=550,
+                    help="""Clous ou pointes : 60 % (6.5.5.4.2) ; boulons : 75 % (6.5.5.4.3) ; anneaux
+                    fendus et boulons : 80 % (6.5.5.4.4) de la résistance de l'élément massif
+                    équivalent, pour le flambage selon $b$ seulement (6.5.5.4.6). Les exigences
+                    d'assemblage ne sont pas vérifiées par Datum.""",
                 )
-            else:
-                kd, ksc, kt, kh, _ = sawn_lumber.modification_factors(
-                    width=width,
-                    depth=depth,
-                    prop="comp_para",
-                    duration=duration[DURATION],
-                    loads=CHARGES,
-                    category=CATEGORY,
-                    wet_service=wet,
-                    treated=treated,
-                    incised=incised,
-                    _2ft_spacing=group,
-                    connected_subfloor=subfloor,
-                    built_up_beam=PLIS,
-                )
-                _, kse, _, _, _ = sawn_lumber.modification_factors(
-                    width=width,
-                    depth=depth,
-                    prop="moe",
-                    duration=duration[DURATION],
-                    loads=CHARGES,
-                    category=CATEGORY,
-                    wet_service=wet,
-                    treated=treated,
-                    incised=incised,
-                    _2ft_spacing=group,
-                    connected_subfloor=subfloor,
-                    built_up_beam=PLIS,
-                )
-                fc_modified = sawn_lumber.compression_strength(
-                    fc=compute_resistance[2], kd=kd, kh=kh, ksc=ksc, kt=kt
-                )
-                e05 = compute_resistance[6]
-                axes = None
+            compose = None  # trace de 6.5.5.4 (élément composé)
 
-                # Degré de retenue aux extrémités pour chaque axe (tableau A.4, annexe A informative ;
-                # issue #90, retour #16) : une rangée d'icônes, avec un bouton (K_e) sous chacune, et
-                # « Autre » pour entrer K_e. Par défaut : translation fixe et rotation libre aux deux
-                # extrémités (K_e = 1.00). Aucun avertissement avec « Autre » : choix de l'ingénieur.
-                degres = choisir_les_degres_de_retenue()
-
-                col1, col2 = st.columns(2, width=550)
-                with col1:
-                    length = iu.champ(
-                        "Longueur de l'élément, $L$ ({unite})",
+            col1, col2 = st.columns(2, width=550)
+            with col1:
+                length = iu.champ(
+                    "Longueur de l'élément, $L$ ({unite})",
+                    "longueur",
+                    key="cpa_L",
+                    min_value=1.0,
+                    placeholder="Requis",
+                    help="Longueur réelle de l'élément, utilisée pour $K_{Zc}$ (6.5.5.2.4)",
+                    icon=":material/straighten:",
+                )
+                # Entraxe des appuis latéraux et K_e de chaque axe (6.5.5.1 : L_e = K_e L)
+                entraxes = {}
+                for axe, nom, icone in (
+                    ("b", "largeur", ":material/fit_page_width:"),
+                    ("d", "hauteur", ":material/fit_page_height:"),
+                ):
+                    colonne_l, colonne_k = st.columns([2, 1])
+                    L_selon_axe = iu.champ(
+                        f"Entraxe des appuis latéraux, flambage selon ${axe}$, "
+                        f"$L_{{({axe})}}$ ({{unite}})",
                         "longueur",
-                        key="cpa_L",
+                        key=f"cpa_L_selon_{axe}",
+                        conteneur=colonne_l,
                         min_value=1.0,
                         placeholder="Requis",
-                        help="Longueur réelle de l'élément, utilisée pour $K_{Zc}$ (6.5.5.2.4)",
-                        icon=":material/straighten:",
+                        help=f"""Entraxe des appuis latéraux pour le flambage selon la
+                        {nom} ${axe}$ (6.5.5.1)""",
+                        icon=icone,
                     )
-                    # Entraxe des appuis latéraux et K_e de chaque axe (6.5.5.1 : L_e = K_e L)
-                    entraxes = {}
-                    for axe, nom, icone in (
-                        ("b", "largeur", ":material/fit_page_width:"),
-                        ("d", "hauteur", ":material/fit_page_height:"),
-                    ):
-                        colonne_l, colonne_k = st.columns([2, 1])
-                        L_selon_axe = iu.champ(
-                            f"Entraxe des appuis latéraux, flambage selon ${axe}$, "
-                            f"$L_{{({axe})}}$ ({{unite}})",
-                            "longueur",
-                            key=f"cpa_L_selon_{axe}",
-                            conteneur=colonne_l,
-                            min_value=1.0,
-                            placeholder="Requis",
-                            help=f"""Entraxe des appuis latéraux pour le flambage selon la
-                            {nom} ${axe}$ (6.5.5.1)""",
-                            icon=icone,
-                        )
-                        if degres[axe] is None:  # « Autre » : K_e entré par l'utilisateur
-                            K_e_selon_axe = colonne_k.number_input(
-                                f"$K_{{e({axe})}}$",
-                                min_value=0.10,
-                                value=1.00,
-                                step=0.05,
-                                format="%.2f",
-                                key=f"cpa_K_e_selon_{axe}",
-                                help="Coefficient de longueur effective, $L_e = K_e L$ (6.5.5.1)",
-                            )
-                        else:
-                            K_e_selon_axe = art_A_6_5_5_1.K_e(degres[axe])
-                            colonne_k.number_input(
-                                f"$K_{{e({axe})}}$",
-                                value=K_e_selon_axe,
-                                format="%.2f",
-                                disabled=True,
-                                help=f"Tableau A.4 : {degres[axe]}",
-                            )
-                        entraxes[axe] = (L_selon_axe, K_e_selon_axe)
-                    # Pas de L_b ni de L_d : L_b est la longueur d'appui dans la norme (6.5.6)
-                    (L_selon_b, K_e_selon_b), (L_selon_d, K_e_selon_d) = entraxes["b"], entraxes["d"]
-                    le_b = art_6_5_5.L_e(K_e_selon_b, L_selon_b) if L_selon_b is not None else None
-                    le_d = art_6_5_5.L_e(K_e_selon_d, L_selon_d) if L_selon_d is not None else None
-
-                with col2:
-                    pf = iu.champ(
-                        "$P_f: ({unite})$",
-                        "force",
-                        key="cpa_pf",
-                        min_value=0.0,
-                        width=550,
-                        placeholder="Charge axiale pondérée",
-                        icon=":material/input:",
-                    )
-                    if length is None or le_b is None or le_d is None:
-                        st.info(
-                            "Spécifiez $L$, $L_{(b)}$ et $L_{(d)}$ pour calculer $P_r$",
-                            width=650,
-                            icon=":material/info:",
+                    if degres[axe] is None:  # « Autre » : K_e entré par l'utilisateur
+                        K_e_selon_axe = colonne_k.number_input(
+                            f"$K_{{e({axe})}}$",
+                            min_value=0.10,
+                            value=1.00,
+                            step=0.05,
+                            format="%.2f",
+                            key=f"cpa_K_e_selon_{axe}",
+                            help="Coefficient de longueur effective, $L_e = K_e L$ (6.5.5.1)",
                         )
                     else:
-                        try:
-                            axis_b = sawn_lumber.compression_parallel_axis(
-                                dimension=width,
-                                length=length,
-                                effective_length=le_b,
-                                fc_modified=fc_modified,
-                                area=width * depth,
-                                e05=e05,
-                                kse=kse,
-                                kt=kt,
-                            )
-                            axis_d = sawn_lumber.compression_parallel_axis(
-                                dimension=depth,
-                                length=length,
-                                effective_length=le_d,
-                                fc_modified=fc_modified,
-                                area=width * depth,
-                                e05=e05,
-                                kse=kse,
-                                kt=kt,
-                            )
-                        except ValueError as error:
-                            st.error(str(error), width=650, icon=":material/error:")
-                        else:
-                            axes = (axis_b, axis_d)
-                            pr = min(axis_b[3], axis_d[3]) / 1000
-                            st.write(f"$P_r = {iu.latex_significatif(pr, 'force')}$")
-                            VERIF = general_design.limit_states_design(pf, pr)
-                            show_verification(VERIF)
-                            NOTE["Compression parallèle au fil (6.5.5)"] = (
-                                art_6_5_5.verifier_compression_parallele_au_fil(
-                                    b=width, d=depth, L=length,
-                                    L_selon_b=L_selon_b, L_selon_d=L_selon_d,
-                                    K_e_selon_b=K_e_selon_b, K_e_selon_d=K_e_selon_d,
-                                    # K_e du tableau A.4 ou entré (« Autre ») ; issue #90
-                                    source_K_e_selon_b=source_du_K_e(degres["b"]),
-                                    source_K_e_selon_d=source_du_K_e(degres["d"]),
-                                    f_c=compute_resistance[2], E_05=e05,
-                                    K_D=kd, K_H=kh, K_Sc=ksc, K_T=kt, K_SE=kse, P_f=pf,
-                                    source_resistances=SOURCE, source_K_D=SOURCE_KD,
-                                )
-                            )
-
-                if axes:
-                    with st.expander("Voir plus:", width=650):
-                        st.markdown(
-                            f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = {compute_resistance[2]} \\cdot "
-                            f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = "
-                            f"{iu.latex_significatif(fc_modified, 'contrainte')}$"
+                        K_e_selon_axe = art_A_6_5_5_1.K_e(degres[axe])
+                        colonne_k.number_input(
+                            f"$K_{{e({axe})}}$",
+                            value=K_e_selon_axe,
+                            format="%.2f",
+                            disabled=True,
+                            help=f"Tableau A.4 : {degres[axe]}",
                         )
-                        st.markdown(f"$E_{{05}} = {iu.latex(e05, 'contrainte')}$, $K_{{SE}} = {kse}$")
-                        for label, axis in zip(
-                            ("Selon $b$", "Selon $d$"), axes
-                        ):
-                            cc, kzc, kc, pr_axis = axis
-                            st.markdown(
-                                f"**{label}** : $C_c = {cc:.2f}$, $K_{{Zc}} = {kzc:.4f}$, "
-                                f"$K_C = {kc:.4f}$, $P_r = {iu.latex_significatif(pr_axis / 1000, 'force')}$"
+                    entraxes[axe] = (L_selon_axe, K_e_selon_axe)
+                # Pas de L_b ni de L_d : L_b est la longueur d'appui dans la norme (6.5.6)
+                (L_selon_b, K_e_selon_b), (L_selon_d, K_e_selon_d) = entraxes["b"], entraxes["d"]
+                le_b = art_6_5_5.L_e(K_e_selon_b, L_selon_b) if L_selon_b is not None else None
+                le_d = art_6_5_5.L_e(K_e_selon_d, L_selon_d) if L_selon_d is not None else None
+
+            with col2:
+                pf = iu.champ(
+                    "$P_f: ({unite})$",
+                    "force",
+                    key="cpa_pf",
+                    min_value=0.0,
+                    width=550,
+                    placeholder="Charge axiale pondérée",
+                    icon=":material/input:",
+                )
+                if length is None or le_b is None or le_d is None:
+                    st.info(
+                        "Spécifiez $L$, $L_{(b)}$ et $L_{(d)}$ pour calculer $P_r$",
+                        width=650,
+                        icon=":material/info:",
+                    )
+                elif built_up == 1:
+                    try:
+                        axis_b = sawn_lumber.compression_parallel_axis(
+                            dimension=width,
+                            length=length,
+                            effective_length=le_b,
+                            fc_modified=fc_modified,
+                            area=width * depth,
+                            e05=e05,
+                            kse=kse,
+                            kt=kt,
+                        )
+                        axis_d = sawn_lumber.compression_parallel_axis(
+                            dimension=depth,
+                            length=length,
+                            effective_length=le_d,
+                            fc_modified=fc_modified,
+                            area=width * depth,
+                            e05=e05,
+                            kse=kse,
+                            kt=kt,
+                        )
+                    except ValueError as error:
+                        st.error(str(error), width=650, icon=":material/error:")
+                    else:
+                        axes = (axis_b, axis_d)
+                        pr = min(axis_b[3], axis_d[3]) / 1000
+                        st.write(f"$P_r = {iu.latex_significatif(pr, 'force')}$")
+                        VERIF = general_design.limit_states_design(pf, pr)
+                        show_verification(VERIF)
+                        NOTE["Compression parallèle au fil (6.5.5)"] = (
+                            art_6_5_5.verifier_compression_parallele_au_fil(
+                                b=width, d=depth, L=length,
+                                L_selon_b=L_selon_b, L_selon_d=L_selon_d,
+                                K_e_selon_b=K_e_selon_b, K_e_selon_d=K_e_selon_d,
+                                # K_e du tableau A.4 ou entré (« Autre ») ; issue #90
+                                source_K_e_selon_b=source_du_K_e(degres["b"]),
+                                source_K_e_selon_d=source_du_K_e(degres["d"]),
+                                f_c=compute_resistance[2], E_05=e05,
+                                K_D=kd, K_H=kh, K_Sc=ksc, K_T=kt, K_SE=kse, P_f=pf,
+                                source_resistances=SOURCE, source_K_D=SOURCE_KD,
                             )
+                        )
+                else:
+                    # Élément composé de 2 plis ou plus (6.5.5.4, issue #32) : nouveau moteur seulement,
+                    # comme l'onglet Compression perpendiculaire (issue #98) ; l'onglet, le Résumé et
+                    # la note PDF affichent donc les mêmes valeurs. K_H vient de la colonne « Poutres
+                    # composées » du tableau 6.12 (1.00 en compression, décision #7).
+                    try:
+                        compose = art_6_5_5.verifier_compression_parallele_element_compose(
+                            largeur_d_un_pli=width, nombre_de_plis=built_up, d=depth, L=length,
+                            L_selon_b=L_selon_b, L_selon_d=L_selon_d,
+                            K_e_selon_b=K_e_selon_b, K_e_selon_d=K_e_selon_d,
+                            source_K_e_selon_b=source_du_K_e(degres["b"]),
+                            source_K_e_selon_d=source_du_K_e(degres["d"]),
+                            f_c=compute_resistance[2], E_05=e05, assemblage=assemblage,
+                            K_D=kd, K_H=kh, K_Sc=ksc, K_T=kt, K_SE=kse, P_f=pf,
+                            source_resistances=SOURCE, source_K_D=SOURCE_KD,
+                        )
+                    except ValueError as error:
+                        # Ex. plus de 5 plis ou plis de moins de 38 mm (6.5.5.4.1 : calcul refusé),
+                        # ou C_C > 50 (6.5.5.2.2)
+                        st.error(str(error), width=650, icon=":material/error:")
+                    else:
+                        NOTE[NOM_COMPRESSION_PARALLELE] = compose
+                        afficher_resistance_et_verification(compose, "P_r")
+
+            if compose is not None:
+                # Notes de la trace : exigences d'assemblage que l'ingénieur doit faire respecter
+                # (décision de l'utilisateur, issue #32). Toujours visibles, pas dans « Voir plus ».
+                st.warning(
+                    "**Notes (6.5.5.4)**\n\n" + "\n".join(f"- {note}" for note in compose.notes),
+                    width=650,
+                    icon=":material/assignment:",
+                )
+                with st.expander("Voir plus:", width=650):
+                    # Détail tiré de la trace, étape par étape (mêmes valeurs que la note PDF)
+                    for etape in compose.etapes:
+                        st.markdown(
+                            f"{etape.article} {etape.description} : "
+                            f"${etape.formule} = {etape.substitution} = {valeur_de_l_etape(etape)}$"
+                        )
+
+            if axes:
+                with st.expander("Voir plus:", width=650):
+                    st.markdown(
+                        f"$F_c = f_c (K_D K_H K_{{Sc}} K_T) = {compute_resistance[2]} \\cdot "
+                        f"({kd} \\cdot {kh} \\cdot {ksc} \\cdot {kt}) = "
+                        f"{iu.latex_significatif(fc_modified, 'contrainte')}$"
+                    )
+                    st.markdown(f"$E_{{05}} = {iu.latex(e05, 'contrainte')}$, $K_{{SE}} = {kse}$")
+                    for label, axis in zip(
+                        ("Selon $b$", "Selon $d$"), axes
+                    ):
+                        cc, kzc, kc, pr_axis = axis
+                        st.markdown(
+                            f"**{label}** : $C_c = {cc:.2f}$, $K_{{Zc}} = {kzc:.4f}$, "
+                            f"$K_C = {kc:.4f}$, $P_r = {iu.latex_significatif(pr_axis / 1000, 'force')}$"
+                        )
         with st.container(horizontal_alignment="center"):
-            afficher_figures("Compression parallèle au fil (6.5.5)")
+            afficher_figures(NOM_COMPRESSION_PARALLELE)
 
 if "compression_perpendiculaire" in ONGLETS:
     with ONGLETS["compression_perpendiculaire"]:
@@ -1275,6 +1350,7 @@ FONCTION_DE_LA_VERIFICATION = {
     "Cisaillement (6.5.4.3)": "cisaillement",
     "Cisaillement par fissuration à l'entaille (6.5.4.4)": "cisaillement",
     "Compression parallèle au fil (6.5.5)": "compression_parallele",
+    "Compression parallèle au fil, élément composé (6.5.5.4)": "compression_parallele",
     "Compression perpendiculaire au fil (6.5.6.2)": "compression_perpendiculaire",
     "Compression perpendiculaire près d'un appui (6.5.6.3)": "compression_perpendiculaire",
 }

@@ -111,6 +111,9 @@ class Resultat:
         donnees (list[Donnee]): Données d'entrée.
         etapes (list[Etape]): Étapes de calcul, dans l'ordre.
         verification (Verification | None): Vérification finale (charge / résistance).
+        notes (list[str]): Notes de la norme à afficher avec le calcul, sans valeur calculée (ex. les
+            exigences d'assemblage de 6.5.5.4, que Datum ne vérifie pas : issue #32). Affichées dans
+            l'interface et dans la note PDF, après les étapes. Liste vide : aucune note.
     """
 
     norme: str
@@ -120,6 +123,7 @@ class Resultat:
     donnees: list[Donnee] = field(default_factory=list)
     etapes: list[Etape] = field(default_factory=list)
     verification: Verification | None = None
+    notes: list[str] = field(default_factory=list)
 
     def ajouter_donnee(self, donnee: Donnee) -> float | str:
         """Ajoute une donnée et retourne sa valeur."""
@@ -130,6 +134,10 @@ class Resultat:
         """Ajoute une étape et retourne sa valeur, pour enchaîner les calculs."""
         self.etapes.append(etape)
         return etape.valeur
+
+    def ajouter_note(self, note: str) -> None:
+        """Ajoute une note (texte de la norme ou rappel), affichée après les étapes."""
+        self.notes.append(note)
 
     def etape(self, symbole: str) -> Etape:
         """
